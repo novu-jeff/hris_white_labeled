@@ -27,17 +27,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-daterangepicker/3.1/daterangepicker.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.4.0/dist/handsontable.min.css">
     
-    <link rel="apple-touch-icon" sizes="180x180" href="{{$provider['favicon']}}/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{$provider['favicon']}}/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{$provider['favicon']}}/favicon-16x16.png">
+     <link rel="apple-touch-icon" sizes="180x180" href="{{$provider['favicon']}}/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="{{$provider['favicon']}}/favicon-96x96.png">
+    <link rel="shortcut icon" href="{{$provider['favicon']}}/favicon.ico" />
     <link rel="manifest" href="{{$provider['favicon']}}/site.webmanifest">
 
     <title>{{$title}}</title>
 
-    <link rel="apple-touch-icon" sizes="180x180" href="{{$provider['favicon']}}/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{$provider['favicon']}}/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{$provider['favicon']}}/favicon-16x16.png">
-    <link rel="manifest" href="{{$provider['favicon']}}/site.webmanifest">
+    
 
     @yield('style')
 
@@ -170,7 +167,6 @@
             <div class="container d-flex justify-content-center">
                 <div class="text-center">
                     <div class="logo">
-                        <img src="{{ asset('/img/' . $provider['client_logo'])}}">
                         <img src="{{ asset('/img/' . $provider['logo'])}}">
                     </div>
                     <p class="text-uppercase fw-bold mb-0 mt-3">Powered by {{ $provider['company'] }}</p>

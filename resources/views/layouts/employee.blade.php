@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <link rel="apple-touch-icon" sizes="180x180" href="{{$provider['favicon']}}/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{$provider['favicon']}}/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{$provider['favicon']}}/favicon-16x16.png">
+     <link rel="apple-touch-icon" sizes="180x180" href="{{$provider['favicon']}}/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="{{$provider['favicon']}}/favicon-96x96.png">
+    <link rel="shortcut icon" href="{{$provider['favicon']}}/favicon.ico" />
     <link rel="manifest" href="{{$provider['favicon']}}/site.webmanifest">
 
     <title>{{ $title }}</title>
@@ -222,7 +222,6 @@
             <div class="col-12 text-center">
 
                 <div class="logo">
-                    <img src="{{ asset('/img/' . $provider['client_logo']) }}">
                     <img src="{{ asset('/img/' . $provider['logo']) }}">
                 </div>
 

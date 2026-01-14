@@ -8,7 +8,7 @@ return [
         'company' => 'Novulutions Inc.',
         'logo' => 'novulutions.png',
         'tagline' => 'Transform It: Unify Your Data Silos',
-        'client_logo' => 'client-logo.png',
+        'client_logo' => 'novulutions.png',
         'email' => 'contact@novulutions.com',
         'socials' => [
             'website' => '',
