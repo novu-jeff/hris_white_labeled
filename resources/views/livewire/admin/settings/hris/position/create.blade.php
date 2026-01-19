@@ -13,6 +13,7 @@
                             <input type="file" wire:model="file" id="file" class="form-control">
                             <div class="mt-2">
                                 <small class="text-muted text-uppercase">(only accepts csv file)</small>
+                                <small><a href="{{asset('templates/defaults/positions.csv')}}" class="nav-link text-decoration-underline">Download Template</a></small>
                             </div>
                             <div class="error-field">
                                 @error('file') <span class="text-danger">{{ $message }}</span> @enderror
