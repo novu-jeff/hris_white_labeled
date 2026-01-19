@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Support\Facades\Log;
 
 use function PHPUnit\Framework\isEmpty;
 
@@ -139,7 +140,7 @@ class HRISProcessingService extends Controller
 
         $record = EmployeeInformation::where('employee_no', $employee_no)
             ->first();
-//\Log::info('Saving employee information data', $data);
+\Log::info('Saving data', $data);
         $getdata = $this->handleSalary($data);
 
        
@@ -160,7 +161,6 @@ class HRISProcessingService extends Controller
                 'status' => $data['status'],
                 'salary_method' => $data['salary_method'],
                 'salary' => $salary,
-                'w_tax' => $wtax,
                 'payroll_account_number' => $data['payroll_account_number'],
             ]);
 
@@ -786,48 +786,49 @@ class HRISProcessingService extends Controller
 
     }
 
-    public function handleSalary(array $data) {
-        $eligible = $data['type'];
-        $position_id = $data['position_id'];
-        $step_id = $data['step_id'];
 
-        if(in_array($data['type'], [1,2])) {
-            if ($position_id && $step_id) {
-                $salaryGrade = Positions::where('id', $position_id)
-                    ->value('salary_grade') ?? '';
-    
-                $stepColumn = "step_" . ($step_id ?? '');
-                $stepColumnTax = "step_" . ($step_id ?? '') . "_wtax";
 
-    
-                $activeTranche = Tranche::with(['items' => function ($query) use ($salaryGrade, $stepColumn, $stepColumnTax, $eligible) {
-                        $query->where('salary_grade', $salaryGrade)
-                            ->select('id', 'tranche_id', 'salary_grade', $stepColumn, $stepColumnTax);
-                    }])
-                    ->where('eligible', $eligible)
-                    ->first();
-                
-                $salary = ($activeTranche && $activeTranche->items->isNotEmpty()) 
-                    ? $activeTranche->items->first()->$stepColumn 
-                    : 0;
-                
-                $wtax = ($activeTranche && $activeTranche->items->isNotEmpty()) 
-                    ? $activeTranche->items->first()->$stepColumnTax 
-                    : 0;
-    
-                if ($activeTranche) {
-                    $data['salary'] = $salary;
-                    $data['w_tax'] = $wtax;
-                     return $data;
-                }
+    public function handleSalary(array $data)
+{
+    \Log::info('Handling salary for data', $data);
+
+    // Default values (IMPORTANT)
+    $data['salary'] = $data['salary'] ?? 0;
+    $data['w_tax']  = $data['w_tax']  ?? 0;
+
+    $eligible    = $data['type'] ?? null;
+    $position_id = $data['position_id'] ?? null;
+    $step_id     = $data['step_id'] ?? null;
+
+    if (in_array($eligible, [1, 2]) && $position_id && $step_id) {
+
+        $salaryGrade = Positions::where('id', $position_id)->value('salary_grade');
+
+        if ($salaryGrade) {
+
+            $stepColumn     = "step_{$step_id}";
+            $stepColumnTax  = "step_{$step_id}_wtax";
+
+            $activeTranche = Tranche::with(['items' => function ($query) use ($salaryGrade, $stepColumn, $stepColumnTax) {
+                    $query->where('salary_grade', $salaryGrade)
+                          ->select('id', 'tranche_id', 'salary_grade', $stepColumn, $stepColumnTax);
+                }])
+                ->where('eligible', $eligible)
+                ->first();
+
+            if ($activeTranche && $activeTranche->items->isNotEmpty()) {
+                $item = $activeTranche->items->first();
+
+                $data['salary'] = $item->$stepColumn ?? 0;
+                $data['w_tax']  = $item->$stepColumnTax ?? 0;
             }
-        } else {
-            $data['salary'];
-            $data['w_tax'];
-            return $data;
         }
-        
     }
+
+    // ✅ ALWAYS return data
+    return $data;
+}
+
 
     private function uploadFile($employee_no, $identifier, $path, $file)
     {

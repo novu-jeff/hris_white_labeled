@@ -121,6 +121,13 @@ class Information extends Component
 
   public function handleSalary()
 {
+
+     if (
+        empty($this->records) ||
+        !isset($this->records['employee_information'])
+    ) {
+        return;
+    }
     $eligible = $this->records['employee_information']['type'] ?? '';
     $position_id = $this->records['employee_information']['position_id'] ?? '';
     $product = config('app.product');
@@ -355,7 +362,14 @@ class Information extends Component
 
         DB::beginTransaction();
 
+        \Log::debug('saving employee information', [
+            'employee_no' => $id,
+            'records' => $this->records,
+        ]);
+
         try {
+
+            \Log::debug("before processing employee information save", [ "employee_no" => $id, "records" => $this->records, ]); 
 
             $process = new HRISProcessingService;
             $process->save(false, $id, $id, 'information', $this->records);
@@ -372,6 +386,10 @@ class Information extends Component
             ]);
 
         } catch (\Exception $e) {
+            \Log::debug('error saving employee information', [
+                'employee_no' => $id,
+                'error' => $e->getMessage(),
+            ]);
             DB::rollBack();
             return $this->dispatch('alert', [
                 'status' => 'error',

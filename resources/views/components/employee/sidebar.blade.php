@@ -2,7 +2,7 @@
 
     <div class="sidebar-header">
         <img src="{{ asset('/img/' . $provider['client_logo']) }}" class="sidebar-logo">
-        <h4 class="company-name" >{{ $companyInfo->name ?? 'Opapru' }}</h4>
+        <h4 class="company-name" >{{ $companyInfo->name ?? 'Novulutions Inc.' }}</h4>
         
     </div>
 
