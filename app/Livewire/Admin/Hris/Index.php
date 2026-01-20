@@ -392,7 +392,7 @@ class Index extends Component
             $emp_info_req = [
                 'employee no.', 'bsd no.', 'lastname', 'firstname', 'middlename',
                 'address', 'email', 'sex', 'civil status', 'birthday', 'age',
-                'gsis id', 'pagibig id', 'philhealth id', 'tin id', 'bank account no.',
+                'gsis id', 'pagibig id', 'philhealth id', 'tin id', 'bank account no',
                 'date hired', 'job category', 'position', 'unit', 'monthly salary'
             ];
             // $opt_req = ['job categories', 'bool', 'civil status', 'sex', 'departments', 'positions', 'units'];
@@ -401,8 +401,8 @@ class Index extends Component
             $emp_info_req = [
                 'employee no.', 'bsd no.', 'lastname', 'firstname', 'middlename',
                 'address', 'email', 'sex', 'civil status', 'birthday',
-                'pagibig id', 'sss id','philhealth id', 'tin id', 'payroll account no.',
-                'date hired', 'job category', 'position', 'monthly salary','department', 'email'
+                'pagibig id', 'sss id','philhealth id', 'tin id', 'payroll account no',
+                'date hired', 'job category', 'position', 'monthly salary','department', 'email', 'salary method'
             ];
             $opt_req = ['job categories', 'bool', 'civil status', 'sex', 'departments'];
         }

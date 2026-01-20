@@ -73,7 +73,7 @@ class Index extends Component
     public function render()
     {
 
-        $model = Positions::with('employment_type');
+        $model = Positions::with('employment_type')->withCount('employees');
 
         if ($this->search) {
 

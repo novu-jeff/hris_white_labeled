@@ -729,7 +729,7 @@
 
 /* When active (clicked), expand submenu */
 #adminSidebar .menu-group.active .submenu-items {
-    max-height: 700px;
+    max-height: 800px;
 }
 
 /* Hover effect for menu group title */
@@ -806,6 +806,10 @@
     body {
         padding-top: 70px !important;
         overflow-x: hidden;
+    }
+
+    #adminSidebar .menu-group.active .submenu-items {
+      max-height: 900px;
     }
 
  

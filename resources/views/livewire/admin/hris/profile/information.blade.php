@@ -84,7 +84,7 @@
                         <hr>
                     </div>
                     <div class="col-md-12 mb-3">
-                        <label class="mb-2" for="section_id">Section <span class="text-danger">*</span></label>
+                        <label class="mb-2" for="section_id">Department <span class="text-danger">*</span></label>
                         <select wire:model="records.employee_information.section_id" wire:change="select_change('section')" id="records.employee_information.section_id" class="form-select">
                             <option value=""> - CHOOSE - </option>
                             @foreach ($sections as $section)
@@ -102,13 +102,13 @@
                             @error('records.employee_information.branch') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
+                   <!-- <div class="col-md-6 mb-3">
                         <label class="mb-2" for="department">Cluster</label>
                         <input type="text" wire:model="records.employee_information.department" id="records.employee_information.department" class="form-control" readonly>
                         <div class="error-field">
-                            @error('records.employee_information.department') <span class="text-danger">{{ $message }}</span> @enderror
+                           {{-- @error('records.employee_information.department') <span class="text-danger">{{ $message }}</span> @enderror --}}
                         </div>
-                    </div>
+                    </div>-->
                     <div class="col-12 mt-4 mb-3">
                         <h5 class="mb-0 text-uppercase fw-bold pt-4 pb-0 ps-2">Employment Details</h5>
                         <hr>
@@ -179,7 +179,7 @@
                         <select wire:model="records.employee_information.shift_schedule" wire:change="select_change('section')" id="records.employee_information.shift_schedule" class="form-select">
                             <option value=""> - CHOOSE - </option>
                             @foreach ($shiftSchedule as $shift)
-                                <option value="{{$shift->id}}">{{$shift->name . ' (' . $shift->work_setup . ')'}}</option>
+                                <option value="{{$shift->id}}">{{$shift->name }}</option>
                             @endforeach
                         </select>
                         <div class="error-field">
