@@ -61,6 +61,10 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
+    'public_domain' => env('PUBLIC_DOMAIN'),
+    'careers_domain' => env('CAREERS_DOMAIN'),
+    'ess_domain' => env('ESS_DOMAIN'),
+    'hris_domain' => env('HRIS_DOMAIN'),
 
     'asset_url' => env('ASSET_URL'),
 
