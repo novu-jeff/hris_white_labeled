@@ -88,7 +88,7 @@
                             <input type="file" wire:model="file" id="file" class="form-control" wire:loading.attr="disabled" wire:target="upload_file">
                             <div class="mt-2 text-muted fw-bold text-uppercase d-flex justify-content-between align-items-center" style="font-size: 13px">
                                 <small>Note: only files xlsx or xls are allowed.</small>
-                                <small><a href="{{asset('templates/HRIS EMPLOYEE TEMPLATE.xlsx')}}" class="nav-link text-decoration-underline">Download Template</a></small>
+                                <small><a href="{{asset('templates/updated HRIS EMPLOYEE TEMPLATE.xlsx')}}" class="nav-link text-decoration-underline">Download Template</a></small>
                             </div>
                             <div wire:loading wire:target="file" class="mt-2 text-center text-muted">
                                 <p>Please Wait... <i class="fa-solid fa-spinner fa-spin"></i></p>

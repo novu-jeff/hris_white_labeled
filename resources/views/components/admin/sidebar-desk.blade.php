@@ -176,10 +176,7 @@
                     <a class="submenu-item" href="{{route('scheduler.index')}}">
                          <i class="fa-solid fa-calendar"></i> Scheduler</a>
                 @endcan
-                @can('read tranches')
-                    <a class="submenu-item" href="{{route('tranches.index')}}">
-                        <i class="fa-solid fa-layer-group"></i> Tranches</a>
-                @endcan
+                
                 @can('read holidays')
                     <a class="submenu-item" href="{{route('holiday.index')}}">
                          <i class="fa-solid fa-umbrella-beach"></i> Holiday</a>
@@ -189,18 +186,15 @@
                 @canany(['read branches', 'read departments', 'read sections'])
                 <div class="submenu-subgroup">
                     <p class="submenu-subtitle"> <i class="fa-solid fa-map-pin"></i> Location Management</p>
+                    @can('read sections')
+                    <a href="{{ route('section.index') }}" class="submenu-item">
+                        <i class="fa-solid fa-sitemap"></i> Department</a>
+                    @endcan
                     @can('read branches')
                     <a href="{{ route('branch.index') }}" class="submenu-item">
                         <i class="fa-solid fa-building-flag"></i> Central / Field Office</a>
                     @endcan
-                    @can('read departments')
-                    <a href="{{ route('department.index') }}" class="submenu-item">
-                        <i class="fa-solid fa-network-wired"></i> Clusters</a>
-                    @endcan
-                    @can('read sections')
-                    <a href="{{ route('section.index') }}" class="submenu-item">
-                        <i class="fa-solid fa-sitemap"></i> Sections</a>
-                    @endcan
+                    
                 </div>
                 @endcanany
 
@@ -282,6 +276,21 @@
                         <i class="fa-solid fa-receipt"></i>  Deductions</a>
                     @endcan
                 </div>
+                @endcanany
+
+                @canany(['read shift-schedule', 'read employee-schedule'])
+                <div class="submenu-subgroup">
+                    <p class="submenu-subtitle"><i class="fa-solid fa-clock"></i> Timekeeping</p>
+                    @can('read shift-schedule')
+                     <a href="{{ route('shift-schedule.index') }}" class="submenu-item">
+                        <i class="fa-solid fa-user-tag"></i> Shift Schedule</a>
+                     @endcan
+                     @can('read employee-schedule')
+                     <a href="{{ route('employee-schedule.index') }}" class="submenu-item">
+                        <i class="fa-solid fa-user-tag"></i> Employee Schedule</a>
+                     @endcan
+                </div>    
+                               
                 @endcanany
 
             </div>
