@@ -47,128 +47,147 @@ class EmployeeUploadService extends Controller
         }
     }
 
+    
+
     public function uploadEmployeeInformation(array $rows, array $schedules)
-    {
-        if (count($rows) === 0) {
-            Log::warning('Employee Information sheet is empty');
-            return;
+{
+    if (count($rows) === 0) {
+        Log::warning('Employee Information sheet is empty');
+        return;
+    }
+
+    $skippedRows = [];
+    $duplicateRows = [];
+    $processedRows = 0;
+
+    // Define expected headers
+    $expectedHeaders = [
+        'employee no.', 'bsd no.', 'lastname', 'firstname', 'middlename',
+        'address', 'sex', 'civil status', 'birthday',
+        'pagibig id', 'sss id', 'philhealth id', 'tin id', 'payroll account no.',
+        'date hired', 'job category', 'position', 'monthly salary', 'department', 'email'
+    ];
+
+    // Check if first row is header by matching at least 3 expected headers
+    $firstRow = array_map(fn($v) => strtolower(trim((string)$v)), $rows[0]);
+    $hasHeaderRow = count(array_intersect($expectedHeaders, $firstRow)) >= 3;
+
+    // Build column map
+    $columnMap = [];
+    if ($hasHeaderRow) {
+        foreach ($expectedHeaders as $field) {
+            $index = array_search($field, $firstRow);
+            $columnMap[$field] = $index !== false ? $index : null;
+        }
+    } else {
+        // If no header, assume fixed order of columns
+        $columnMap = array_combine($expectedHeaders, range(0, count($expectedHeaders) - 1));
+    }
+
+    $startRow = $hasHeaderRow ? 1 : 0;
+
+    for ($i = $startRow; $i < count($rows); $i++) {
+        $row = $rows[$i];
+
+        // Map data safely
+        $data = [];
+        foreach ($columnMap as $field => $index) {
+            $data[$field] = $index !== null ? $row[$index] : null;
         }
 
-        $skippedRows = [];
-        $duplicateRows = [];
-        $processedRows = 0;
+        if (empty($data['employee no.'])) {
+            $skippedRows[] = ['row' => $i + 1, 'reason' => 'Missing employee number'];
+            Log::warning('Employee upload skipped', ['row' => $i + 1]);
+            continue;
+        }
 
-        $expectedHeaders = [
-            'employee no.', 'bsd no.', 'lastname', 'firstname', 'middlename',
-            'address', 'sex', 'civil status', 'birthday', 'age',
-            'gsis id', 'pagibig id', 'sss id', 'philhealth id', 'tin id',
-            'bank account no.', 'date hired', 'position', 'monthly salary',
-            'job category', 'email', 'unit'
-        ];
+        Log::Info('Processing employeess', ['data' => $data]);
 
-        $firstRow = array_map(fn ($v) => strtolower(trim((string) $v)), $rows[0]);
-        $hasHeaderRow = count(array_intersect($expectedHeaders, $firstRow)) >= 3;
+        $processedRows++;
 
-        $columnMap = $hasHeaderRow
-            ? array_map(fn ($h) => array_search($h, $firstRow), $expectedHeaders)
-            : array_combine($expectedHeaders, range(0, count($expectedHeaders) - 1));
+        // Resolve job category and position
+        $jobCategoryName = ucfirst(strtolower(trim($data['job category'] ?? '')));
+        $positionName = trim($data['position'] ?? '');
 
-        $startRow = $hasHeaderRow ? 1 : 0;
+        $jobCategory = $jobCategoryName
+            ? EmployementTypes::firstOrCreate(['name' => $jobCategoryName])
+            : null;
 
-        for ($i = $startRow; $i < count($rows); $i++) {
-            $row = $rows[$i];
+        $position = $positionName
+            ? Positions::firstOrCreate(['name' => $positionName])
+            : null;
 
-            $data = [];
-            foreach ($columnMap as $field => $index) {
-                $data[$field] = $row[$index] ?? null;
-            }
+        // Transform dates
+        $birthday = $this->transformDate($data['birthday']);
+        $dateHired = $this->transformDate($data['date hired']);
 
-            if (empty($data['employee no.'])) {
-                $skippedRows[] = ['row' => $i + 1, 'reason' => 'Missing employee number'];
-                Log::warning('Employee upload skipped', ['row' => $i + 1]);
-                continue;
-            }
+        $age = $birthday ? Carbon::parse($birthday)->age : null;
 
-            $processedRows++;
+        // EmployeeInformation
+        $employeeInfo = EmployeeInformation::updateOrCreate(
+            ['employee_no' => $data['employee no.']],
+            [
+                'bsd_no' => $data['bsd no.'],
+                'payroll_account_no' => $data['payroll account no.'],
+                'date_hired' => $data['date hired'],
+                'position_id' => $position?->id,
+                'salary' => $data['monthly salary'],
+                'employment_type_id' => $jobCategory?->id,
+                'email' => $data['email'],
+                'unit' => $data['department'] ?? null,
+                'shift_id' => $schedules['shift'] ?? null,
+                'schedule_id' => $schedules['schedule'] ?? null,
+            ]
+        );
 
-            $jobCategoryName = ucfirst(strtolower(trim($data['job category'] ?? '')));
-            $positionName = trim($data['position'] ?? '');
-
-            $jobCategory = $jobCategoryName
-                ? EmployementTypes::firstOrCreate(['name' => $jobCategoryName])
-                : null;
-
-            $position = $positionName
-                ? Positions::firstOrCreate(['name' => $positionName])
-                : null;
-
-            Log::info('Uploading employee', [
+        if (!$employeeInfo->wasRecentlyCreated) {
+            $duplicateRows[] = [
                 'row' => $i + 1,
+                'employee_no' => $data['employee no.'],
+                'table' => 'employee_information'
+            ];
+            Log::notice('Duplicate employee information detected', [
                 'employee_no' => $data['employee no.']
             ]);
-
-            $employeeInfo = EmployeeInformation::updateOrCreate(
-                ['employee_no' => $data['employee no.']],
-                [
-                    'bsd_no' => $data['bsd no.'],
-                    'bank_account_no' => $data['bank account no.'],
-                    'date_hired' => $this->transformDate($data['date hired']),
-                    'position_id' => $position?->id,
-                    'salary' => $data['monthly salary'],
-                    'employment_type_id' => $jobCategory?->id,
-                    'email' => $data['email'],
-                    'unit' => $data['unit'],
-                    'shift_id' => $schedules['shift'] ?? null,
-                    'schedule_id' => $schedules['schedule'] ?? null,
-                ]
-            );
-
-            if (!$employeeInfo->wasRecentlyCreated) {
-                $duplicateRows[] = [
-                    'row' => $i + 1,
-                    'employee_no' => $data['employee no.'],
-                    'table' => 'employee_information'
-                ];
-                Log::notice('Duplicate employee information detected', [
-                    'employee_no' => $data['employee no.']
-                ]);
-            }
-
-            EmployeePersonal::updateOrCreate(
-                ['employee_no' => $data['employee no.']],
-                [
-                    'lastname' => $data['lastname'],
-                    'firstname' => $data['firstname'],
-                    'middlename' => $data['middlename'],
-                    'present_address' => $data['address'],
-                    'sex' => strtolower($data['sex'] ?? ''),
-                    'civil_status' => strtolower($data['civil status'] ?? ''),
-                    'birthday' => $this->transformDate($data['birthday']),
-                    'age' => $data['age'],
-                    'gsis_no' => $data['gsis id'],
-                    'pagibig_no' => $data['pagibig id'],
-                    'sss_no' => $data['sss id'],
-                    'philhealth_no' => $data['philhealth id'],
-                    'tin_no' => $data['tin id'],
-                ]
-            );
-
-            $this->createAccount(
-                $data['employee no.'],
-                $data['firstname'],
-                $data['lastname'],
-                $data['email']
-            );
         }
 
-        Log::info('Employee upload completed', [
-            'processed' => $processedRows,
-            'skipped' => count($skippedRows),
-            'duplicates' => count($duplicateRows),
-            'skipped_rows' => $skippedRows,
-            'duplicate_rows' => $duplicateRows,
-        ]);
+        // EmployeePersonal
+        EmployeePersonal::updateOrCreate(
+            ['employee_no' => $data['employee no.']],
+            [
+                'lastname' => $data['lastname'],
+                'firstname' => $data['firstname'],
+                'middlename' => $data['middlename'],
+                'present_address' => $data['address'],
+                'sex' => strtolower($data['sex'] ?? ''),
+                'civil_status' => strtolower($data['civil status'] ?? ''),
+                'birthday' => $birthday,
+                'age' => $age,
+                'pagibig_no' => $data['pagibig id'] ?? null,
+                'sss_no' => $data['sss id'] ?? null,
+                'philhealth_no' => $data['philhealth id'] ?? null,
+                'tin_no' => $data['tin id'] ?? null,
+            ]
+        );
+
+        // Create employee account
+        $this->createAccount(
+            $data['employee no.'],
+            $data['firstname'],
+            $data['lastname'],
+            $data['email']
+        );
     }
+
+    Log::info('Employee upload completed', [
+        'processed' => $processedRows,
+        'skipped' => count($skippedRows),
+        'duplicates' => count($duplicateRows),
+        'skipped_rows' => $skippedRows,
+        'duplicate_rows' => $duplicateRows,
+    ]);
+}
+
 
     private function createAccount($employeeNo, $firstName, $lastName, $email)
     {

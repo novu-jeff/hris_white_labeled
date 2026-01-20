@@ -28,8 +28,6 @@
                     <tr>
                         <th>Code</th>
                         <th>Name</th>
-                        <th>Branch Location</th>
-                        <th>Department</th>
                         <th style="max-width: 200px;">Action</th>
                     </tr>
                 </thead>                
@@ -38,8 +36,6 @@
                         <tr data-id="{{ $record->id }}">
                             <td>{{ $record->code }}</td>
                             <td>{{ $record->name }}</td>
-                            <td>{{ $record->branch->name }}</td>
-                            <td>{{ $record->department->name }}</td>
                             <td>
                                 <a href="{{ route('section.edit', ['section' => $record->id]) }}" class="btn btn-primary mx-1">
                                     <i class="fa-solid fa-pen-to-square"></i>
