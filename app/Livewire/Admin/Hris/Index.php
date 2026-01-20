@@ -338,7 +338,7 @@ class Index extends Component
 
                 $chunks = array_chunk(array_values($sheet), 100);
 
-              
+                \Log::debug("Preparing jobs for sheet '{$sheetName}' with " . count($sheet) . " rows in " . count($chunks) . " chunks.");
 
                 foreach ($chunks as $chunk) {
                     $jobs[] = new EmployeeUpload($chunk, $sheetName, $schedules);
@@ -373,7 +373,7 @@ class Index extends Component
 
             $this->dispatch('alert', [
                 'status' => 'error',
-                'title' => 'Upload Failed',
+                'title' => 'Upload Failedsss',
                 'showAlert' => true,
                 'message' => $e->getMessage(),
             ]);
@@ -392,7 +392,7 @@ class Index extends Component
             $emp_info_req = [
                 'employee no.', 'bsd no.', 'lastname', 'firstname', 'middlename',
                 'address', 'email', 'sex', 'civil status', 'birthday', 'age',
-                'gsis id', 'pagibig id', 'philhealth id', 'tin id', 'bank account no.',
+                'gsis id', 'pagibig id', 'philhealth id', 'tin id', 'bank account no',
                 'date hired', 'job category', 'position', 'unit', 'monthly salary'
             ];
             // $opt_req = ['job categories', 'bool', 'civil status', 'sex', 'departments', 'positions', 'units'];
@@ -400,10 +400,9 @@ class Index extends Component
         } else {
             $emp_info_req = [
                 'employee no.', 'bsd no.', 'lastname', 'firstname', 'middlename',
-                'address', 'email', 'sex', 'civil status', 'birthday', 'age',
-                'pagibig id', 'sss id', 'philhealth id', 'tin id', 'bank account no.',
-                'company', 'date hired', 'job category', 'position', 'department',
-                'monthly salary'
+                'address', 'email', 'sex', 'civil status', 'birthday',
+                'pagibig id', 'sss id','philhealth id', 'tin id', 'payroll account no',
+                'date hired', 'job category', 'position', 'monthly salary','department', 'email', 'salary method'
             ];
             $opt_req = ['job categories', 'bool', 'civil status', 'sex', 'departments'];
         }
