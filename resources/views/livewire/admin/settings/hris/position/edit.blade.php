@@ -15,31 +15,7 @@
                                 @error('fields.name') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>
                         </div>
-                        <div class="col-12 col-md-4 mb-4">
-                            <label class="mb-2" for="fields.salary_grade">Salary Grade <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="fields.salary_grade" id="fields.salary_grade" class="form-control text-uppercase">
-                            <div class="error-field">
-                                @error('fields.salary_grade') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-4 mb-4">
-                            <label class="mb-2" for="fields.w_tax">W/Tax</label>
-                            <input type="text" wire:model="fields.w_tax" id="fields.w_tax" class="form-control text-uppercase">
-                            <div class="error-field">
-                                @error('fields.w_tax') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-4 mb-4">
-                            <label class="mb-2" for="fields.type">Employment Type <span class="text-danger">*</span></label>
-                            <select wire:model="fields.type" class="form-select">
-                                <option value="1">Regular Contractual</option>
-                                <option value="2">Contract of Service</option>
-                                <option value="3">Job Offer</option>
-                            </select>
-                            <div class="error-field">
-                                @error('fields.type') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
+                       
                     </div>
                 </div>
                 <hr class="mx-3">

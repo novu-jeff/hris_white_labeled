@@ -89,9 +89,7 @@ class Edit extends Component
                 'required',
                 Rule::unique('positions', 'name')
                     ->ignore($this->id),
-            ],
-            'fields.salary_grade' => 'required|numeric',
-            'fields.type' => 'required|exists:employment_types,id'
+            ]
         ];
     }
 
@@ -100,11 +98,7 @@ class Edit extends Component
             'fields.name.required' => 'The position name is required.',
             'fields.name.unique' => 'The position name is already taken.',
             
-            'fields.salary_grade.required' => 'The salary grade is required.',
-            'fields.salary_grade.unique' => 'The salary grade is already taken.',
-
-            'fields.type.required' => 'The type is required.',
-            'fields.type.unique' => 'The type is already taken.',
+            
         ];
     }
 

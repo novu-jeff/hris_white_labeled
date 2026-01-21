@@ -64,8 +64,8 @@ class EmployeeUploadService extends Controller
     $expectedHeaders = [
         'employee no.', 'bsd no.', 'lastname', 'firstname', 'middlename',
         'address', 'sex', 'civil status', 'birthday',
-        'pagibig id', 'sss id', 'philhealth id', 'tin id', 'payroll account no.',
-        'date hired', 'job category', 'position', 'monthly salary', 'department', 'email'
+        'pagibig id', 'sss id', 'philhealth id', 'tin id', 'payroll account no',
+        'date hired', 'job category', 'position', 'monthly salary', 'email', 'department', 'salary method'
     ];
 
     // Check if first row is header by matching at least 3 expected headers
@@ -97,17 +97,18 @@ class EmployeeUploadService extends Controller
 
         if (empty($data['employee no.'])) {
             $skippedRows[] = ['row' => $i + 1, 'reason' => 'Missing employee number'];
-            Log::warning('Employee upload skipped', ['row' => $i + 1]);
+            Log::warning('Employee upload skippedss', ['row' => $i + 1]);
             continue;
         }
 
-        Log::Info('Processing employeess', ['data' => $data]);
+        Log::Info('Processing employee', ['data' => $data]);
 
         $processedRows++;
 
         // Resolve job category and position
         $jobCategoryName = ucfirst(strtolower(trim($data['job category'] ?? '')));
         $positionName = trim($data['position'] ?? '');
+        $sectionName = trim($data['department'] ?? '');
 
         $jobCategory = $jobCategoryName
             ? EmployementTypes::firstOrCreate(['name' => $jobCategoryName])
@@ -116,6 +117,11 @@ class EmployeeUploadService extends Controller
         $position = $positionName
             ? Positions::firstOrCreate(['name' => $positionName])
             : null;
+
+        $section = !empty($sectionName)
+                ? Sections::firstOrCreate(['name' => $sectionName])
+                : null;
+            Log::info("Section processed", ['name' => $sectionName, 'id' => $section?->id]);    
 
         // Transform dates
         $birthday = $this->transformDate($data['birthday']);
@@ -128,15 +134,17 @@ class EmployeeUploadService extends Controller
             ['employee_no' => $data['employee no.']],
             [
                 'bsd_no' => $data['bsd no.'],
-                'payroll_account_no' => $data['payroll account no.'],
+                'payroll_account_number' => $data['payroll account no'],
                 'date_hired' => $data['date hired'],
                 'position_id' => $position?->id,
+                'section_id' => $section?->id,
                 'salary' => $data['monthly salary'],
                 'employment_type_id' => $jobCategory?->id,
                 'email' => $data['email'],
                 'unit' => $data['department'] ?? null,
                 'shift_id' => $schedules['shift'] ?? null,
                 'schedule_id' => $schedules['schedule'] ?? null,
+                'salary_method' => strtolower($data['salary method']) ?? null,
             ]
         );
 

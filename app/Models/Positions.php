@@ -24,4 +24,9 @@ class Positions extends Model
         return $this->hasOne(EmployementTypes::class, 'id', 'type');
     }
 
+    public function employees()
+    {
+        return $this->hasMany(EmployeeInformation::class, 'position_id');
+    }
+
 }
