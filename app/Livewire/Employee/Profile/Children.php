@@ -36,13 +36,21 @@ class Children extends Component
 
     public function loadRecords() {
 
-        $this->employee_no = Auth::user()->employee_no;
-        $this->employee_id = Auth::user()->id;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+        if (!$user) {
+            // Session expired / wrong guard - redirect to employee login.
+            return redirect()->route('employee.login');
+        }
+
+        $this->employee_no = $user->employee_no;
+        $this->employee_id = $user->id;
 
         $updated = EmployeeUpdateChildren::where('employee_no', $this->employee_no)
+            ->orderBy('created_at', 'asc')
             ->get()
             ->toArray() ?? [];
         $stored = EmployeeChildren::where('employee_no', $this->employee_no)
+            ->orderBy('created_at', 'asc')
             ->get()
             ->toArray() ?? [];
 
@@ -79,7 +87,23 @@ class Children extends Component
             ]);
             return;
         }
+
+        // If called from confirmation without a valid index, bail safely.
+        if ($this->recordIndex === null) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Unable to delete',
+                'message' => 'No record selected for deletion.',
+            ]);
+            return;
+        }
         
+        // Support direct calls like removeRecord(false, index)
+        if ($index !== null) {
+            $this->recordIndex = $index;
+        }
+
         $updatedRecords = EmployeeUpdateChildren::where('employee_no', $this->employee_no)
             ->orderBy('created_at', 'asc')
             ->get();
@@ -92,6 +116,23 @@ class Children extends Component
 
         $record = $records[$this->recordIndex] ?? null;
 
+        if (!$record) {
+            // If it's a newly-added (unsaved) row, just remove from UI state.
+            if (isset($this->records[$this->recordIndex])) {
+                unset($this->records[$this->recordIndex]);
+                $this->records = array_values($this->records);
+                return;
+            }
+
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Record not found',
+                'message' => 'This record may have already been deleted. Please refresh the page.',
+            ]);
+            $this->loadRecords();
+            return;
+        }
 
         if ($record && $record->documents) {
             $path = 'documents/' . $this->employee_no . '/' . $record->documents;

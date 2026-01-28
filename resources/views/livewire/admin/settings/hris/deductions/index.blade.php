@@ -36,14 +36,15 @@
                         <tr data-id="{{$record->id}}">
                             <td>{{$record->code}}</td>
                             <td>{{$record->name}}</td>
-                            <td class="d-flex justify-content-start">
-                               <a href="{{route('deductions.index', ['id' => $record->id])}}" class="btn btn-secondary mx-1">
-                                    <i class="fa-solid fa-plus text-white"></i>
+                            <td class="d-flex justify-content-start gap-2">
+                               <a href="{{route('other-deductions.show', ['other_deduction' => $record->id])}}" class="btn btn-info mx-1" title="Manage Employees - Add/Edit Deductions">
+                                    <i class="fa-solid fa-users text-white me-1"></i>
+                                    <span class="d-none d-md-inline">Manage</span>
                                 </a>
-                                <a href="{{route('other-deductions.edit', ['other_deduction' => $record->id])}}" class="btn btn-primary mx-1">
+                                <a href="{{route('other-deductions.edit', ['other_deduction' => $record->id])}}" class="btn btn-primary mx-1" title="Edit Deduction Type">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </a>
-                                <button wire:click="remove(true, {{$record->id}})" class="btn btn-danger mx-1">
+                                <button wire:click="remove(true, {{$record->id}})" class="btn btn-danger mx-1" title="Delete Deduction Type">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </td>

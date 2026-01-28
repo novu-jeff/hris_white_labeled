@@ -12,8 +12,8 @@
                 </div>
             </div>
 
-            <!-- ONLY THIS PART SHOULD AUTO-REFRESH -->
-            <div class="modal-body msg-body" id="messagesContainer" wire:poll.3s="loadRecords">
+            <!-- ONLY THIS PART SHOULD AUTO-REFRESH (only when chat is open) -->
+            <div class="modal-body msg-body" id="messagesContainer" @if($isChatOpen) wire:poll.3s="loadRecords" @endif>
                 <ul class="list-unstyled mb-0">
                     @foreach ($records as $message)
                         @if(!empty($message['message']) || !$message['attachments']->isEmpty())

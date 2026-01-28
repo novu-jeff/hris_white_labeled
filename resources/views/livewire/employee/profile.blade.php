@@ -29,6 +29,9 @@
                 <li class="nav-item" role="presentation">
                     <a href="{{ route('employee.profile', ['form' => 'skills']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'skills' ? 'active' : ''}}" id="pills-skills-tab" role="tab" aria-controls="pills-skills" aria-selected="{{$form == 'skills' ? 'true' : 'false'}}">VIII. Skills or Hobbies</a>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <a href="{{ route('employee.profile', ['form' => 'security-notifications']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'security-notifications' ? 'active' : ''}}" id="pills-security-notifications-tab" role="tab" aria-controls="pills-security-notifications" aria-selected="{{$form == 'security-notifications' ? 'true' : 'false'}}">Security &amp; Notifications</a>
+                </li>
             </ul>
             <div class="tab-content" id="pills-tabContent">
                 @php
@@ -42,6 +45,7 @@
                         'trainings' => 'employee.profile.trainings',
                         'other-works' => 'employee.profile.other-works',
                         'skills' => 'employee.profile.skills',
+                        'security-notifications' => 'employee.profile.security-notifications',
                     ];
 
                     $view = $viewForms[$form];

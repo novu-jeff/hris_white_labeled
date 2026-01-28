@@ -25,7 +25,7 @@
                             <label for="email" class="mb-2">{{ __('Email Address') }}</label>
                             <input id="email" type="email" 
                                    class="form-control @error('email') is-invalid @enderror" 
-                                   name="email" value="{{ old('email') }}" placeholder="carl@novulutions.com">
+                                   name="email" value="{{ old('email') }}" placeholder="jeff@novulutions.com">
                             <div class="error mt-2">
                                 @error('email')
                                     <span class="text-danger" role="alert">{{ $message }}</span>

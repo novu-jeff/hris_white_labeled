@@ -681,6 +681,28 @@
     color: #fff;
 }
 
+/* Active state for current page links */
+#adminSidebar .menu-item.is-active {
+    border-left: 4px solid #0b5ed7;
+    background: #0d6efd;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+#adminSidebar .menu-item.is-active i {
+    color: #ffffff;
+}
+
+#adminSidebar .submenu-item.is-active {
+    background: #0d6efd;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+#adminSidebar .submenu-item.is-active i {
+    color: #ffffff;
+}
+
 #adminSidebar .menu-group {
     border-bottom: 1px solid #e2e8f0;
     height: auto;

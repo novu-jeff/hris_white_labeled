@@ -59,8 +59,14 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li>
                             <a class="dropdown-item"
-                               href="{{ route('employee.profile', ['form' => 'profile']) }}">
+                               href="{{ route('employee.profile', ['form' => 'personal']) }}">
                                 <i class="fa-solid fa-user me-2"></i> My Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item"
+                               href="{{ route('employee.profile', ['form' => 'security-notifications']) }}">
+                                <i class="fa-solid fa-shield-halved me-2"></i> Security &amp; Notifications
                             </a>
                         </li>
                         <li>

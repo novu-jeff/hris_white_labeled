@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
+use App\Models\EmployeeAccount;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -34,7 +34,49 @@ class Notifications extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+
+        // Send email only for employees who enabled it in profile settings
+        if (
+            $this->audience === 'employee'
+            && $notifiable instanceof EmployeeAccount
+            && (bool) ($notifiable->email_notifications_enabled ?? false)
+            && !empty($notifiable->email)
+        ) {
+            $allowedDomains = (array) config('notifications.email_allowed_domains', []);
+
+            // If allowlist is set, only send to allowed domains (e.g., @novulutions.com)
+            if (empty($allowedDomains) || $this->isEmailAllowed((string) $notifiable->email, $allowedDomains)) {
+                $channels[] = 'mail';
+            }
+        }
+
+        return $channels;
+    }
+
+    private function isEmailAllowed(string $email, array $allowedDomains): bool
+    {
+        $email = strtolower(trim($email));
+        if ($email === '' || !str_contains($email, '@')) {
+            return false;
+        }
+
+        $domain = strtolower(trim(substr($email, strrpos($email, '@') + 1)));
+        if ($domain === '') {
+            return false;
+        }
+
+        foreach ($allowedDomains as $allowed) {
+            $allowed = strtolower(trim((string) $allowed));
+            if ($allowed === '') continue;
+
+            // Exact match or subdomain match
+            if ($domain === $allowed || str_ends_with($domain, '.' . $allowed)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -42,10 +84,14 @@ class Notifications extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
+        $plainMessage = trim(preg_replace('/\s+/', ' ', strip_tags((string) $this->message)));
+        $actionUrl = $this->redirect ?: url('/');
+
         return (new MailMessage)
-                    ->line('The introduction to the notification.')
-                    ->action('Notification Action', url('/'))
-                    ->line('Thank you for using our application!');
+            ->subject('HRIS Notification')
+            ->line($plainMessage !== '' ? $plainMessage : 'You have a new notification.')
+            ->action('View', $actionUrl)
+            ->line('If you did not expect this, you can ignore this email.');
     }
 
     /**

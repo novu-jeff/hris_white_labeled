@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Ess\PayslipRequest;
 
+use App\Helpers\SupervisorApproval;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeePayslipRequest;
 use App\Notifications\Notifications;
@@ -45,6 +46,16 @@ class Index extends Component
         
         $this->loadRecords($this->selected_id);
 
+        $employeeNo = $this->view_records->employee_no ?? null;
+        if ($employeeNo && !SupervisorApproval::canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove payslip requests for this employee.',
+            ]);
+        }
+
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
@@ -83,6 +94,16 @@ class Index extends Component
     public function approved(bool $isNotify = true) {
 
         $this->loadRecords($this->selected_id);
+
+        $employeeNo = $this->view_records->employee_no ?? null;
+        if ($employeeNo && !SupervisorApproval::canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove payslip requests for this employee.',
+            ]);
+        }
 
         if($isNotify) {
 

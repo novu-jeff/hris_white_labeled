@@ -1,9 +1,8 @@
-<div wire:poll>
+<div>
     @foreach ($records as $section)
         <div class="text-uppercase mb-3">
-            <h5 class="mb-2 fw-bold">Branch: <span class="ms-1 text-decoration-underline">{{ $section['branch_name'] }}</span></h5>
-            <h5 class="mb-2 fw-bold">Cluster: <span class="ms-1 text-decoration-underline">{{ $section['department_name'] }}</span></h5>
-            <h5 class="mb-2 fw-bold">Section: <span class="ms-1 text-decoration-underline">{{ $section['section_name'] }}</span></h5>
+            <h5 class="mb-2 fw-bold">Department: <span class="ms-1 text-decoration-underline">{{ $section['department_name'] }}</span></h5>
+            <h5 class="mb-2 fw-bold">Supervisor: <span class="ms-1 text-decoration-underline">{{ $section['supervisor_name'] }}</span></h5>
             <hr class="mt-3 mb-3">
 
             @foreach ($section['positions'] as $position)

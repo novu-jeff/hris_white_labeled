@@ -172,6 +172,13 @@ export function setupMap(token, center, width = 120, height = 100) {
     mapboxgl.accessToken = token;
 
     try {
+        // Re-initialization safety: remove previous map instance if any.
+        if (mapContainer.__mapboxInstance) {
+            try { mapContainer.__mapboxInstance.remove(); } catch (_) {}
+            mapContainer.__mapboxInstance = null;
+        }
+        mapContainer.innerHTML = '';
+
         const map = new mapboxgl.Map({
             container: "map",
             style: "mapbox://styles/mapbox/streets-v12",
@@ -184,6 +191,7 @@ export function setupMap(token, center, width = 120, height = 100) {
         new mapboxgl.Marker().setLngLat(center).addTo(map);
 
         map.on('load', () => map.resize());
+        mapContainer.__mapboxInstance = map;
     } catch (e) {
         console.error("Mapbox failed to initialize:", e);
     }

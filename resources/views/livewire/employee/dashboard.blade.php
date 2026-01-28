@@ -464,18 +464,25 @@
                     TimeLogs for {{ now()->format('F d, Y') }}
                 </h4>
 
+                @php
+                    $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+                @endphp
                 <div class="row">
                     <!-- AM Column -->
                     <div class="col-md-6">
                         <h6 class="fw-bold">AM</h6>
                         <p>Clock-in: {{ $latestLogs['clock_in']->formatted_time ?? 'N/A' }}</p>
-                        <p>Lunch-out: {{ $latestLogs['break_out']->formatted_time ?? 'N/A' }}</p>
+                        @if($showLunch)
+                            <p>Lunch-out: {{ $latestLogs['break_out']->formatted_time ?? 'N/A' }}</p>
+                        @endif
                     </div>
 
                     <!-- PM Column -->
                     <div class="col-md-6">
                         <h6 class="fw-bold">PM</h6>
-                        <p>Lunch-in: {{ $latestLogs['break_in']->formatted_time ?? 'N/A' }}</p>
+                        @if($showLunch)
+                            <p>Lunch-in: {{ $latestLogs['break_in']->formatted_time ?? 'N/A' }}</p>
+                        @endif
                         <p>Clock-out: {{ $latestLogs['clock_out']->formatted_time ?? 'N/A' }}</p>
                     </div>
                 </div>
@@ -499,13 +506,16 @@
             ksort($visibleDTR); // sort by date ascending
         @endphp
 
+        @php
+            $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+        @endphp
         <div class="table-responsive">
             <table class="dtr-table">
                 <thead>
                     <tr>
                         <th>Days</th>
-                        <th colspan="2">AM</th>
-                        <th colspan="2">PM</th>
+                        <th colspan="{{ $showLunch ? '2' : '1' }}">AM</th>
+                        <th colspan="{{ $showLunch ? '2' : '1' }}">PM</th>
                         <th colspan="2">OVERTIME</th>
                         <th colspan="2">AUT</th>
                         <th>Remark</th>
@@ -513,8 +523,12 @@
                     <tr>
                         <th></th>
                         <th>In</th>
-                        <th>Out</th>
-                        <th>In</th>
+                        @if($showLunch)
+                            <th>Out</th>
+                        @endif
+                        @if($showLunch)
+                            <th>In</th>
+                        @endif
                         <th>Out</th>
                         <th>Hours</th>
                         <th>Mins</th>
@@ -530,10 +544,14 @@
 
                             <!-- AM -->
                             <td>{{ isset($day['clock_in']) ? \Carbon\Carbon::parse($day['clock_in'])->format('g:i A') : ' ' }}</td>
-                            <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
+                            @if($showLunch)
+                                <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
+                            @endif
 
                             <!-- PM -->
-                            <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
+                            @if($showLunch)
+                                <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
+                            @endif
                             <td>{{ isset($day['clock_out']) ? \Carbon\Carbon::parse($day['clock_out'])->format('g:i A') : ' ' }}</td>
 
                             <!-- Overtime -->

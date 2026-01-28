@@ -1,5 +1,5 @@
 @extends('layouts.admin', [
-    'title' => 'HRIS | Add Cluster'
+    'title' => 'HRIS | Add Department'
 ])
 
 @section('content')
@@ -7,8 +7,8 @@
 <div class="container pb-5">
     <div class="d-lg-flex justify-content-between align-items-center mt-5 mb-4">
         <div class="section-title">
-            <h1>Add Cluster</h1>
-            <p>Create new cluster</p>
+            <h1>Add Department</h1>
+            <p>Create new department</p>
         </div>
     </div>
     <div class="mt-3">

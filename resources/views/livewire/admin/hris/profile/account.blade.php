@@ -52,10 +52,23 @@
             <hr class="mb-4">
             <div class="card-footer d-flex justify-content-end bg-transparent border-0">
                 <div class="text-end">
-                    <button type="submit" class="btn btn-primary px-5 py-3 text-uppercase fw-bold">
-                        <span wire:loading.remove wire:target="save">Save <i class="fa-solid fa-arrow-right ms-2"></i></span>
-                        <span wire:loading wire:target="save">Saving <i class="fa-solid fa-spinner ms-2 fa-spin"></i></span>
-                    </button>
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        <button
+                            type="button"
+                            class="btn btn-warning px-4 py-3 text-uppercase fw-bold"
+                            wire:click="resetPasswordToDefault"
+                            wire:loading.attr="disabled"
+                            wire:target="resetPasswordToDefault"
+                        >
+                            <span wire:loading.remove wire:target="resetPasswordToDefault">Reset Password to Default</span>
+                            <span wire:loading wire:target="resetPasswordToDefault">Resetting <i class="fa-solid fa-spinner ms-2 fa-spin"></i></span>
+                        </button>
+
+                        <button type="submit" class="btn btn-primary px-5 py-3 text-uppercase fw-bold">
+                            <span wire:loading.remove wire:target="save">Save <i class="fa-solid fa-arrow-right ms-2"></i></span>
+                            <span wire:loading wire:target="save">Saving <i class="fa-solid fa-spinner ms-2 fa-spin"></i></span>
+                        </button>
+                    </div>
                     <div class="mt-3 pb-5">
                         @if ($errors->any())
                             <small class="text-danger">There's an error upon submitting, please review your form.</small>

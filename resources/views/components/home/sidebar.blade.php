@@ -72,7 +72,7 @@
             </div>
         </div>
         <div class="footer">
-            &copy; 2025 Novulutions Inc. All Rights Reserved.
+            &copy; {{ now()->format('Y') }} Novulutions Inc. All Rights Reserved.
         </div>
     </div>
 </div>

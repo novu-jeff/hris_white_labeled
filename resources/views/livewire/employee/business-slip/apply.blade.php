@@ -10,21 +10,14 @@
                     <div class="card-body">
 
                         <div class="row">
-                            <div class="col-md-12 mb-4">
-                                <label class="mb-2" for="type">Section <span class="text-danger">*</span></label>
+                            <div class="col-md-6 mb-4">
+                                <label class="mb-2" for="type">Department <span class="text-danger">*</span></label>
                                <input type="text" wire:model="section" class="form-control text-uppercase"  disabled>
                                 <div class="error-field">
                                     @error('section') <span class="text-danger">{{ $message }}</span> @enderror
                                 </div>
                             </div>
-                            <div class="col-md-4 mb-4">
-                                <label class="mb-2" for="type">Department <span class="text-danger">*</span></label>
-                               <input type="text" class="form-control text-uppercase" wire:model="department" disabled>
-                                <div class="error-field">
-                                    @error('department') <span class="text-danger">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-md-4 mb-4">
+                            <div class="col-md-6 mb-4">
                                 <label class="mb-2" for="type">Branch <span class="text-danger">*</span></label>
                                <input type="text" class="form-control text-uppercase" wire:model="branch" disabled>
                                 <div class="error-field">

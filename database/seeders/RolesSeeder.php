@@ -26,6 +26,11 @@ class RolesSeeder extends Seeder
                 'guard_name' => 'web', // Guard for admin
             ],
             [
+                'name' => 'manager',
+                'description' => 'A manager can approve employee leave and overtime (ATRO) requests.',
+                'guard_name' => 'web',
+            ],
+            [
                 'name' => 'employee',
                 'description' => 'An employee can manage their own personal information, apply for leaves, clock in/out, view payslips, and access various employee-related services and requests.',
                 'guard_name' => 'employee', // Guard for employee
@@ -39,6 +44,12 @@ class RolesSeeder extends Seeder
                 'read roles',
                 'write roles',
             ])->pluck('name')->toArray(), // Exclude certain permissions, only web-based
+            'manager' => Permission::where('guard_name', 'web')->whereIn('name', [
+                'read leave',
+                'write leave',
+                'read atro',
+                'write atro',
+            ])->pluck('name')->toArray(),
             'employee' => Permission::where('guard_name', 'employee')->pluck('name')->toArray(), // Employee-based permissions for employee
         ];
 

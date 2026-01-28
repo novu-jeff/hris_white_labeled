@@ -22,6 +22,7 @@ return [
     'external_timelogs' => env('TIMELOGS_EXTERNAL'),
     'allow_upload_timelogs' => env('ALLOW_UPLOAD_TIMELOGS'),
     'bsd_emp_identical' => env('BSD_EMP_IDENTICAL'),
+    'lunch_tracking' => env('LUNCH_TRACKING', true),
 
     /*
     |--------------------------------------------------------------------------

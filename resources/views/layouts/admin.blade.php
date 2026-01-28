@@ -44,6 +44,25 @@
     
     @vite(['resources/sass/app.scss', 'resources/js/app.js', 'resources/sass/admin-layout.scss', 'resources/sass/chat.scss'])
        <style>
+        /* Admin sidebar hover & cursor improvements */
+        .employee-sidebar .menu-item,
+        .employee-sidebar .submenu-item,
+        .employee-sidebar .menu-group-title {
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .employee-sidebar .menu-item:hover,
+        .employee-sidebar .submenu-item:hover {
+            background-color: rgba(15, 23, 42, 0.06);
+            color: #0f172a;
+        }
+
+        .employee-sidebar .menu-group-title:hover {
+            background-color: rgba(15, 23, 42, 0.04);
+            color: #0f172a;
+        }
+
         .chat-float-btn {
             position: fixed;
             bottom: 25px;
@@ -228,20 +247,24 @@
     const menuGroups = document.querySelectorAll("#adminSidebar .menu-group");
     const menuGroupTitles = document.querySelectorAll("#adminSidebar .menu-group-title");
     const submenuLinks = document.querySelectorAll("#adminSidebar .submenu-item");
+    const topLevelLinks = document.querySelectorAll("#adminSidebar .menu-item");
 
-    /* -----------------------------
-       1. AUTO EXPAND ACTIVE MENU GROUP
-    --------------------------------*/
-    submenuLinks.forEach(link => {
-        if (currentUrl.includes(link.href)) {
+    // 1. Mark active menu items (top-level and submenu) based on current URL
+    const markActiveLink = (link) => {
+        if (!link || !link.href) return;
+        if (currentUrl.startsWith(link.href)) {
+            link.classList.add("is-active");
             const group = link.closest(".menu-group");
-            group?.classList.add("active");
+            if (group) {
+                group.classList.add("active");
+            }
         }
-    });
+    };
 
-    /* -----------------------------
-       2. ACCORDION BEHAVIOR
-    --------------------------------*/
+    topLevelLinks.forEach(markActiveLink);
+    submenuLinks.forEach(markActiveLink);
+
+    // 2. Accordion behavior for menu groups
     menuGroupTitles.forEach(title => {
         title.addEventListener("click", function () {
             const parent = this.parentElement;
@@ -263,10 +286,6 @@
             });
         });
     });
-
-    /* -----------------------------
-       3. AUTO-SCROLL ON ANY MENU CLICK
-    --------------------------------*/
    
 });
 

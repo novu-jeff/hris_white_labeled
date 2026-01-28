@@ -3,23 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Contracts\Queue\Monitor;
 use Illuminate\Http\Request;
 
 class MonitoringController extends Controller
 {
     public function post(Request $request) {
-        $data = $request->all();
-
-        try {
-            Monitor::createOrUpdate([
-                'application',
-                'created_at'
-            ], [
-                
-            ])
-        } catch (\Throwable $th) {
-            //throw $th;
-        }
+        // Disabled placeholder endpoint (was causing parse errors).
+        // If monitoring is required, implement using a real model/table.
+        return response()->json(['status' => false, 'message' => 'Monitoring endpoint not implemented.'], 501);
     }
 }

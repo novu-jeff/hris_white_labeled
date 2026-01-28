@@ -108,9 +108,10 @@ class Edit extends Component
                 }
 
                 $user->save();
-            }
 
-            $user->assignRole($this->role);
+                // Ensure only the selected role remains (avoid stacking roles like superadmin)
+                $user->syncRoles([$this->role]);
+            }
 
             $this->reset(['password', 'confirm_password']);
 

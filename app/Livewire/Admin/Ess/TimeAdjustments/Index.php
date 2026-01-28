@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Ess\TimeAdjustments;
 
+use App\Helpers\SupervisorApproval;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeTimelogs;
 use App\Models\EmployeeTimeAdjustments;
@@ -45,6 +46,16 @@ class Index extends Component
 
     public function disapproved(bool $isNotify = true) {
 
+        $employeeNo = EmployeeTimeAdjustments::where('id', $this->selected_id)->value('employee_no');
+        if ($employeeNo && !SupervisorApproval::canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove time adjustment requests for this employee.',
+            ]);
+        }
+
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
@@ -83,6 +94,16 @@ class Index extends Component
 
     public function approved(bool $isNotify = true) {
 
+        $employeeNo = EmployeeTimeAdjustments::where('id', $this->selected_id)->value('employee_no');
+        if ($employeeNo && !SupervisorApproval::canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove time adjustment requests for this employee.',
+            ]);
+        }
+
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
@@ -108,34 +129,21 @@ class Index extends Component
 
             $record->action_by_id = Auth::user()->id;
 
-            $clock_in_am = Carbon::parse($record->clock_in)->format('H:i:s');
-            $clock_out_am = Carbon::parse($record->break_out)->format('H:i:s');
-            $clock_in_pm = Carbon::parse($record->break_in)->format('H:i:s');
-            $clock_out_pm = Carbon::parse($record->clock_out)->format('H:i:s');
+            $clock_in_ts = Carbon::parse($record->clock_in)->format('H:i:s');
+            $clock_out_ts = Carbon::parse($record->clock_out)->format('H:i:s');
             $date = Carbon::parse($record->date)->format('Y-m-d');
 
-           // dd($clock_in_am, $clock_out_am, $clock_in_pm, $clock_out_pm, $date );
-
+            // Employee time adjustment has no lunch in/out; only clock_in and clock_out are used.
             $rawTimestamps = [
                 'clock_in' => [
-                    'timestamp' => $clock_in_am,
-                    'type' => 0,
-                ],
-                'lunch_out' => [
-                    'timestamp' => $clock_out_am,
-                    'type' => 1,
-                ],
-                'lunch_in' => [
-                    'timestamp' => $clock_in_pm,
+                    'timestamp' => $clock_in_ts,
                     'type' => 0,
                 ],
                 'clock_out' => [
-                    'timestamp' => $clock_out_pm,
+                    'timestamp' => $clock_out_ts,
                     'type' => 1,
                 ]
             ];
-
-          //  dd($rawTimestamps);
             
             $logs = collect($rawTimestamps)->map(function ($time) use ($date, $record) {
                 return [

@@ -36,13 +36,22 @@ class Education extends Component
 
     public function loadRecords() {
 
-        $this->employee_no = Auth::user()->employee_no;
-        $this->employee_id = Auth::user()->id;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+
+        if (!$user) {
+            // Session expired / wrong guard - redirect to employee login.
+            return redirect()->route('employee.login');
+        }
+
+        $this->employee_no = $user->employee_no;
+        $this->employee_id = $user->id;
 
         $updated = EmployeeUpdateEducation::where('employee_no', $this->employee_no)
+            ->orderBy('created_at', 'asc')
             ->get()
             ->toArray() ?? [];
         $stored = EmployeeEducation::where('employee_no', $this->employee_no)
+            ->orderBy('created_at', 'asc')
             ->get()
             ->toArray() ?? [];
 
@@ -79,7 +88,23 @@ class Education extends Component
             ]);
             return;
         }
+
+        // If called from confirmation without a valid index, bail safely.
+        if ($this->recordIndex === null) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Unable to delete',
+                'message' => 'No record selected for deletion.',
+            ]);
+            return;
+        }
         
+        // Support direct calls like removeRecord(false, index)
+        if ($index !== null) {
+            $this->recordIndex = $index;
+        }
+
         $updatedRecords = EmployeeUpdateEducation::where('employee_no', $this->employee_no)
             ->orderBy('created_at', 'asc')
             ->get();
@@ -92,12 +117,29 @@ class Education extends Component
 
         $record = $records[$this->recordIndex] ?? null;
 
+        if (!$record) {
+            // If it's a newly-added (unsaved) row, just remove from UI state.
+            if (isset($this->records[$this->recordIndex])) {
+                unset($this->records[$this->recordIndex]);
+                $this->records = array_values($this->records);
+                return;
+            }
+
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Record not found',
+                'message' => 'This record may have already been deleted. Please refresh the page.',
+            ]);
+            $this->loadRecords();
+            return;
+        }
 
         if ($record && $record->documents) {
             $path = 'documents/' . $this->employee_no . '/' . $record->documents;
 
-            if (Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->delete($path);
+            if (Storage::disk('s3')->exists($path)) {
+                Storage::disk('s3')->delete($path);
             }
 
         }
@@ -197,20 +239,20 @@ class Education extends Component
         
             if ($record) {
                 if (!empty($record->$identifier)) {
-                    Storage::disk('public')->delete("$path/{$record->$identifier}");
+                    Storage::disk('s3')->delete("$path/{$record->$identifier}");
                 }
         
                 if ($identifier === 'documents') {
                     foreach (['children', 'employment_history', 'civil_service', 'trainings', 'others', 'skills'] as $relation) {
                         if ($record->$relation && !empty($record->$relation->$identifier)) {
-                            Storage::disk('public')->delete("$path/{$record->$relation->$identifier}");
+                            Storage::disk('s3')->delete("$path/{$record->$relation->$identifier}");
                         }
                     }
                 }
             }
             
             $filename = uniqid(time()) . '.' . $file->getClientOriginalExtension();
-            $file->storeAs($path, $filename, 'public');
+            $file->storeAs($path, $filename, 's3');
         
             return $filename;
         }
@@ -236,8 +278,8 @@ class Education extends Component
 
         $path = 'documents/' . $this->employee_no . '/' . $file;
 
-        if ($file && Storage::disk('public')->exists($path)) {
-            return Storage::disk('public')->download($path);
+        if ($file && Storage::disk('s3')->exists($path)) {
+            return Storage::disk('s3')->download($path);
         }
 
         return $this->dispatch('alert', [

@@ -161,6 +161,7 @@ class HRISProcessingService extends Controller
                 'status' => $data['status'],
                 'salary_method' => $data['salary_method'],
                 'salary' => $salary,
+                'allowance' => (isset($data['allowance']) && $data['allowance'] !== '') ? $data['allowance'] : null,
                 'payroll_account_number' => $data['payroll_account_number'],
             ]);
 

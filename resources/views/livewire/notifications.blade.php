@@ -1,4 +1,4 @@
-<div class="notification d-none d-md-block" wire:poll="loadNotifications" wire:poll.keep-alive wire:visible>
+<div class="notification d-none d-md-block" @if($isOpened) wire:poll.10s.visible="loadNotifications" @endif>
     <div wire:click="toggle" data-bs-toggle="tooltip" title="Notification">
         <i class="fa-regular fa-bell"></i>
         @if($notifications['unread'] > 0)
@@ -80,7 +80,12 @@
 
         var notificationList = $('#notificationList');
         notificationList.on('scroll', function() {
-            if (notificationList.scrollTop() + 300) {
+            // Only refresh when user is near the bottom (prevents constant /livewire/update spam).
+            const el = notificationList[0];
+            if (!el) return;
+
+            const nearBottom = (notificationList.scrollTop() + notificationList.innerHeight()) >= (el.scrollHeight - 300);
+            if (nearBottom) {
                 Livewire.dispatch('loadNotifications');
             }
         });

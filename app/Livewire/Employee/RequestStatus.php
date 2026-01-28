@@ -18,11 +18,33 @@ class RequestStatus extends Component
     
     use WithFileUploads;
 
+    public $isChatOpen = false;
     public $user;
     public $message;
     public $records;
     public $attachments = [];
     public $preview_attachments;
+
+    protected $listeners = [
+        'setChatOpen',
+        'markMessagesAsSeen',
+    ];
+
+    public function setChatOpen($open = false): void
+    {
+        $this->isChatOpen = (bool) $open;
+
+        if ($this->isChatOpen) {
+            $this->loadRecords();
+            $this->makeSeen();
+            $this->dispatch('showLatest');
+        }
+    }
+
+    public function markMessagesAsSeen(): void
+    {
+        $this->makeSeen();
+    }
     
     public function mount() {
         $this->user = Auth::user()->load('personal')->personal;

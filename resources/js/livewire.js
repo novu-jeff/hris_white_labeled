@@ -196,6 +196,9 @@ Livewire.on('showModal', function(data) {
         ckeditor();
     }
 
+    // Ensure password toggle is applied for modal inputs
+    setTimeout(() => window.initPasswordToggles?.(), 0);
+
 });
 
 Livewire.on('hideModal', function(data) {
@@ -256,3 +259,99 @@ Livewire.on('scrollToError', function(errors) {
         }
     }
 });
+
+/**
+ * Global password visibility toggle
+ * - Wraps every <input type="password"> in an input-group with an eye button
+ * - Works with dynamically rendered Livewire DOM (MutationObserver)
+ */
+function initPasswordToggles(root = document) {
+    if (!root) return;
+
+    // Inject minimal CSS once
+    if (!document.getElementById('pw-toggle-style')) {
+        const style = document.createElement('style');
+        style.id = 'pw-toggle-style';
+        style.textContent = `
+            .pw-toggle-btn {
+                cursor: pointer;
+                user-select: none;
+            }
+            .pw-toggle-btn:focus {
+                box-shadow: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const inputs = root.querySelectorAll
+        ? root.querySelectorAll('input[type="password"]:not([data-pw-toggle-applied])')
+        : [];
+
+    inputs.forEach((input) => {
+        // Skip if input is inside an input-group already (we still can append button)
+        // but only if we applied before.
+        input.setAttribute('data-pw-toggle-applied', '1');
+
+        // Ensure an input-group wrapper
+        const parent = input.parentElement;
+        const isInputGroup = parent && parent.classList.contains('input-group');
+
+        let groupEl = parent;
+        if (!isInputGroup) {
+            groupEl = document.createElement('div');
+            groupEl.className = 'input-group';
+            input.parentNode.insertBefore(groupEl, input);
+            groupEl.appendChild(input);
+        }
+
+        // Add toggle button
+        const btnWrap = document.createElement('span');
+        btnWrap.className = 'input-group-text pw-toggle-btn';
+        btnWrap.setAttribute('role', 'button');
+        btnWrap.setAttribute('title', 'Show/Hide password');
+        btnWrap.innerHTML = '<i class="fa-solid fa-eye"></i>';
+
+        const toggle = () => {
+            const isPassword = input.getAttribute('type') === 'password';
+            input.setAttribute('type', isPassword ? 'text' : 'password');
+            btnWrap.innerHTML = isPassword
+                ? '<i class="fa-solid fa-eye-slash"></i>'
+                : '<i class="fa-solid fa-eye"></i>';
+        };
+
+        btnWrap.addEventListener('click', toggle);
+
+        // If a toggle already exists (e.g., duplicated Livewire render), don't append again
+        const alreadyHasToggle = groupEl.querySelector('.pw-toggle-btn');
+        if (!alreadyHasToggle) {
+            groupEl.appendChild(btnWrap);
+        }
+    });
+}
+
+window.initPasswordToggles = initPasswordToggles;
+
+// Initial run
+document.addEventListener('DOMContentLoaded', () => initPasswordToggles(document));
+
+// Re-run after Livewire navigations
+document.addEventListener('livewire:navigated', () => initPasswordToggles(document));
+
+// Observe DOM changes to catch dynamically injected password fields (Livewire, modals, etc.)
+if (!window.__pwToggleObserver) {
+    window.__pwToggleObserver = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            if (m.type !== 'childList' || !m.addedNodes?.length) continue;
+            m.addedNodes.forEach((node) => {
+                if (node.nodeType !== 1) return; // ELEMENT_NODE
+                initPasswordToggles(node);
+            });
+        }
+    });
+
+    window.__pwToggleObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+    });
+}

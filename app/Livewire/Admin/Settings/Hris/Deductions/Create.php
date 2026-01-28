@@ -10,16 +10,27 @@ use Livewire\Component;
 class Create extends Component
 {
     public $job_category;
-    public $fields = [];
+    public $fields = [
+        'amount_type' => 'amount'
+    ];
 
     protected $listeners = ['populateField'];
 
     public function rules() {
-        return [
-            'fields.code' => 'required|string|max:255',
+        $rules = [
+            'fields.code' => 'required|string|max:255|unique:other_deductions,code',
             'fields.name' => 'required|string|max:255',
-            'fields.amount' => 'required|numeric',
+            'fields.amount' => 'required|numeric|min:0',
+            'fields.amount_type' => 'required|in:amount,percentage',
+            'fields.maximum_amount' => 'nullable|numeric|min:0',
         ];
+
+        // If percentage, ensure it's between 0 and 100
+        if (isset($this->fields['amount_type']) && $this->fields['amount_type'] === 'percentage') {
+            $rules['fields.amount'] = 'required|numeric|min:0|max:100';
+        }
+
+        return $rules;
     }
 
     public function messages() {
@@ -34,6 +45,13 @@ class Create extends Component
 
             'fields.amount.required' => 'The amount field is required.',
             'fields.amount.numeric' => 'The amount must be a number.',
+            'fields.amount.min' => 'The amount must be 0 or greater.',
+            'fields.amount.max' => 'The percentage must not exceed 100%.',
+            'fields.amount_type.required' => 'The amount type is required.',
+            'fields.amount_type.in' => 'The amount type must be either amount or percentage.',
+            'fields.code.unique' => 'The code has already been taken.',
+            'fields.maximum_amount.numeric' => 'The maximum amount must be a number.',
+            'fields.maximum_amount.min' => 'The maximum amount must be 0 or greater.',
         ];
     }
 
@@ -57,6 +75,8 @@ class Create extends Component
                 'code' => $this->fields['code'],
                 'name' => $this->fields['name'],
                 'amount' => $this->fields['amount'],
+                'amount_type' => $this->fields['amount_type'] ?? 'amount',
+                'maximum_amount' => $this->fields['maximum_amount'] ?? null,
             ]);
 
             $this->dispatch('alert', [

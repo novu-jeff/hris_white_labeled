@@ -144,7 +144,7 @@
                     </div>
                 </div>
                 <p class="ending text-center mb-0 text-muted mt-5">
-                    &copy; 2025. All rights reserved {{$provider['company']}}
+                    &copy; {{ now()->format('Y') }}. All rights reserved {{$provider['company']}}
                 </p>
             </div>
         </div>

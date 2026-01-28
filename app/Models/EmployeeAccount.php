@@ -18,6 +18,7 @@ class EmployeeAccount extends Authenticatable
         'applicant_id',
         'email_id',
         'email',
+        'email_notifications_enabled',
         'password',
         'isLoggedIn',
         'token',

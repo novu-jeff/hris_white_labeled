@@ -30,8 +30,14 @@ class Family extends Component
 
     public function loadRecords() {
 
-        $this->employee_no = Auth::user()->employee_no;
-        $this->employee_id = Auth::user()->id;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+        if (!$user) {
+            // Session expired / wrong guard - redirect to employee login.
+            return redirect()->route('employee.login');
+        }
+
+        $this->employee_no = $user->employee_no;
+        $this->employee_id = $user->id;
 
         $updated = EmployeeUpdateParents::where('employee_no', $this->employee_no)->first();
         $stored = EmployeeParents::where('employee_no', $this->employee_no)->first();

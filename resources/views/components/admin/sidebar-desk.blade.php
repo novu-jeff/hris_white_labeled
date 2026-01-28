@@ -7,11 +7,12 @@
 
     <div class="sidebar-menu">
 
-        <!-- Dashboard -->
+    <!-- Dashboard -->
         <a href="{{ route('admin.dashboard') }}" class="menu-item">
             <i class="fa-solid fa-house"></i> Dashboard
         </a>
 
+        @unlessrole('supervisor')
         <!-- Recruitment -->
         @canany([
             'read jobs',
@@ -60,6 +61,7 @@
         <a href="{{ route('payroll.index') }}" class="menu-item">
             <i class="fa-solid fa-dollar-sign"></i> Payroll
         </a>
+        @endunlessrole
 
          <!-- ESS -->
         @canany([
@@ -88,6 +90,12 @@
                 @can('read obs')
                 <a href="{{ route('ess.obs') }}" class="submenu-item">
                     <i class="fa-solid fa-briefcase"></i> Official Business Slip Application
+                </a>
+                @endcan
+
+                @can('read offset')
+                <a href="{{ route('ess.offset') }}" class="submenu-item">
+                    <i class="fa-solid fa-calendar-day"></i> Offset Application
                 </a>
                 @endcan
 
@@ -141,21 +149,23 @@
                 <a href="{{ route('reports.dtr') }}" class="submenu-item">
                     <i class="fa-solid fa-clipboard-list"></i> Daily Time Record</a>
                 @endcan
-                @if($product == 'private')
-                    <a href="{{ route('reports.bir') }}" class="submenu-item">
-                        <i class="fa-solid fa-file-lines"></i> BIR</a>
-                    <a href="{{ route('reports.philhealth') }}" class="submenu-item">
-                        <i class="fa-solid fa-heart-circle-check"></i> PhilHeath</a>
-                    <a href="{{ route('reports.sss') }}" class="submenu-item">
-                        <i class="fa-solid fa-id-card"></i> SSS</a>
-                    <a href="{{ route('reports.pagibig') }}" class="submenu-item">
-                        <i class="fa-solid fa-hand-holding-heart"></i> Pagibig</a>
-                
-                 @endif
+                @unlessrole('supervisor')
+                    @if($product == 'private')
+                        <a href="{{ route('reports.bir') }}" class="submenu-item">
+                            <i class="fa-solid fa-file-lines"></i> BIR</a>
+                        <a href="{{ route('reports.philhealth') }}" class="submenu-item">
+                            <i class="fa-solid fa-heart-circle-check"></i> PhilHeath</a>
+                        <a href="{{ route('reports.sss') }}" class="submenu-item">
+                            <i class="fa-solid fa-id-card"></i> SSS</a>
+                        <a href="{{ route('reports.pagibig') }}" class="submenu-item">
+                            <i class="fa-solid fa-hand-holding-heart"></i> Pagibig</a>
+                    @endif
+                @endunlessrole
             </div>    
         </div>
          @endcanany 
 
+         @unlessrole('supervisor')
          <!-- HRIS -->
         @canany([
             'read company-information', 'read scheduler', 'read tranches', 'read holidays',
@@ -295,7 +305,12 @@
 
             </div>
         </div>
-     @endcanany 
+        @endcanany 
+        @endunlessrole
+
+        <a href="{{ route('admin.change-password') }}" class="menu-item mt-2">
+            <i class="fa-solid fa-key"></i> Change Password
+        </a>
     </div>
 
 </div>

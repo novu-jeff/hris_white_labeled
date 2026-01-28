@@ -8,7 +8,6 @@ use App\Services\ClockInOutService;
 use App\Services\DailyTimeRecordService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -29,15 +28,17 @@ class Clock extends Component
     public $entry;
     public $imageCaptured;
     public $isForcedOut = false;
+    public $captured_at;
     public $accomplishment;
+    public $requires_accomplishment = false;
     public $logs = [];
     public $manipulate_timestamp = '07:00';
     public $upload_accomplishment;
 
     protected $listeners = [
-        'getLocation',
         'imageCaptured',
-        'triggerClockForced',
+        'resetCapture',
+        'confirmClock',
         'saveAccomplishment'
     ];
 
@@ -79,67 +80,7 @@ class Clock extends Component
         $this->bsd_emp_identical = config('app.bsd_emp_identical');
     }
 
-   public function getLocation($lng, $lat, $isToHide = false)
-{
-    // Log coordinates received from JS
-    // \Log::info('GPS Location Received:', ['lng' => $lng, 'lat' => $lat, 'isToHide' => $isToHide]);
-
-    $this->isToHide = $isToHide;
-    $accessToken = env('MAPBOX_API');
-    $this->gps_location = null; // default
-
-    // Default fallback place string
-    $fallbackPlace = "Lat: {$lat}, Lng: {$lng}";
-
-    try {
-        $url = "https://api.mapbox.com/geocoding/v5/mapbox.places/{$lng},{$lat}.json";
-        $response = Http::get($url, ['access_token' => $accessToken]);
-
-        if ($response->successful()) {
-            $decoded = $response->json();
-            \Log::info('Mapbox response:', $decoded);
-
-            $feature = $decoded['features'][0] ?? null;
-            $placeName = $feature['place_name'] ?? $fallbackPlace;
-
-            $this->gps_location = [
-                'place' => $placeName,
-                'coordinates' => [
-                    'lng' => $lng,
-                    'lat' => $lat
-                ]
-            ];
-
-            // Dispatch map to JS
-           $this->dispatch('loadMap', [
-                'token' => $accessToken,
-                'lng' => $lng,
-                'lat' => $lat,
-                'place' =>  $gps_location['place_name'] ?? null
-            ]);
-        } else {
-            // Mapbox failed — fallback to coordinates
-            $this->gps_location = [
-                'place' => $fallbackPlace,
-                'coordinates' => [
-                    'lng' => $lng,
-                    'lat' => $lat
-                ]
-            ];
-            // \Log::warning('Mapbox API request failed', ['status' => $response->status()]);
-        }
-    } catch (\Exception $e) {
-        // Network or other errors — fallback to coordinates
-        $this->gps_location = [
-            'place' => $fallbackPlace,
-            'coordinates' => [
-                'lng' => $lng,
-                'lat' => $lat
-            ]
-        ];
-        \Log::error('Mapbox API exception: ' . $e->getMessage());
-    }
-}
+    // Location temporarily disabled.
 
 
     public function showLogs()
@@ -209,7 +150,8 @@ class Clock extends Component
     {
         $service = app(DailyTimeRecordService::class);
         $shiftSchedule = $service->getShiftSchedule($this->employee_no);
-        $hasBreaktime = $shiftSchedule->is_breaktime_required ?? false;
+        $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+        $hasBreaktime = $lunchTracking && ($shiftSchedule->is_breaktime_required ?? false);
 
         $timestamp = now()->format('Y-m-d');
         $bsd_no = $this->bsd_emp_identical ? $this->employee_no : $service->getBsdNo($this->employee_no);
@@ -223,6 +165,7 @@ class Clock extends Component
 
         if ($hasAccomplishment) {
             $this->status = 'Done';
+            $this->requires_accomplishment = false;
             return;
         }
 
@@ -243,6 +186,15 @@ class Clock extends Component
         }
 
         $this->dispatch('loadDefaults');
+
+        // Accomplishment is required every Friday during Clock Out.
+        $this->requires_accomplishment = $this->shouldRequireAccomplishment();
+    }
+
+    private function shouldRequireAccomplishment(): bool
+    {
+        // "Every Friday clock out" — if status is Clock Out (or forced-out) and it's Friday.
+        return now()->isFriday() && ($this->status === 'Clock Out' || $this->isForcedOut);
     }
 
    public function triggerClock()
@@ -257,6 +209,8 @@ class Clock extends Component
             ]);
             return;
         }
+
+        $effectiveEntry = $this->getEffectiveEntry();
 
         if (!$this->isFaceDetected) {
             $this->dispatch('alert', [
@@ -289,25 +243,98 @@ class Clock extends Component
             return;
         }
 
-        $service = app(ClockInOutService::class);
+        // Require accomplishment report on Friday clock-out.
+        if ($this->shouldRequireAccomplishment() && empty($this->accomplishment)) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Accomplishment Report Required',
+                'message' => 'Please upload your accomplishment report before clocking out (required every Friday).',
+            ]);
+            return;
+        }
 
-        $toProcess = [
+        $service = app(ClockInOutService::class);
+        $toProcess = $this->buildToProcess();
+
+        $response = $service->process((string) $effectiveEntry, $toProcess, (string) $this->employee_no);
+
+        // Use the app-wide confirmation modal for "confirm" scenarios (late/undertime, etc).
+        if (($response['alert'] ?? null) === 'confirm') {
+            $this->dispatch('showConfirmation', [
+                'title' => $response['title'] ?? 'Are you sure to continue?',
+                'message' => $response['message'] ?? '',
+                'action' => 'confirmClock',
+            ]);
+            return;
+        }
+
+        $this->dispatch('alert', [
+            'showAlert' => true,
+            'status' => $response['alert'] ?? 'info',
+            'title' => $response['title'] ?? 'Please be informed',
+            'message' => $response['message'] ?? '',
+        ]);
+
+        if (($response['status'] ?? false) === true) {
+            $this->toggleStatus();
+        }
+    }
+
+    public function confirmClock($payload = null)
+    {
+        // Same safety checks as triggerClock (confirmation happens client-side).
+        if ($this->status === 'Done') {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'info',
+                'title' => 'Please be informed',
+                'message' => 'You\'ve completed today\'s work.',
+            ]);
+            return;
+        }
+
+        if (!$this->isFaceDetected || empty($this->imageCaptured)) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Unable to proceed',
+                'message' => 'Please capture a photo with face detection before proceeding.',
+            ]);
+            return;
+        }
+
+        $service = app(ClockInOutService::class);
+        $response = $service->insertLog($this->getEffectiveEntry(), $this->buildToProcess(), (string) $this->employee_no);
+
+        $this->dispatch('alert', [
+            'showAlert' => true,
+            'status' => $response['alert'] ?? 'success',
+            'title' => $response['title'] ?? 'Recorded!',
+            'message' => $response['message'] ?? '',
+        ]);
+
+        $this->toggleStatus();
+    }
+
+    private function buildToProcess(): array
+    {
+        return [
             'timestamp' => Carbon::now(),
             'captured_image' => $this->imageCaptured,
             'captured_location' => $this->gps_location,
             'accomplishment' => $this->accomplishment ?? null,
         ];
+    }
 
-        $response = $service->process($this->entry, $toProcess, $this->employee_no);
+    private function getEffectiveEntry(): int
+    {
+        // If user force-clocks out during lunch-out, treat it as a clock-out entry.
+        if ($this->isForcedOut) {
+            return 3;
+        }
 
-        $this->dispatch('alert', [
-            'showAlert' => true,
-            'status' => $response['alert'],
-            'title' => $response['title'],
-            'message' => $response['message'],
-        ]);
-
-        $this->toggleStatus();
+        return (int) $this->entry;
     }
 
     public function delete()
@@ -317,11 +344,26 @@ class Clock extends Component
         $this->toggleStatus();
     }
 
-    public function imageCaptured($imageData, $isFaceDetected = false, $isForcedOut = false)
+    public function imageCaptured($imageData, $isFaceDetected = false, $isForcedOut = false, $location = null)
     {
         $this->imageCaptured = $imageData;
         $this->isFaceDetected = $isFaceDetected;
         $this->isForcedOut = $isForcedOut;
+        $this->captured_at = now()->toDateTimeString();
+        $this->gps_location = $location;
+        $this->requires_accomplishment = $this->shouldRequireAccomplishment();
+    }
+
+    public function resetCapture(): void
+    {
+        $this->imageCaptured = null;
+        $this->isFaceDetected = false;
+        $this->isForcedOut = false;
+        $this->captured_at = null;
+        $this->upload_accomplishment = null;
+        $this->accomplishment = null;
+        $this->requires_accomplishment = false;
+        $this->resetErrorBag();
     }
 
     public function updatedUploadAccomplishment()
@@ -332,45 +374,35 @@ class Clock extends Component
 
 
     public function saveAccomplishment()
-{
-    
+    {
+        $this->resetErrorBag();
 
-    $this->resetErrorBag();
+        // Safety check
+        if (!$this->upload_accomplishment) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Missing File',
+                'message' => 'Please upload an accomplishment report.',
+            ]);
+            return;
+        }
 
+        // Store the file
+        $file = $this->upload_accomplishment;
+        $fileName = $this->employee_no . '_' . time() . '.' . $file->getClientOriginalExtension();
+        $disk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
+        $file->storeAs('accomplishments', $fileName, $disk);
 
+        // Save the filename to DB or property
+        $this->accomplishment = $fileName;
 
-    // Safety check
-    if (!$this->upload_accomplishment) {
-        $this->dispatch('alert', [
-            'showAlert' => true,
-            'status' => 'error',
-            'title' => 'Missing File',
-            'message' => 'Please upload an accomplishment report.',
-        ]);
-        return;
+        // Optional: reset the property after upload if you want to allow re-upload
+        $this->upload_accomplishment = null;
+
+        // Trigger clock or next step (this will show Recorded!/confirm, etc.)
+        $this->triggerClock();
     }
-
-    // Store the file
-    $file = $this->upload_accomplishment;
-    $fileName = $this->employee_no . '_' . time() . '.' . $file->getClientOriginalExtension();
-    $file->storeAs('accomplishments', $fileName, 'public');
-
-    // Save the filename to DB or property
-    $this->accomplishment = $fileName;
-
-    // Optional: reset the property after upload if you want to allow re-upload
-    $this->upload_accomplishment = null;
-
-    // Trigger clock or next step
-    $this->triggerClock();
-
-    $this->dispatch('alert', [
-        'showAlert' => true,
-        'status' => 'success',
-        'title' => 'Success',
-        'message' => 'Accomplishment report uploaded successfully.',
-    ]);
-}
 
     public function render()
     {

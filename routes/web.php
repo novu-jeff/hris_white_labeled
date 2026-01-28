@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\DownloadController;
 use App\Http\Controllers\Admin\ESSFAQController;
 use App\Http\Controllers\Admin\TimeAdjustmentsController as ESSTimeAdjustmentsController;
 use App\Http\Controllers\Admin\OfficialBusinessSlipController;
+use App\Http\Controllers\Admin\OffsetController;
 use App\Http\Controllers\Admin\PayrollController;
 use App\Http\Controllers\Admin\Reports\BIR\BIRController;
 use App\Http\Controllers\Admin\Reports\DailyTimeRecord\DailyTimeRecordController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\Admin\Settings\EmployeeScheduleController;
 use App\Http\Controllers\Admin\Settings\HRIS\EarningsController;
 use App\Http\Controllers\Admin\Settings\OrganizationController;
 use App\Http\Controllers\Admin\Settings\Payroll\HolidayController;
+use App\Http\Controllers\Admin\Settings\Payroll\PayrollSettingsController;
 use App\Http\Controllers\Admin\Settings\RoleController;
 use App\Http\Controllers\Admin\TimeKeepingController;
 use App\Http\Controllers\Admin\TranchesController;
@@ -73,6 +75,7 @@ use App\Http\Controllers\Employee\ATROController as EmployeeATROController;
 use App\Http\Controllers\Employee\ProfileController as EmployeeProfileController;
 use App\Http\Controllers\Employee\AnnouncementController as EmployeeAnnouncementController;
 use App\Http\Controllers\Employee\BusinessSlipController;
+use App\Http\Controllers\Employee\OffsetController as EmployeeOffsetController;
 use App\Http\Controllers\Employee\DirectoryController as EmployeeDirectoryController;
 use App\Http\Controllers\Employee\EmployeeDailyTimeRecordController;
 use App\Http\Controllers\Employee\TimeAdjustmentsController;
@@ -194,6 +197,11 @@ $adminRoutes = function () {
         Route::get('dashboard', [AdminDashboardController::class, 'index'])
             ->name('admin.dashboard');
 
+        Route::get('profile/change-password', [AdminLoginController::class, 'changePassword'])
+            ->name('admin.change-password');
+        Route::post('profile/change-password', [AdminLoginController::class, 'updatePassword'])
+            ->name('admin.change-password.update');
+
         Route::get('download', [DownloadController::class, 'index'])
             ->name('download.view');
 
@@ -258,6 +266,9 @@ $adminRoutes = function () {
             
             Route::get('official-business-slip', [OfficialBusinessSlipController::class, 'index'])
                 ->name('ess.obs');
+
+            Route::get('offset', [OffsetController::class, 'index'])
+                ->name('ess.offset');
 
             Route::get('authority-to-render-over-time', [ESSAuthorityToRenderTimeController::class, 'index'])
                 ->name('ess.atro');
@@ -424,11 +435,16 @@ $adminRoutes = function () {
                 ->names('users.access');
 
             Route::get('/user-trails', [App\Http\Controllers\TrailController::class, 'index'])
-    ->name('user.trails');    
+    ->name('user.trails');
+
+            Route::get('/employee-modules', [App\Http\Controllers\Admin\Settings\EmployeeModulesController::class, 'index'])
+                ->name('settings.employee-modules');
             
             Route::prefix('payroll')->group( function() {
                 Route::resource('/holidays', HolidayController::class)->only('create', 'index', 'edit')
                     ->names('holiday');
+                Route::get('/settings', [PayrollSettingsController::class, 'index'])
+                    ->name('payroll.settings');
             });
         });
     });
@@ -482,6 +498,16 @@ $employeeRoutes = function () {
                 ->name('employee.obs.apply');
             Route::get('edit/{id}', [BusinessSlipController::class, 'edit'])
                 ->name('employee.obs.edit');
+        });
+
+        Route::prefix('offset')->group(function() {
+
+            Route::get('/', [EmployeeOffsetController::class, 'index'])
+                ->name('employee.offset.index');
+            Route::get('apply', [EmployeeOffsetController::class, 'create'])
+                ->name('employee.offset.apply');
+            Route::get('edit/{id}', [EmployeeOffsetController::class, 'edit'])
+                ->name('employee.offset.edit');
         });
 
         Route::prefix('authority-to-render-time')->group(function() {

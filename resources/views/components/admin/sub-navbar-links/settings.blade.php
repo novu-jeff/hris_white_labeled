@@ -15,6 +15,7 @@
         @endcan
         @can('read holidays')
             <li><a class="dropdown-item" href="{{route('holiday.index')}}">Holiday</a></li>
+            <li><a class="dropdown-item" href="{{route('payroll.settings')}}">Payroll Settings</a></li>
         @endcan
         @canany([
             'read branches',
@@ -31,7 +32,7 @@
                     @endcan
 
                     @can('read departments')
-                        <li><a class="dropdown-item" href="{{route('department.index')}}">Clusters</a></li>
+                        <li><a class="dropdown-item" href="{{route('department.index')}}">Departments</a></li>
                     @endcan
 
                     @can('read sections')
@@ -145,5 +146,8 @@
             </li>
         @endcanany
         <li><a class="dropdown-item" href="{{route('system.jobs')}}">System Jobs</a></li>
+        @if(auth()->user() && method_exists(auth()->user(), 'hasRole') && auth()->user()->hasRole('superadmin'))
+            <li><a class="dropdown-item" href="{{ route('settings.employee-modules') }}">Employee Modules</a></li>
+        @endif
     </ul>
 </li>

@@ -24,7 +24,7 @@
                         </div>
 
                         <div class="modal-body">
-                            <div class="msg-body" wire:poll="loadRecords" wire:poll.keep-alive id="messagesContainer">
+                            <div class="msg-body" wire:poll.3s.visible="loadRecords" id="messagesContainer">
                                 <ul>
                                     @foreach ($records as $message)
                                         @if (!empty($message['message']) || !$message['attachments']->isEmpty())

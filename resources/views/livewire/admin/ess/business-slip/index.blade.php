@@ -23,7 +23,7 @@
                     </div>
                     <div class="row">
                         <div class="col-12 col-md-12 mb-4">
-                            <label class="mb-2" for="section">Section</label>
+                            <label class="mb-2" for="section">Department</label>
                             <input type="text" id="section" class="form-control restricted" value="{{ isset($view_records->employment->section->name) ? ($view_records->employment->section->name . ' (' . $view_records->employment->section->code . ') ') : 'No Data Provided' }}" readonly>
                         </div>
                         <div class="col-12 col-md-6 mb-4">

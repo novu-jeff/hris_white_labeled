@@ -10,7 +10,9 @@ class DirectoryController extends Controller
 {
     public function index() {
         
-        $records = EmployeeInformation::with('branch', 'department', 'positions', 'personal', 'account')->get();
+        $records = EmployeeInformation::real()
+            ->with('branch', 'department', 'positions', 'personal', 'account')
+            ->get();
 
         $sortedRecords = $records->sort(function ($a, $b) {
             $branchA = $a->branch_id ?? PHP_INT_MAX;

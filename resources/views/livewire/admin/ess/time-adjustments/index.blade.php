@@ -11,11 +11,11 @@
                     <div class="row">
                         <div class="col-12 col-md-6 mb-4">
                             <label class="mb-2" for="employee_no">Employee No.</label>
-                            <input type="text" id="employee_no" class="form-control restricted" value="{{ isset($view_records->personal) ? ($view_records->personal->employee_no) : '' }}" readonly>
+                            <input type="text" id="employee_no" class="form-control restricted" value="{{ $view_records?->personal?->employee_no ?? '' }}" readonly>
                         </div>
                         <div class="col-12 col-md-6 mb-4">
                             <label class="mb-2" for="employee_name">Employee Name</label>
-                            <input type="text" id="employee_name" class="form-control restricted" value="{{ isset($view_records->personal) ? $view_records->personal->firstname . ' ' . $view_records->personal->lastname : '' }}" readonly>
+                            <input type="text" id="employee_name" class="form-control restricted" value="{{ $view_records?->personal ? ($view_records->personal->firstname . ' ' . $view_records->personal->lastname) : '' }}" readonly>
                         </div>
                         <div class="col-12 mb-4">
                             <hr>
@@ -25,34 +25,24 @@
                             <input type="text" id="date" class="form-control restricted" value="{{ isset($view_records) && $view_records->date ? format_date($view_records->date, 'date_string') : '' }}" readonly>
                         </div>
                         
-                        <div class="col-12 col-md-3 mb-4">
+                        <div class="col-12 col-md-6 mb-4">
                             <label class="mb-2" for="clock_in">Clock In</label>
                             <input type="time" id="clock_in" class="form-control restricted" value="{{ $view_records?->clock_in ? \Carbon\Carbon::parse($view_records->clock_in)->format('H:i') : '' }}" readonly>
                         </div>
                         
-                        <div class="col-12 col-md-3 mb-4">
-                            <label class="mb-2" for="break_out">Lunch Out</label>
-                            <input type="time" id="break_out" class="form-control restricted" value="{{ $view_records?->break_out ? \Carbon\Carbon::parse($view_records->break_out)->format('H:i') : '' }}" readonly>
-                        </div>
-                        
-                        <div class="col-12 col-md-3 mb-4">
-                            <label class="mb-2" for="break_in">Lunch In</label>
-                            <input type="time" id="break_in" class="form-control restricted" value="{{ $view_records?->break_in ? \Carbon\Carbon::parse($view_records->break_in)->format('H:i') : '' }}" readonly>
-                        </div>
-                        
-                        <div class="col-12 col-md-3 mb-4">
+                        <div class="col-12 col-md-6 mb-4">
                             <label class="mb-2" for="clock_out">Clock Out</label>
                             <input type="time" id="clock_out" class="form-control restricted" value="{{ $view_records?->clock_out ? \Carbon\Carbon::parse($view_records->clock_out)->format('H:i') : '' }}" readonly>
                         </div>
                         
                         <div class="col-12 col-md-12 mb-4">
                             <label class="mb-2" for="date_applied">Date Applied</label>
-                            <input type="text" id="date_applied" class="form-control restricted" value="{{ isset($view_records->created_at) ? format_date($view_records->created_at, 'date_string') : '' }}" readonly>
+                            <input type="text" id="date_applied" class="form-control restricted" value="{{ $view_records?->created_at ? format_date($view_records->created_at, 'date_string') : '' }}" readonly>
                         </div>
                         
                         <div class="col-12 mb-4">
                             <label class="mb-2" for="reason">Reason</label>
-                            <textarea id="reason" cols="30" rows="20" class="form-control restricted" readonly placeholder="Write something...">{{$view_records['reason'] ?? ''}}</textarea>
+                            <textarea id="reason" cols="30" rows="20" class="form-control restricted" readonly placeholder="Write something...">{{ $view_records?->reason ?? '' }}</textarea>
                         </div>
                         
                         @if($view_records && $view_records->attachments)
@@ -79,7 +69,7 @@
 
                     </div>
                 </div>
-                @if (isset($view_records->status) && $view_records->status === 'pending')
+                @if ($view_records && $view_records->status === 'pending')
                     <div class="modal-footer">
                         <button wire:click="disapproved" class="btn btn-danger text-uppercase fw-medium">Disapprove</button>
                         <button wire:click="approved" class="btn btn-primary text-uppercase fw-medium">Approve</button>
@@ -140,7 +130,12 @@
                                 @forelse($records as $record)
                                     <tr data-id="{{$record->id}}">
                                         <td>{{$record->employee_no}}</td>
-                                        <td>{{$record->employee->personal->firstname . ' ' . $record->employee->personal->lastname}}</td>
+                                        <td>
+                                            @php
+                                                $emp = $record->employee?->personal ?? null;
+                                            @endphp
+                                            {{ $emp ? ($emp->firstname . ' ' . $emp->lastname) : 'N/A' }}
+                                        </td>
                                         <td>{{format_date($record->created_at, 'date_string')}}</td>
                                         <td>
                                             <button type="button" wire:click="view({{$record->id}})" class="btn btn-primary mx-1">

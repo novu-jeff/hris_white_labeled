@@ -29,8 +29,8 @@
         <thead>
             <tr>
                 <th>Days</th>
-                <th colspan="2">AM</th>
-                <th colspan="2">PM</th>
+                <th colspan="{{ $showLunch ? '2' : '1' }}">AM</th>
+                <th colspan="{{ $showLunch ? '2' : '1' }}">PM</th>
                 <th colspan="2">OVERTIME</th>
                 <th colspan="2">AUT</th>
                 <th>Remark</th>
@@ -38,8 +38,12 @@
             <tr>
                 <th></th>
                 <th>In</th>
-                <th>Out</th>
-                <th>In</th>
+                @if($showLunch)
+                    <th>Out</th>
+                @endif
+                @if($showLunch)
+                    <th>In</th>
+                @endif
                 <th>Out</th>
                 <th>Hours</th>
                 <th>Mins</th>
@@ -65,10 +69,14 @@
                             {{ ' ' }}
                         @endisset
                     </td>
-                    <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
+                    @if($showLunch)
+                        <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
+                    @endif
 
                     <!-- PM -->
-                    <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
+                    @if($showLunch)
+                        <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
+                    @endif
                     <td> {{ isset($day['clock_out']) ? \Carbon\Carbon::parse($day['clock_out'])->format('g:i A') : ' ' }}</td>
 
                     @php

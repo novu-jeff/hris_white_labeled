@@ -9,11 +9,14 @@ use App\Models\EmployeeLeaveDates;
 use App\Models\Holiday;
 use App\Models\LeaveCredits;
 use App\Models\LeaveType;
+use App\Models\User;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 
 class Apply extends Component
 {
@@ -57,8 +60,13 @@ class Apply extends Component
 
         $this->leaveTypes = LeaveType::all();
 
-        $employee_no = Auth::user()->employee_no;
-        $employee_id = Auth::user()->id;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+        if (!$user) {
+            return redirect()->route('employee.login');
+        }
+
+        $employee_no = $user->employee_no;
+        $employee_id = $user->id;
 
         $this->currentYear = Carbon::now()->format('Y');
         $this->employee_no = $employee_no;
@@ -436,6 +444,42 @@ class Apply extends Component
                 DB::commit();
 
                 if (is_null($this->record_id)) {
+                    // Notify approvers (admin/manager) in web portal.
+                    // IMPORTANT: this must NEVER block the employee submit flow.
+                    try {
+                        $approverRole = (string) config('ess.approver_role', 'admins');
+                        $allowSuperadmin = filter_var(config('ess.allow_superadmin', true), FILTER_VALIDATE_BOOLEAN);
+
+                        $roleCandidates = array_values(array_unique(array_filter([
+                            $approverRole,
+                            // common legacy role names
+                            'admins',
+                            'admin',
+                            'manager',
+                            $allowSuperadmin ? 'superadmin' : null,
+                        ])));
+
+                        $message = "Employee <strong>{$this->employee_no}</strong> submitted a leave application.";
+                        $redirect = route('ess.leave');
+
+                        $rolesToNotify = Role::where('guard_name', 'web')
+                            ->whereIn('name', $roleCandidates)
+                            ->pluck('name')
+                            ->toArray();
+
+                        foreach ($rolesToNotify as $roleName) {
+                            $approvers = User::role($roleName, 'web')->get();
+                            foreach ($approvers as $approver) {
+                                $approver->notify(new Notifications('info', $message, $redirect, (string) $roleName));
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('Leave apply: approver notify failed', [
+                            'employee_no' => $this->employee_no,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+
                     $this->dispatch('alert', [
                         'showAlert' => true,
                         'status' => 'success',
@@ -443,10 +487,6 @@ class Apply extends Component
                         'message' => 'Your application has been submitted. Please download the form and secure the required signatures.',
                         'redirect' => '_reload'
                     ]);
-
-                    $user = EmployeeAccount::find($this->employee_id);
-                    $message = "Employee <strong>{$this->employee_no}</strong> submitted a leave application.";
-                    $user->notify(new Notifications('info', $message, route('ess.leave'), 'admin'));
 
                     $this->resetExcept('employee_no', 'employee_id', 'leaveTypes');
                     $this->accepts_autwopay = false;

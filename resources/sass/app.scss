@@ -3,19 +3,19 @@
 @import 'variables';
 
 $theme-colors: (
-    "primary": $primary,
-    "secondary": $secondary,
-    "success": $success,
-    "danger": $danger,
-    "warning": $warning,
-    "info": $info,
-    "light": $light,
-    "dark": $dark
+  "primary": $primary,
+  "secondary": $secondary,
+  "success": $success,
+  "danger": $danger,
+  "warning": $warning,
+  "info": $info,
+  "light": $light,
+  "dark": $dark
 );
 
 @import 'bootstrap/scss/bootstrap';
 
-.fancybox__container  {
+.fancybox__container {
   z-index: 9999;
 }
 
@@ -46,7 +46,7 @@ $theme-colors: (
 }
 
 .accordion-button {
-    background-color: rgb(210.8, 223, 231.8) !important;
+  background-color: rgb(210.8, 223, 231.8) !important;
 }
 
 .navbar-brand {
@@ -68,272 +68,275 @@ $theme-colors: (
 }
 
 .image-preview {
-    width: 100px;
-    display: flex;
-    justify-content: start;
-    margin: 20px 0 10px 0;
-    position: relative;
+  width: 100px;
+  display: flex;
+  justify-content: start;
+  margin: 20px 0 10px 0;
+  position: relative;
 
-    button {
-        width: 30px;
-        height: 30px;
-        padding: 5px;
-        display: flex;
-        justify-content: center;    
-        position: absolute;
-        right: 0;    
-        color: #fff;
-        background-color: $danger;
-        border: 1px solid $danger;
-        border-radius: 4px;
-    }
+  button {
+    width: 30px;
+    height: 30px;
+    padding: 5px;
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    right: 0;
+    color: #fff;
+    background-color: $danger;
+    border: 1px solid $danger;
+    border-radius: 4px;
+  }
 
 }
 
 .image-preview img {
-    width: 100px;
+  width: 100px;
 }
 
 .error-field {
-    margin-top: 5px;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 10px !important;
+  margin-top: 5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px !important;
 }
 
 input[type="checkbox"]:disabled,
 input[type="radio"]:disabled {
-    opacity: 1 !important;
+  opacity: 1 !important;
 }
 
 input[type="checkbox"]:disabled:not(:checked),
 input[type="radio"]:disabled:not(:checked) {
-    opacity: 1 !important;
-    background-color: #f8fafc !important;
-    border-color: #6f7070 !important; 
+  opacity: 1 !important;
+  background-color: #f8fafc !important;
+  border-color: #6f7070 !important;
 }
 
 
 .jobs-lists {
 
-    margin-top: 40px;
+  margin-top: 40px;
 
-    .nav {
-      width: 100%;
-    }
+  .nav {
+    width: 100%;
+  }
 
-    .total-applied h5 {
+  .total-applied h5 {
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .total-applied select {
+    height: 50px;
+    width: 100%;
+    margin-top: 20px;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .nav-tabs {
+    border-bottom: 2px solid $primary;
+
+    .nav-link {
+      width: 280px;
+      font-size: 15px;
+      padding: 10px 20px 10px 20px;
       text-transform: uppercase;
       font-weight: 600;
-    }
 
-    .total-applied select {
-      height: 50px;
-      width: 100%;
-      margin-top: 20px;
-      cursor: pointer;
-      text-transform: uppercase;
-      font-size: 15px;
-      font-weight: 500;
-    }
-
-    .nav-tabs {
-      border-bottom: 2px solid $primary;
-
-      .nav-link {
-        width: 280px;
-        font-size: 15px;
-        padding: 10px 20px 10px 20px;
-        text-transform: uppercase;
-        font-weight: 600;
-        &:hover {
-          border-top-left-radius: 15px;
-          border-top-right-radius: 15px;
-        }
-      }
-
-      .nav-link.active {
-        color: #ffff;
+      &:hover {
         border-top-left-radius: 15px;
         border-top-right-radius: 15px;
-        border-bottom: 2px solid $primary;
-        background-color: $primary;
       }
-
     }
 
-    .nav .nav-item button {
+    .nav-link.active {
+      color: #ffff;
+      border-top-left-radius: 15px;
+      border-top-right-radius: 15px;
+      border-bottom: 2px solid $primary;
+      background-color: $primary;
+    }
+
+  }
+
+  .nav .nav-item button {
+    text-transform: uppercase;
+    font-weight: 600;
+    width: 150px;
+  }
+
+  .card {
+    min-height: 100%;
+    cursor: pointer;
+    border-width: 2px;
+
+    &.active {
+      border: 2px solid $primary;
+    }
+
+    .dropdown-item {
       text-transform: uppercase;
-      font-weight: 600;
-      width: 150px;
-    }
 
-    .card {
-        min-height: 100%;
-        cursor: pointer;
-        border-width: 2px;
+      &:active {
+        color: #252525;
+        background-color: #f2f2f2 !important;
 
-        &.active {
-            border: 2px solid $primary;
-        }
-
-        .dropdown-item {
-          text-transform: uppercase;
-
-          &:active {
-            color: #252525;
-            background-color: #f2f2f2 !important;
-
-            i {
-              background-color: #f4f4f4;
-            }
-
-          }
-
-          i {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            background-color: #f2f2f2;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          }
-          span {
-            font-size: 12px;
-            font-weight: 500;
-          }
+        i {
+          background-color: #f4f4f4;
         }
 
       }
-  
-      .card-footer {
-        color: #909090;
-      }
-  
-      .actions {
-        position: absolute;
-        top: 35px;
-        right: 10px;
-        cursor: pointer;
-        width: 30px;
-        height: 30px;
+
+      i {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background-color: #f2f2f2;
         display: flex;
         justify-content: center;
         align-items: center;
       }
-  
-      .position-title {
-        margin-top: 30px;
-      }
-  
-      .position-title h4 {
-        font-weight: 800;
-      }
-  
-      .company-info {
-        margin-top: 10px;
-      }
-  
-      .company-info p:nth-child(1) {
-        font-size: 14px;
-        font-weight: 600;
-        color: #676767
-      }
-  
-      .company-info p:nth-child(2) {
-        font-size: 14px;
+
+      span {
+        font-size: 12px;
         font-weight: 500;
-        color: #676767;
       }
+    }
 
-      .salary {
-        margin-top: 12px;
+  }
+
+  .card-footer {
+    color: #909090;
+  }
+
+  .actions {
+    position: absolute;
+    top: 35px;
+    right: 10px;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .position-title {
+    margin-top: 30px;
+  }
+
+  .position-title h4 {
+    font-weight: 800;
+  }
+
+  .company-info {
+    margin-top: 10px;
+  }
+
+  .company-info p:nth-child(1) {
+    font-size: 14px;
+    font-weight: 600;
+    color: #676767
+  }
+
+  .company-info p:nth-child(2) {
+    font-size: 14px;
+    font-weight: 500;
+    color: #676767;
+  }
+
+  .salary {
+    margin-top: 12px;
+    font-size: 20px;
+    font-weight: 600;
+    color: #535353;
+  }
+
+  .date-posted {
+    margin-top: 12px;
+    color: #676767;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  .perks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .perks div {
+    background-color: #909090;
+    padding: 10px 18px 10px 18px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .description {
+    margin-top: 20px;
+  }
+
+  .description ul {
+    list-style: circle;
+  }
+
+  .status {
+    text-transform: uppercase;
+  }
+
+  .card.create {
+
+    height: 100%;
+    min-height: 400px;
+    border: 3px dotted #939393;
+    cursor: pointer;
+
+    .icon {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      color: #939393;
+      border: 3px dotted #939393;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      margin: auto;
+    }
+
+    .label {
+      color: #939393;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 20px;
+
+      div:nth-child(1) {
         font-size: 20px;
-        font-weight: 600;
-        color: #535353;
-      }
-  
-      .date-posted {
-        margin-top: 12px;
-        color: #676767;
-        font-size: 12px;
-        text-transform: uppercase;
-      }
-  
-      .perks {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-  
-      .perks div {
-        background-color: #909090;
-        padding: 10px 18px 10px 18px;
-        border-radius: 10px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        color: #fff;
-      }
-  
-      .description {
-        margin-top: 20px;
-      }
-  
-      .description ul {
-        list-style: circle;
       }
 
-      .status {
-        text-transform: uppercase;
+      div:nth-child(2) {
+        font-size: 12px;
+        margin-top: 10px;
+        padding: 0 20px 0 20px;
       }
-      .card.create {
 
-        height: 100%;
-        min-height: 400px;
-        border: 3px dotted #939393;
-        cursor: pointer;
-  
-        .icon {
-          width: 100px;
-          height: 100px;
-          border-radius: 50%;
-          color: #939393;
-          border: 3px dotted #939393;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 40px;
-          margin: auto;
-        }
-  
-        .label {
-          color: #939393;
-          font-weight: 600;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          margin-top: 20px;
-  
-          div:nth-child(1) {
-            font-size: 20px;
-          }
-  
-          div:nth-child(2) {
-            font-size: 12px;
-            margin-top: 10px;
-            padding: 0 20px 0 20px;
-          }
-  
-        }
-  
-      }
+    }
+
+  }
 }
 
 .job-info {
 
-    position: sticky;
-    top: 50px;
+  position: sticky;
+  top: 50px;
 
   .choose-first {
     border-radius: 15px;
@@ -354,7 +357,7 @@ input[type="radio"]:disabled:not(:checked) {
       color: #535353;
       font-size: 16px;
     }
-    
+
     .banner {
 
       width: 300px;
@@ -371,60 +374,92 @@ input[type="radio"]:disabled:not(:checked) {
 
   }
 
-    .card {
+  .card {
 
-      border: 2px solid $primary;
+    border: 2px solid $primary;
 
-      .card-header {
-        position: sticky;
-        top: 0;
-        width: 100%;
-        z-index: 9;
-        padding-bottom: 10px;
-        background-color: #F8FAFC !important;
-      }
+    .card-header {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      z-index: 9;
+      padding-bottom: 10px;
+      background-color: #F8FAFC !important;
+    }
 
-      .description {
+    .description {
+      font-size: 16px;
+      color: #252525;
+    }
+
+    .actions {
+      margin: 20px 0 20px 0;
+      width: 100%;
+      display: block;
+      position: relative;
+      top: 0;
+      left: 0;
+
+
+      button {
         font-size: 16px;
-        color: #252525;
+        font-weight: 600;
+        padding: 10px 20px 10px 20px;
       }
 
-      .actions {
-          margin: 20px 0 20px 0;
-          width: 100%;
-          display: block;
-          position: relative;
-          top: 0;
-          left: 0;
-
-
-          button {
-              font-size: 16px;
-              font-weight: 600;
-              padding: 10px 20px 10px 20px;
-          }
-
-      }
+    }
   }
 }
 
 @media (min-width: 1200px) {
-    .container {
-        max-width: 1085px !important;
-        /* styles here */
-    }
+  .container {
+    max-width: 1085px !important;
+    /* styles here */
+  }
 }
 
 /*.modal-dialog.custom-modal {
-    max-width: 996px; 
-    margin: 1.75rem auto; 
-    margin-left: 289px; 
+    max-width: 996px;
+    margin: 1.75rem auto;
+    margin-left: 289px;
 }  */
 
-.modal-dialog {
-    top: 125px;
+/**
+ * Responsive modals (fix off-screen/overlapping on mobile).
+ * - Remove legacy "top" offset
+ * - Constrain modal height to viewport and make body scrollable
+ */
+.modal {
+  padding: calc(env(safe-area-inset-top) + 0.75rem) calc(env(safe-area-inset-right) + 0.75rem) calc(env(safe-area-inset-bottom) + 0.75rem) calc(env(safe-area-inset-left) + 0.75rem) !important;
 }
 
+.modal-dialog {
+  margin: 0 auto !important; // rely on .modal padding for top/bottom spacing
+  max-width: calc(100% - 1rem);
+}
 
+.modal-content {
+  max-height: calc(100dvh - (env(safe-area-inset-top) + env(safe-area-inset-bottom) + 1.5rem));
+}
 
+.modal-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
+/**
+ * Global stacking order
+ * - Keep modals above any fixed sidebars/navbars/widgets
+ * - Keep SweetAlert above modals
+ */
+.modal-backdrop {
+  z-index: 5990 !important;
+}
+
+.modal {
+  z-index: 6000 !important;
+}
+
+.swal2-container {
+  z-index: 7000 !important;
+}

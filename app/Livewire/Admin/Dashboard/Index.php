@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Settings\HRIS\EmploymentTypeController;
 use App\Models\CompanyInformation;
 use App\Models\EmployeeAtro;
 use App\Models\EmployeeBusinessSlip;
+use App\Models\EmployeeOffsetApplication;
 use App\Models\EmployeeTimelogs;
 use App\Models\EmployeeInformation;
 use App\Models\EmployeeLeave;
@@ -65,14 +66,46 @@ class Index extends Component
             ->select('status', DB::raw('count(*) as total'))
             ->pluck('total', 'status')->toArray();
 
-        $earnings = OtherEarnings::all();
+        $offsetCounts = EmployeeOffsetApplication::where('isDeleted', false)
+            ->groupBy('status')
+            ->select('status', DB::raw('count(*) as total'))
+            ->pluck('total', 'status')->toArray();
+
         $deductions = OtherDeductions::all();
 
         $social_security = SocialSecurityBilling::with('items')
             ->orderBy('billing_month', 'desc')
             ->first();
 
-        $clockinout = EmployeeTimelogs::whereDate('created_at', Carbon::today())->get();
+        // Clock in / out summary for today, based on raw timelog records.
+        // We derive employee-level status from timelog "status" (internal) or "status1" (external) flags:
+        //  - 0 = clock in
+        //  - 1 = clock out
+        $clockinoutLogs = EmployeeTimelogs::whereDate('timestamp', Carbon::today())->get();
+
+        $statusField = config('app.external_timelogs') ? 'status1' : 'status';
+        $clockedInCount = 0;
+        $inProgressCount = 0;
+        $clockedOutCount = 0;
+
+        $clockinoutLogs
+            ->groupBy('employee_id')
+            ->each(function ($logsPerEmployee) use (&$clockedInCount, &$inProgressCount, &$clockedOutCount, $statusField) {
+                $hasIn = $logsPerEmployee->contains($statusField, 0);
+                $hasOut = $logsPerEmployee->contains($statusField, 1);
+
+                if ($hasIn) {
+                    $clockedInCount++;
+                }
+
+                if ($hasIn && !$hasOut) {
+                    $inProgressCount++;
+                }
+
+                if ($hasOut) {
+                    $clockedOutCount++;
+                }
+            });
         
         $this->companyInfo = $this->getCompanyInformation();
 
@@ -93,9 +126,9 @@ class Index extends Component
             ],
             'employee' => $employeeCounts,
             'clockinout' => [
-                'clockin' => $clockinout->whereNotNull('clock_in')->count(),
-                'inprogress' => $clockinout->whereNotNull('clock_in')->whereNull('clock_out')->count(),
-                'clockout' => $clockinout->whereNotNull('clock_out')->count(),
+                'clockin'    => $clockedInCount,
+                'inprogress' => $inProgressCount,
+                'clockout'   => $clockedOutCount,
             ],
             'leave' => [
                 'pending' => $leaveCounts['pending'] ?? 0,
@@ -112,7 +145,11 @@ class Index extends Component
                 'granted' => $atroCounts['approved'] ?? 0,
                 'rejected' => $atroCounts['disapproved'] ?? 0,
             ],
-            'earnings' => $earnings,
+            'offset' => [
+                'pending' => $offsetCounts['pending'] ?? 0,
+                'granted' => $offsetCounts['approved'] ?? 0,
+                'rejected' => $offsetCounts['disapproved'] ?? 0,
+            ],
             'deductions' => $deductions,
             'social_security' => $social_security ? $social_security->toArray() : [],
             'payroll' => [

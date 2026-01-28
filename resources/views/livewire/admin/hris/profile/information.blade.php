@@ -96,10 +96,15 @@
                         </div>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="mb-2" for="branch">Central / Field Office</label>
-                        <input type="text" wire:model="records.employee_information.branch" id="records.employee_information.branch" class="form-control" readonly>
+                        <label class="mb-2" for="selectedBranchId">Central / Field Office</label>
+                        <select wire:model="selectedBranchId" id="selectedBranchId" class="form-select">
+                            <option value=""> - CHOOSE - </option>
+                            @foreach ($branches as $branch)
+                                <option value="{{$branch->id}}">{{$branch->code ? ($branch->code . ' - ') : ''}}{{$branch->name}}</option>
+                            @endforeach
+                        </select>
                         <div class="error-field">
-                            @error('records.employee_information.branch') <span class="text-danger">{{ $message }}</span> @enderror
+                            @error('selectedBranchId') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                     </div>
                    <!-- <div class="col-md-6 mb-3">
@@ -217,7 +222,7 @@
                     </div>
                     @if($isGovernment)
                         <div class="col-md-3 mb-3">
-                            <label class="mb-2" for="salary">Monthly Rate <span class="text-danger">*</span></label>
+                            <label class="mb-2" for="salary">Basic Salary <span class="text-danger">*</span></label>
                             <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control {{$records['employee_information']['type'] == 3 ? '' : 'restricted'}}" {{$records['employee_information']['type'] == 3 ? '' : 'readonly'}}>
                         <div class="error-field">
                                 @error('records.employee_information.salary') <span class="text-danger">{{ $message }}</span> @enderror
@@ -225,14 +230,21 @@
                         </div>
                     @else
                     <div class="col-md-3 mb-3">
-                            <label class="mb-2" for="salary">Monthly Rate <span class="text-danger">*</span></label>
+                            <label class="mb-2" for="salary">Basic Salary <span class="text-danger">*</span></label>
                             <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control">
                         <div class="error-field">
                                 @error('records.employee_information.salary') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                         </div>
                     @endif
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
+                        <label class="mb-2" for="allowance">Allowance</label>
+                        <input type="text" wire:model="records.employee_information.allowance" id="records.employee_information.allowance" class="form-control" placeholder="0.00">
+                        <div class="error-field">
+                            @error('records.employee_information.allowance') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
                         <label class="mb-2" for="payroll_account_number">Payroll Account No.</label>
                         <input type="text" wire:model="records.employee_information.payroll_account_number" id="records.employee_information.payroll_account_number" class="form-control">
                         <div class="error-field">
@@ -240,9 +252,50 @@
                         </div>
                     </div>
                 </div>
-                <hr class="mt-5">
             </div>
         </div>
+        
+        <!-- Deduction Section -->
+        <div class="row">
+            <div class="col-12 mt-4 mb-3">
+                <h5 class="mb-0 text-uppercase fw-bold pt-4 pb-0 ps-2">Deductions</h5>
+                <hr>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">Tax (Withholding Tax)</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['tax'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">SSS</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['sss'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">HDMF (Pag-IBIG)</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['hdmf'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">PhilHealth</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['philhealth'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+        </div>
+        
+        <hr class="mt-5">
         <div class="row">
             <div class="col-12 col-md-4 mb-4">
                 <div class="card mb-4 border-0">

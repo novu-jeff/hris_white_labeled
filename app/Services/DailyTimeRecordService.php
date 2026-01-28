@@ -190,7 +190,8 @@ class DailyTimeRecordService {
                 $weeklySchedule = $this->getWeeklyScheduleById($dateLogs['schedule_id']);
             }
 
-            $is_break_required = $employeeSchedule->is_breaktime_required;
+            $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+            $is_break_required = $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
 
             $date_is_in_logs = isset($logs[$dateString]) && !empty($logs[$dateString]);
 
@@ -235,7 +236,7 @@ class DailyTimeRecordService {
                 $formattedLogs[$dateString] = $logs[$dateString];
 
                 # aut 
-                $aut = $this->undertimeAndTardiness($employee_no, $employeeSchedule, $dateLogs,$dateString);
+                $aut = $this->undertimeAndTardiness($employee_no, $employeeSchedule, $dateLogs, $dateString);
 
                 # Assign the correct values to formatted logs
                 $formattedLogs[$dateString]['aut']['tardiness']['minutes'] = $aut['tardiness_minutes'];
@@ -765,7 +766,10 @@ class DailyTimeRecordService {
 
         $ownRemark = [];
 
-        if ($employeeSchedule->is_breaktime_required) {
+        $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+        $isBreakRequired = $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
+
+        if ($isBreakRequired) {
             $timeIn = $log['clock_in'];
             $breakOut = $log['lunch_out'];
             $breakIn = $log['lunch_in'];
@@ -774,7 +778,7 @@ class DailyTimeRecordService {
                 $ownRemark[] = 'Discrepancy';
             }
         } else {
-            $timeIn = $log['clocn_in'];
+            $timeIn = $log['clock_in'];
             $timeOut = $log['clock_out'];
             $breakOut = $breakIn = null;
             if($timeIn == null || $timeOut == null) {
@@ -816,7 +820,7 @@ class DailyTimeRecordService {
             'undertime_minutes' => $UNDERTIME_MINUTES,
             'undertime_freq' => $UNDERTIME_FREQ,
             'remarks' => $ownRemark,
-            'is_break_required' => $employeeSchedule->is_breaktime_required ?? false,
+            'is_break_required' => $isBreakRequired,
         ];
     }
 
