@@ -4,6 +4,7 @@ namespace App\Livewire\Employee\BusinessSlip;
 
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeBusinessSlip;
+use App\Models\EmployeePersonal;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -152,7 +153,10 @@ class Apply extends Component
                     ]);
 
                     $user = EmployeeAccount::find($this->employee_id);
-                    $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted an application <strong>official business slip </strong>.';
+                    $personal = $user->personal ?? EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                    $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                    $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                    $message = 'Employee <strong>' . $display . '</strong> has submitted an application for <strong>official business slip</strong>.';
                     $redirect = route('ess.obs');
                     $user->notify(new Notifications('info', $message, $redirect, 'admin'));
 

@@ -492,7 +492,8 @@
                                     $accomplishment = collect($logList)->firstWhere('accomplishment');
                                     $hasImage = collect($logList)->contains(fn($log) => !empty($log['captured_image']));
                                     $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
-                                    $outIndex = $showLunch ? 3 : 1;
+                                    $filledIndexes = collect($logList)->keys()->filter(fn($i) => !empty($logList[$i]['time'] ?? null))->values();
+                                    $outIndex = $filledIndexes->count() >= 2 ? $filledIndexes->last() : null;
                                     $dateFormatted = \Carbon\Carbon::createFromFormat('j/n/Y', $item['date']);
                                 @endphp
 
@@ -516,7 +517,7 @@
                                                             {{ \Carbon\Carbon::parse($logList[0]['time'])->format('h:i A') }}
                                                         </span>
                                                     @endif
-                                                    @if(isset($logList[$outIndex]['time']))
+                                                    @if($outIndex !== null && isset($logList[$outIndex]['time']))
                                                         <span class="time-badge time-out">
                                                             <i class="fa-solid fa-arrow-right-from-bracket me-1"></i>
                                                             {{ \Carbon\Carbon::parse($logList[$outIndex]['time'])->format('h:i A') }}
@@ -652,13 +653,13 @@
                                                             <span class="fw-semibold">Clock Out</span>
                                                         </div>
                                                         <div class="time-log-time">
-                                                            @if(isset($logList[$outIndex]['time']))
+                                                            @if($outIndex !== null && isset($logList[$outIndex]['time']))
                                                                 {{ \Carbon\Carbon::parse($logList[$outIndex]['time'])->format('h:i A') }}
                                                             @else
                                                                 <span class="text-muted">Not recorded</span>
                                                             @endif
                                                         </div>
-                                                        @if (!empty($logList[$outIndex]['captured_image']))
+                                                        @if ($outIndex !== null && !empty($logList[$outIndex]['captured_image']))
                                                             <div class="time-log-image">
                                                                 <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ Storage::url('timelogs/' . $logList[$outIndex]['captured_image']) }}" class="image-link">
                                                                     <img src="{{ Storage::url('timelogs/' . $logList[$outIndex]['captured_image']) }}" alt="Clock Out" class="log-image">
@@ -680,15 +681,24 @@
                                             </div>
 
                                             @if(!empty($accomplishment))
-                                                <div class="accomplishment-card mt-3">
-                                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                                        <i class="fa-solid fa-file-pdf text-danger"></i>
+                                                <div class="accomplishment-card mt-2 mb-2">
+                                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                                        <i class="fa-solid fa-link text-primary"></i>
                                                         <span class="fw-semibold">Accomplishment Report</span>
                                                     </div>
-                                                    <a href="{{ Storage::url('accomplishments/' . $accomplishment['accomplishment']) }}" download class="accomplishment-link">
-                                                        <i class="fa-solid fa-download me-2"></i>
-                                                        {{ $accomplishment['accomplishment'] }}
-                                                    </a>
+                                                    @php
+                                                        $accVal = $accomplishment['accomplishment'] ?? '';
+                                                        $isUrl = is_string($accVal) && (str_starts_with($accVal, 'http://') || str_starts_with($accVal, 'https://'));
+                                                    @endphp
+                                                    @if($isUrl)
+                                                        <a href="{{ $accVal }}" target="_blank" rel="noopener" class="accomplishment-link">
+                                                            <i class="fa-solid fa-external-link-alt me-2"></i>Open link
+                                                        </a>
+                                                    @else
+                                                        <a href="{{ Storage::url('accomplishments/' . $accVal) }}" download class="accomplishment-link">
+                                                            <i class="fa-solid fa-download me-2"></i>{{ $accVal }}
+                                                        </a>
+                                                    @endif
                                                 </div>
                                             @endif
                                         </div>

@@ -168,7 +168,9 @@
                                                             <td colspan="12">
                                                                 <div class="text-start mt-2 pb-3 px-3">
                                                                     <p class="mb-2 fw-bold">Accomplishment Report:</p>
-                                                                    <small>{{ $accomplishment['accomplishment'] }}</small>
+                                                                    <a href="{{ $accomplishment['accomplishment'] }}" target="_blank" rel="noopener">
+                                                                        <small>{{ $accomplishment['accomplishment'] }}</small>
+                                                                    </a>
                                                                 </div>
                                                             </td>    
                                                         </tr>  

@@ -44,6 +44,9 @@ class Dashboard extends Component
     public $dtrDate;
     public $logs = null;
 
+    public $workAnniversariesThisMonth = [];
+    public $birthdaysThisMonth = [];
+
     public $showSalary = false;
 
 
@@ -135,16 +138,61 @@ class Dashboard extends Component
         $this->employeeInfo = $employee;
         $this->dateHired = $employee->date_hired ?? 'N/A';
 
+        // Work anniversaries, new hires & interns this month (for dashboard card)
+        $now = Carbon::now();
+        $this->workAnniversariesThisMonth = EmployeeInformation::with(['personal', 'positions', 'employment_type'])
+            ->whereNotNull('date_hired')
+            ->whereMonth('date_hired', $now->month)
+            ->get()
+            ->map(function ($emp) use ($now) {
+                $name = $emp->personal
+                    ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
+                    : $emp->employee_no;
+                $years = $emp->date_hired ? $now->diffInYears(Carbon::parse($emp->date_hired)) : 0;
+                $typeName = $emp->employment_type->name ?? null;
+                $isIntern = $typeName && stripos($typeName, 'intern') !== false;
+                return [
+                    'name'       => $name,
+                    'position'   => $emp->positions->name ?? '—',
+                    'date'       => Carbon::parse($emp->date_hired)->format('M d'),
+                    'years'      => $years,
+                    'is_new'     => $years === 0,
+                    'type_label' => $years === 0 ? ($isIntern ? 'Intern' : 'New hire') : null,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $this->birthdaysThisMonth = EmployeeInformation::with(['personal', 'positions'])
+            ->whereHas('personal', function ($q) use ($now) {
+                $q->whereNotNull('birthday')->whereMonth('birthday', $now->month);
+            })
+            ->get()
+            ->map(function ($emp) {
+                $name = $emp->personal
+                    ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
+                    : $emp->employee_no;
+                return [
+                    'name'     => $name,
+                    'position' => $emp->positions->name ?? '—',
+                    'date'     => $emp->personal && $emp->personal->birthday
+                        ? Carbon::parse($emp->personal->birthday)->format('M d')
+                        : '—',
+                ];
+            })
+            ->values()
+            ->all();
+
         $this->positionName = $employee->positions->name ?? 'No Position Assigned';
 
-        $this->shiftName = $employee->shift->shift_duration. ' ' .$employee->shift->work_hours . ' Hours'  
-            ?? 'No Shift Schedule';
+        $shift = $employee->shift;
+        $this->shiftName = $shift && $shift->shift_duration && $shift->work_hours
+            ? $shift->shift_duration . ' ' . $shift->work_hours . ' Hours'
+            : 'No Shift Schedule';
 
-        $this->breaktime =
-    ($employee->shift->break_out && $employee->shift->break_in)
-        ? Carbon::parse($employee->shift->break_out)->format('h:i A') . ' - ' .
-          Carbon::parse($employee->shift->break_in)->format('h:i A')
-        : 'No Breaktime Assigned';
+        $this->breaktime = ($shift && $shift->break_out && $shift->break_in)
+            ? Carbon::parse($shift->break_out)->format('h:i A') . ' - ' . Carbon::parse($shift->break_in)->format('h:i A')
+            : 'No Breaktime Assigned';
 
         $this->getDTR();
 

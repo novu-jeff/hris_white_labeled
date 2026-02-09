@@ -4,6 +4,12 @@ namespace App\Services;
 
 class ContributionsService
 {
+    /**
+     * PhilHealth 2025/2026: 5% total (2.5% employee, 2.5% employer).
+     * Min ₱500 total (₱250 employee) for salary ≤₱10,000.
+     * Max ₱5,000 total (₱2,500 employee) for salary ≥₱100,000.
+     * @see https://incometaxcalculator.ph/
+     */
     function computePhilHealth($monthlySalary): array
     {
         $baseSalary = max(10000, min($monthlySalary, 100000));
@@ -16,97 +22,34 @@ class ContributionsService
         ];
     }
 
+    /**
+     * SSS 2025/2026: 15% total (5% employee, 10% employer) of MSC.
+     * MSC ranges ₱5,000 to ₱35,000. Employee: ₱250 to ₱1,750.
+     * @see https://incometaxcalculator.ph/
+     */
     function computeSSS(float $monthlySalary): array
     {
-        $table = [
-            [1000, 1249.99, 1000, 55.00, 160.00],
-            [1250, 1749.99, 1250, 68.75, 206.25],
-            [1750, 2249.99, 1750, 82.50, 252.50],
-            [2250, 2749.99, 2250, 96.25, 298.75],
-            [2750, 3249.99, 2750, 110.00, 345.00],
-            [3250, 3749.99, 3250, 123.75, 391.25],
-            [3750, 4249.99, 3750, 137.50, 437.50],
-            [4250, 4749.99, 4250, 151.25, 483.75],
-            [4750, 5249.99, 4750, 165.00, 530.00],
-            [5250, 5749.99, 5250, 178.75, 576.25],
-            [5750, 6249.99, 5750, 192.50, 622.50],
-            [6250, 6749.99, 6250, 206.25, 668.75],
-            [6750, 7249.99, 6750, 220.00, 715.00],
-            [7250, 7749.99, 7250, 233.75, 761.25],
-            [7750, 8249.99, 7750, 247.50, 807.50],
-            [8250, 8749.99, 8250, 261.25, 853.75],
-            [8750, 9249.99, 8750, 275.00, 900.00],
-            [9250, 9749.99, 9250, 288.75, 946.25],
-            [9750, 10249.99, 9750, 302.50, 992.50],
-            [10250, 10749.99, 10250, 316.25, 1038.75],
-            [10750, 11249.99, 10750, 330.00, 1085.00],
-            [11250, 11749.99, 11250, 343.75, 1131.25],
-            [11750, 12249.99, 11750, 357.50, 1177.50],
-            [12250, 12749.99, 12250, 371.25, 1223.75],
-            [12750, 13249.99, 12750, 385.00, 1270.00],
-            [13250, 13749.99, 13250, 398.75, 1316.25],
-            [13750, 14249.99, 13750, 412.50, 1362.50],
-            [14250, 14749.99, 14250, 426.25, 1408.75],
-            [14750, 15249.99, 14750, 440.00, 1455.00],
-            [15250, 15749.99, 15250, 453.75, 1501.25],
-            [15750, 16249.99, 15750, 467.50, 1547.50],
-            [16250, 16749.99, 16250, 481.25, 1593.75],
-            [16750, 17249.99, 16750, 495.00, 1640.00],
-            [17250, 17749.99, 17250, 508.75, 1686.25],
-            [17750, 18249.99, 17750, 522.50, 1732.50],
-            [18250, 18749.99, 18250, 536.25, 1778.75],
-            [18750, 19249.99, 18750, 550.00, 1825.00],
-            [19250, 19749.99, 19250, 563.75, 1871.25],
-            [19750, 20249.99, 19750, 577.50, 1917.50],
-            [20250, 20749.99, 20250, 591.25, 1963.75],
-            [20750, 21249.99, 20750, 605.00, 2010.00],
-            [21250, 21749.99, 21250, 618.75, 2056.25],
-            [21750, 22249.99, 21750, 632.50, 2102.50],
-            [22250, 22749.99, 22250, 646.25, 2148.75],
-            [22750, 23249.99, 22750, 660.00, 2195.00],
-            [23250, 23749.99, 23250, 673.75, 2241.25],
-            [23750, 24249.99, 23750, 687.50, 2287.50],
-            [24250, 24749.99, 24250, 701.25, 2333.75],
-            [24750, 25249.99, 24750, 715.00, 2380.00],
-            [25250, 25749.99, 25250, 728.75, 2426.25],
-            [25750, 26249.99, 25750, 742.50, 2472.50],
-            [26250, 26749.99, 26250, 756.25, 2518.75],
-            [26750, 27249.99, 26750, 770.00, 2565.00],
-            [27250, 27749.99, 27250, 783.75, 2611.25],
-            [27750, 28249.99, 27750, 797.50, 2657.50],
-            [28250, 28749.99, 28250, 811.25, 2703.75],
-            [28750, 29249.99, 28750, 825.00, 2750.00],
-            [29250, 29749.99, 29250, 838.75, 2796.25],
-            [29750, PHP_INT_MAX, 30000, 1100.00, 1700.00], // Final cap
-        ];
+        $msc = min(max($monthlySalary, 5000), 35000);
+        $employeeShare = round($msc * 0.05, 2);
+        $employerShare = round($msc * 0.10, 2);
 
-        foreach ($table as [$min, $max, $msc, $employee, $employer]) {
-            if ($monthlySalary >= $min && $monthlySalary <= $max) {
-                $ec = $msc >= 15000 ? 30.00 : 10.00;
-                return [
-                    'total' => round($employee + $employer, 2),
-                    'employee_share' => round($employee, 2),
-                    'employer_share' => round($employer, 2),
-                    'msc' => $msc,
-                    'ec' => $ec,
-                ];
-            }
-        }
-
-        // Fallback to minimum MSC
         return [
-            'total' => 215.00,
-            'employee_share' => 55.00,
-            'employer_share' => 160.00,
-            'msc' => 1000,
+            'total' => round($employeeShare + $employerShare, 2),
+            'employee_share' => $employeeShare,
+            'employer_share' => $employerShare,
+            'msc' => $msc,
         ];
     }
 
+    /**
+     * Pag-IBIG 2025/2026: 4% total (2% employee, 2% employer).
+     * Employee capped at ₱200 for salary >₱10,000.
+     * @see https://incometaxcalculator.ph/
+     */
     function computePagibig($monthlySalary): array
     {
-        $base = min($monthlySalary, 5000);
-        $employee = $base * 0.02;
-        $employer = $base * 0.02;
+        $employee = $monthlySalary > 10000 ? 200 : round($monthlySalary * 0.02, 2);
+        $employer = $monthlySalary > 10000 ? 200 : round($monthlySalary * 0.02, 2);
 
         return [
             'total' => round($employee + $employer, 2),
@@ -115,7 +58,7 @@ class ContributionsService
         ];
     }
 
-    function computeSalary($rate): float 
+    function computeSalary($rate): float
     {
         if ($rate !== null && $rate <= 1000) {
             return round($rate * 22, 2);
@@ -124,30 +67,30 @@ class ContributionsService
         return $rate ?? 0;
     }
 
+    /**
+     * TRAIN Law Withholding Tax (monthly). Taxable income = gross - SSS - PhilHealth - Pag-IBIG.
+     * @see https://incometaxcalculator.ph/
+     */
     public static function computeWithholdingTax(float $taxableIncome): float
     {
-        switch (true) {
-            case $taxableIncome <= 20833:
-                return 0;
+        $taxableIncome = round($taxableIncome, 2);
 
-            case $taxableIncome > 20833 && $taxableIncome <= 33332:
-                return ($taxableIncome - 20833) * 0.20;
-
-            case $taxableIncome > 33332 && $taxableIncome <= 66666:
-                return 2500 + ($taxableIncome - 33333) * 0.25;
-
-            case $taxableIncome > 66666 && $taxableIncome <= 166666:
-                return 10833.33 + ($taxableIncome - 66667) * 0.30;
-
-            case $taxableIncome > 166666 && $taxableIncome <= 666666:
-                return 40833.33 + ($taxableIncome - 166667) * 0.32;
-
-            case $taxableIncome > 666666:
-                return 200833.33 + ($taxableIncome - 666667) * 0.35;
-
-            default:
-                return 0;
+        if ($taxableIncome <= 20833) {
+            return 0;
         }
-    }
+        if ($taxableIncome <= 33332) {
+            return round(($taxableIncome - 20833) * 0.15, 2);
+        }
+        if ($taxableIncome <= 66666) {
+            return round(1875 + ($taxableIncome - 33333) * 0.20, 2);
+        }
+        if ($taxableIncome <= 166666) {
+            return round(8541.80 + ($taxableIncome - 66667) * 0.25, 2);
+        }
+        if ($taxableIncome <= 666666) {
+            return round(33541.80 + ($taxableIncome - 166667) * 0.30, 2);
+        }
 
+        return round(183541.80 + ($taxableIncome - 666667) * 0.35, 2);
+    }
 }

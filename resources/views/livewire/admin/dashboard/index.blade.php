@@ -52,7 +52,7 @@
                                 <div class="col-12 col-md-6">
                                     <a href="{{ route('ess.atro', ['status' => 'pending']) }}" class="text-decoration-none">
                                         <div class="alert alert-secondary text-uppercase fw-bold mb-0">
-                                            Overtime (ATRO): {{ $stats['atro']['pending'] }}
+                                            Overtime Application: {{ $stats['atro']['pending'] }}
                                         </div>
                                     </a>
                                 </div>
@@ -81,7 +81,7 @@
                                     Review Official Business
                                 </a>
                                 <a href="{{ route('ess.atro', ['status' => 'pending']) }}" class="btn btn-outline-primary text-uppercase fw-bold">
-                                    Review Overtime (ATRO)
+                                    Review Overtime Application
                                 </a>
                                 <a href="{{ route('ess.offset', ['status' => 'pending']) }}" class="btn btn-outline-primary text-uppercase fw-bold">
                                     Review Offset Applications
@@ -366,44 +366,51 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-12 mb-3">
+                        <div class="col-12 col-md-6 mb-3">
                             <div class="card dashboard-card-hover">
-                                <div class="card-header bg-primary text-white px-4 d-flex justify-content-between">
-                                    @if(!empty($stats['social_security']['billing_month']))
-                                        <h5 class="my-2 text-uppercase fw-bold">
-                                            LATEST {{env('APP_PRODUCT') == 'government' ? 'GSIS' : 'SSS'}} BILLING 
-                                        </h5>
-                                        <h5 class="my-2 text-uppercase fw-bold">
-                                            ({{ $stats['social_security']['billing_month'] }})
-                                        </h5>
-                                    @else
-                                        <h5 class="my-2 text-uppercase fw-bold">
-                                            LATEST {{env('APP_PRODUCT') == 'government' ? 'GSIS' : 'SSS'}} BILLING
-                                        </h5>
-                                    @endif
+                                <div class="card-header bg-primary text-white px-4">
+                                    <h5 class="my-2 text-uppercase fw-bold">Work anniversaries & welcome — {{ now()->format('F Y') }}</h5>
+                                    <small class="opacity-90">Including new hires and interns this month.</small>
                                 </div>
                                 <div class="card-body">
-                                    @if(!empty($stats['social_security']['items']) && count($stats['social_security']['items']) > 0)
-                                        <table class="table text-uppercase fw-bold w-100 data-tables">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th>BP No</th>
-                                                    <th>CRN No</th>
-                                                    <th>Amount</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach($stats['social_security']['items'] as $billing)
-                                                    <tr>
-                                                        <td>{{ $billing['bp_no'] ?? 'N/A' }}</td>
-                                                        <td>{{ $billing['crn_no'] ?? 'N/A' }}</td> 
-                                                        <td>₱{{ number_format($billing['ps'], 2) ?? 'N/A' }}</td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
+                                    @if(!empty($stats['work_anniversaries_this_month']) && count($stats['work_anniversaries_this_month']) > 0)
+                                        <ul class="list-unstyled mb-0 text-uppercase fw-bold" style="font-size: 13px;">
+                                            @foreach($stats['work_anniversaries_this_month'] as $emp)
+                                                <li class="d-flex justify-content-between align-items-center py-2 border-bottom border-light">
+                                                    <span>
+                                                        {{ $emp['name'] }}
+                                                        @if(!empty($emp['type_label']))
+                                                            <span class="badge bg-success ms-1">{{ $emp['type_label'] }}</span>
+                                                        @endif
+                                                        <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small>
+                                                    </span>
+                                                    <span class="text-muted small">{{ $emp['date'] }} @if($emp['years'] > 0)({{ $emp['years'] }}y)@endif</span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
                                     @else
-                                        <small class="text-uppercase text-muted">No {{env('APP_PRODUCT') == 'government' ? 'GSIS' : 'SSS'}} Billing Found.</small>
+                                        <small class="text-uppercase text-muted">No work anniversaries or new hires this month.</small>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 mb-3">
+                            <div class="card dashboard-card-hover">
+                                <div class="card-header bg-primary text-white px-4">
+                                    <h5 class="my-2 text-uppercase fw-bold">Birthdays — {{ now()->format('F Y') }}</h5>
+                                </div>
+                                <div class="card-body">
+                                    @if(!empty($stats['birthdays_this_month']) && count($stats['birthdays_this_month']) > 0)
+                                        <ul class="list-unstyled mb-0 text-uppercase fw-bold" style="font-size: 13px;">
+                                            @foreach($stats['birthdays_this_month'] as $emp)
+                                                <li class="d-flex justify-content-between align-items-center py-2 border-bottom border-light">
+                                                    <span>{{ $emp['name'] }} <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small></span>
+                                                    <span class="text-muted small">{{ $emp['date'] }}</span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        <small class="text-uppercase text-muted">No birthdays this month.</small>
                                     @endif
                                 </div>
                             </div>

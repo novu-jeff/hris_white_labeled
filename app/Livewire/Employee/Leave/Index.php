@@ -442,7 +442,7 @@ class Index extends Component
                 'route' => 'employee.leave',
             ],
             'atro' => [
-                'title' => 'ATRO Application',
+                'title' => 'Overtime Application',
                 'count' => EmployeeAtro::where('employee_no', $this->user_id)
                     ->where('status', 'pending')
                     ->count(),

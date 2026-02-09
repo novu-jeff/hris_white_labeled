@@ -28,11 +28,11 @@
                                         @if($profile && file_exists(public_path('storage/' . $profile)))
                                             <img src="{{ asset('storage/' . $profile) }}" 
                                                  alt="Profile Photo" 
-                                                 style="width: 60px; height: 100px; object-fit: cover; border-radius: 5px;">
+                                                 style="width: 100px; height: 100px; object-fit: cover; border-radius: 5px;">
                                         @else
                                             <img src="https://ui-avatars.com/api/?background=005668&color=ffffff&font-size=0.4&bold=true&name={{ urlencode($fullname) }}" 
                                                  alt="Avatar" 
-                                                 style="width: 60px; height: 100px; object-fit: cover; border-radius: 5px;">
+                                                 style="width: 100px; height: 100px; object-fit: cover; border-radius: 5px;">
                                         @endif
                                     </div>
                                     <ul class="list-unstyled mb-0 fs-6">

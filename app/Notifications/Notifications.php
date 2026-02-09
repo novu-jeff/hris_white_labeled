@@ -87,11 +87,21 @@ class Notifications extends Notification
         $plainMessage = trim(preg_replace('/\s+/', ' ', strip_tags((string) $this->message)));
         $actionUrl = $this->redirect ?: url('/');
 
-        return (new MailMessage)
-            ->subject('HRIS Notification')
-            ->line($plainMessage !== '' ? $plainMessage : 'You have a new notification.')
+        $mail = (new MailMessage)
+            ->subject('HRIS Notification');
+
+        if ($this->audience === 'employee' && $notifiable instanceof EmployeeAccount) {
+            $personal = $notifiable->personal ?? $notifiable->load('personal')->personal;
+            $firstname = $personal ? trim($personal->firstname ?? '') : '';
+            $greeting = $firstname !== '' ? 'Hello ' . $firstname . ',' : 'Hello,';
+            $mail->greeting($greeting);
+        }
+
+        $mail->line($plainMessage !== '' ? $plainMessage : 'You have a new notification.')
             ->action('View', $actionUrl)
             ->line('If you did not expect this, you can ignore this email.');
+
+        return $mail;
     }
 
     /**

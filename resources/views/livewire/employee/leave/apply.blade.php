@@ -152,12 +152,24 @@ $(function () {
     const presetSelectedDates = @json($selectedDates ?? []);
     const currentYear = parseInt('{{$currentYear}}');
 
+    function syncSelectedDatesToLivewire(selectedDates) {
+        const calendarEl = document.getElementById('calendar-container');
+        const root = calendarEl && calendarEl.closest('[wire\\:id]');
+        const wireId = root && root.getAttribute('wire:id');
+        if (wireId && typeof Livewire !== 'undefined' && Livewire.find(wireId)) {
+            Livewire.find(wireId).call('setSelectedDates', selectedDates);
+        } else {
+            Livewire.dispatch('setSelectedDates', { dates: selectedDates });
+        }
+    }
+
     setTimeout(() => {
         const calendarEl = document.getElementById('calendar-container');
         if (!calendarEl || $(calendarEl).data('calendar-initialized')) return;
 
         const today = new Date();
-        let selectedDates = isEdit ? presetSelectedDates.map(d => d.date) : [];
+        today.setHours(0, 0, 0, 0);
+        let selectedDates = isEdit && Array.isArray(presetSelectedDates) ? presetSelectedDates.map(d => d.date || d) : [];
 
         const calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
@@ -202,14 +214,15 @@ $(function () {
         }
 
         function isToggleable(ymd) {
-            const date = new Date(ymd);
+            const date = new Date(ymd + 'T12:00:00');
+            date.setHours(0, 0, 0, 0);
             const mmdd = formatToMMDD(date);
 
-            const future = date > today;
+            const futureOrToday = date.getTime() >= today.getTime();
             const yearLimit = date.getFullYear() <= currentYear;
             const blocked = isBlocked(ymd, mmdd);
 
-            if (!future || !yearLimit) return false;
+            if (!futureOrToday || !yearLimit) return false;
 
             if (isEdit) return true;
 
@@ -219,9 +232,9 @@ $(function () {
         function toggleDate(ymd) {
             const index = selectedDates.indexOf(ymd);
             if (index !== -1) {
-                selectedDates.splice(index, 1); // unselect
+                selectedDates.splice(index, 1);
             } else {
-                selectedDates.push(ymd); // select
+                selectedDates.push(ymd);
             }
             renderEvents();
         }
@@ -235,9 +248,9 @@ $(function () {
                 const date = new Date(d);
                 const ymd = formatToYMD(date);
                 const mmdd = formatToMMDD(date);
+                date.setHours(0, 0, 0, 0);
 
-                // Unavailable if before today or after currentYear
-                if (date <= today || date.getFullYear() > currentYear) {
+                if (date.getTime() < today.getTime() || date.getFullYear() > currentYear) {
                     if (date.getFullYear() > currentYear) {
                         events.push({
                             title: 'Unavailable',
@@ -255,7 +268,7 @@ $(function () {
                 const leave = scheduledDates.find(e => e.type === 'leave' && e.date === ymd);
                 const isSelected = selectedDates.includes(ymd);
                 const isBlockedDate = isBlocked(ymd, mmdd);
-                const isPreset = presetSelectedDates.some(d => d.date === ymd);
+                const isPreset = presetSelectedDates.some(d => (d.date || d) === ymd);
 
                 if (holiday) {
                     events.push({
@@ -277,10 +290,7 @@ $(function () {
                         classNames: ['fc-sticky', 'fc-event-title'],
                     });
                 } else {
-                    const isAvailable = !isBlockedDate || (isEdit && isPreset);
-                    const isClickable = isToggleable(ymd);
                     const bg = isSelected ? '#225f8b' : '#175850';
-
                     events.push({
                         title: isSelected ? 'Selected' : 'Available',
                         start: ymd,
@@ -295,10 +305,11 @@ $(function () {
             calendar.removeAllEvents();
             calendar.addEventSource(events);
 
-            Livewire.dispatch('setSelectedDates', [selectedDates]);
+            syncSelectedDatesToLivewire(selectedDates);
         }
 
         calendar.render();
+        renderEvents();
         $(calendarEl).data('calendar-initialized', true);
     }, 300);
 });

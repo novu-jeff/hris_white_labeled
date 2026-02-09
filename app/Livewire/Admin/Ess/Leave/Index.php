@@ -197,7 +197,7 @@ class Index extends Component
                         return $this->dispatch('showConfirmation', [
                             'title' => 'Please be Informed',
                             'message' => '
-                                Unfortunately, this employee\'s leave credits are insufficient. He/she is requesting '.$daysCovered.' day(s) of leave, but only have '.$leaveTotalCredits.' remaining. This may still proceed, but please note that this will be considered as Absence Without Pay (AUT w/o pay).
+                                Unfortunately, this employee\'s leave credits are insufficient. He/she is requesting '.$leaveEquiv.' day(s) of leave, but only have '.$leaveTotalCredits.' remaining. This may still proceed, but please note that this will be considered as Absence Without Pay (AUT w/o pay).
                             ',
                             'action' => 'approved'
                         ]);
@@ -219,12 +219,15 @@ class Index extends Component
                     ]);
                 }
 
-                if($daysCovered > $leaveCredits->credits) {
+                $leaveEquivOther = ($record->duration ?? 'wholeday') === 'wholeday'
+                    ? $daysCovered
+                    : round($daysCovered / 2 * 1.0, 2);
+                if($leaveEquivOther > $leaveCredits->credits) {
                     return $this->dispatch('alert', [
                         'showAlert' => true,
                         'status' => 'error',
                         'title' => 'Oops',
-                        'message' => 'Unfortunately, this employee have insufficient leave credits. Applying for '.$daysCovered.' day(s), but only have ' . $leaveCredits->credits . ' remaining leave credits.'
+                        'message' => 'Unfortunately, this employee have insufficient leave credits. Applying for '.$leaveEquivOther.' day(s), but only have ' . $leaveCredits->credits . ' remaining leave credits.'
                     ]);
                 }
             }
@@ -358,14 +361,12 @@ class Index extends Component
             ->where('isDeleted', false);
 
         if ($this->search) {
-
             $this->resetPage();
-
-            $records = $model->where(function ($query) {
+            $model = $model->where(function ($query) {
                 $query->where('employee_no', 'like', '%' . $this->search . '%')
-                ->orWhereHas('employee', function ($subQuery) {
-                    $subQuery->whereRaw("CONCAT(firstname, ' ', lastname) LIKE ?", ['%' . $this->search . '%']);
-                });
+                    ->orWhereHas('employee', function ($subQuery) {
+                        $subQuery->whereRaw("CONCAT(COALESCE(firstname,''), ' ', COALESCE(lastname,'')) LIKE ?", ['%' . $this->search . '%']);
+                    });
             });
         }
 

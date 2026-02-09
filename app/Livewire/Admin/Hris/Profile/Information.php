@@ -35,6 +35,7 @@ class Information extends Component
     public array $records;
     public $selectedBranchId = null;
     public array $deductions = [];
+    public ?int $internTypeId = null;
 
     protected $listeners = ['save'];
 
@@ -53,6 +54,7 @@ class Information extends Component
         $this->sections = collect([]);
         $this->positions = collect([]);
         $this->employmentTypes = EmployementTypes::all();
+        $this->internTypeId = EmployementTypes::where('name', 'Interns')->value('id');
 
         $this->shiftSchedule = ShiftSchedule::all();
         $this->employeeSchedule = EmployeeSchedule::all();
@@ -241,9 +243,28 @@ class Information extends Component
         $this->positions = Positions::all();
         $this->isGovernment = false;
     }
+
+    // Intern without "has salary": force salary to 0 (both government and non-government)
+    if ($this->isIntern() && empty($this->records['employee_information']['has_salary'] ?? false)) {
+        $this->records['employee_information']['salary'] = 0;
+    }
 }
 
+    public function isIntern(): bool
+    {
+        if ($this->internTypeId === null || empty($this->records['employee_information']['type'])) {
+            return false;
+        }
+        return (string) $this->records['employee_information']['type'] === (string) $this->internTypeId;
+    }
 
+    protected function salaryValidationRule(): string
+    {
+        if ($this->isIntern() && empty($this->records['employee_information']['has_salary'] ?? false)) {
+            return 'nullable|numeric|min:0';
+        }
+        return 'required|numeric|gt:1000';
+    }
 
     public function formatInformation($data) {
         return [
@@ -264,6 +285,7 @@ class Information extends Component
             'status' => $data->status,
             'salary_method' => $data->salary_method,
             'salary' => $data->salary,
+            'has_salary' => (bool) ($data->has_salary ?? false),
             'allowance' => $data->allowance ?? null,
             'payroll_account_number' => $data->payroll_account_number,
         ];
@@ -332,7 +354,7 @@ class Information extends Component
             'records.employee_information.position_id' => 'required_if:records.employee_information.type,1,2|nullable|exists:positions,id|required_without:records.employee_information.type',
 
             'records.employee_information.step_id' => 'required|in:1,2,3,4,5,6,7,8',
-            'records.employee_information.salary' => 'required|numeric|gt:1000',
+            'records.employee_information.salary' => $this->salaryValidationRule(),
             'records.employee_information.allowance' => 'nullable|numeric|min:0',
             'records.employee_information.salary_method' => 'nullable|in:cash,bank transfer,paycheck,e-wallet',
         ];
@@ -468,10 +490,15 @@ class Information extends Component
         $contributionService = new ContributionsService();
 
         // Calculate statutory deductions
-        $sss = $contributionService->computeSSS((float)$salary);
-        $hdmf = $contributionService->computePagibig((float)$salary);
-        $philhealth = $contributionService->computePhilHealth((float)$salary);
-        $tax = ContributionsService::computeWithholdingTax((float)$salary);
+        $sssData = $contributionService->computeSSS((float)$salary);
+        $hdmfData = $contributionService->computePagibig((float)$salary);
+        $philhealthData = $contributionService->computePhilHealth((float)$salary);
+        $totalContributions = ($sssData['employee_share'] ?? 0) + ($hdmfData['employee_share'] ?? 0) + ($philhealthData['employee_share'] ?? 0);
+        $taxableIncome = max(0, $salary - $totalContributions);
+        $tax = ContributionsService::computeWithholdingTax($taxableIncome);
+        $sss = $sssData;
+        $hdmf = $hdmfData;
+        $philhealth = $philhealthData;
 
         $this->deductions = [
             'tax' => number_format($tax, 2),

@@ -11,7 +11,8 @@ class Create extends Component
 {
     public $job_category;
     public $fields = [
-        'amount_type' => 'amount'
+        'amount_type' => 'amount',
+        'computation_mode' => 'manual',
     ];
 
     protected $listeners = ['populateField'];
@@ -23,6 +24,7 @@ class Create extends Component
             'fields.amount' => 'required|numeric|min:0',
             'fields.amount_type' => 'required|in:amount,percentage',
             'fields.maximum_amount' => 'nullable|numeric|min:0',
+            'fields.computation_mode' => 'required|in:manual,automatic',
         ];
 
         // If percentage, ensure it's between 0 and 100
@@ -77,6 +79,7 @@ class Create extends Component
                 'amount' => $this->fields['amount'],
                 'amount_type' => $this->fields['amount_type'] ?? 'amount',
                 'maximum_amount' => $this->fields['maximum_amount'] ?? null,
+                'computation_mode' => $this->fields['computation_mode'] ?? 'manual',
             ]);
 
             $this->dispatch('alert', [

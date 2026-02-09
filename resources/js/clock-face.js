@@ -1,254 +1,262 @@
+/**
+ * Clock face UI: camera stream, capture from video, send to Livewire, show preview modal.
+ */
+
+let videoStream = null;
+
 export function initializeClockFace() {
-    $(function () {
+  const container = document.querySelector('.clockinout');
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
 
-        let isFaceDetected = false;
-        let stream = null;
-        let isCapturing = false;
+  if (!container || !video || !canvas) return;
 
-        const $video = $('#video');
-        const $canvas = $('#canvas');
-        const canvas = $canvas[0];
-        const context = canvas.getContext('2d');
-        const captureElement = document.querySelector('.camera');
-        const $alertContainer = $('.alert-container');
-        const $clockPreview = $('#clockInPreviewImage');
-        const $clockModal = $('#clockInModal');
-        const clockModal = new bootstrap.Modal($clockModal[0], { backdrop: 'static', keyboard: false });
+  // Prevent attaching multiple listeners if Livewire / scripts re-init this view
+  if (container.dataset.clockFaceInitialized === '1') {
+    return;
+  }
+  container.dataset.clockFaceInitialized = '1';
 
-        startCamera();
+  // Request location early so the browser prompt appears before capture (user can allow once).
+  getLocation().catch(() => {});
 
-        Livewire.on('loadDefaults', () => {
-            startCamera();
-        });
+  // Start camera and stream to video
+  startCamera(video, container).catch((err) => {
+    console.error('Clock face: camera error', err);
+    showCameraError(container, err);
+  });
 
-        $(document).on('click', '.clock-process', async function () {
-            const status = $(this).data('status');
+  // Capture & Proceed
+  container.addEventListener('click', (e) => {
+    const captureBtn = e.target.closest('.clock-process');
+    if (captureBtn) {
+      e.preventDefault();
+      captureAndOpenModal(video, canvas, false);
+      return;
+    }
+    const forcedBtn = e.target.closest('.clock-process-forced');
+    if (forcedBtn) {
+      e.preventDefault();
+      captureAndOpenModal(video, canvas, true);
+      return;
+    }
+    const retakeBtn = e.target.closest('.retakeButton');
+    if (retakeBtn) {
+      e.preventDefault();
+      retake();
+      return;
+    }
+  });
+}
 
-            if (!captureElement) return console.error('Camera element not found.');
-            if (isCapturing) return;
-            isCapturing = true;
-
-            try {
-                if (status === 'Done') {
-                    showAlert('Please be informed', 'You\'ve completed today’s work.');
-                    return;
-                }
-                if (!isFaceDetected) {
-                    showAlert('No Face Detected', 'Please ensure your face is visible to the camera.');
-                    return;
-                }
-
-                const imageData = await captureSnapshot();
-            
-            // ✅ Check actual latitude and longitude
-           /* if (latitude === null || longitude === null) {
-                return showAlert('No Location Detected', 'Please enable your GPS/location services.');
-            }*/
-
-                if (imageData) {
-                    $clockPreview.attr('src', imageData);
-                    showCountdownModal(imageData, isFaceDetected, false, null);
-                    stopCamera();
-                }
-            } finally {
-                isCapturing = false;
-            }
-        });
-
-        $(document).on('click', '.clock-process-forced', async function () {
-            if (!captureElement) return console.error('Camera element not found.');
-            if (isCapturing) return;
-            isCapturing = true;
-
-            try {
-                if (!isFaceDetected) {
-                    showAlert('No Face Detected', 'Please ensure your face is visible to the camera.');
-                    return;
-                }
-
-                const imageData = await captureSnapshot();
-
-                if (imageData) {
-                    $clockPreview.attr('src', imageData);
-                    showCountdownModal(imageData, isFaceDetected, true, null);
-                    stopCamera();
-                }
-            } finally {
-                isCapturing = false;
-            }
-        });
-
-        $(document).on('click', '.retakeButton', () => {
-            // "Retake" = close modal + reset preview + resume camera.
-            try { clockModal.hide(); } catch (_) {}
-            $clockPreview.attr('src', '');
-            Livewire.dispatch('resetCapture');
-            startCamera();
-        });
-
-        // If user closes the modal, resume camera for the next capture.
-        $clockModal.on('hidden.bs.modal', () => {
-            $clockPreview.attr('src', '');
-            Livewire.dispatch('resetCapture');
-            startCamera();
-        });
-
-        async function captureSnapshot() {
-            // Prefer a real video frame snapshot (prevents distortion vs html2canvas on a video element).
-            const videoEl = $video[0];
-            const w = videoEl?.videoWidth ?? 0;
-            const h = videoEl?.videoHeight ?? 0;
-
-            if (w > 0 && h > 0) {
-                const snapCanvas = document.createElement('canvas');
-                snapCanvas.width = w;
-                snapCanvas.height = h;
-
-                const ctx = snapCanvas.getContext('2d');
-                // Don't mirror the captured image since video preview is already mirrored
-                // This prevents double mirroring
-                ctx.drawImage(videoEl, 0, 0, w, h);
-
-                // Optional watermark draw (same-origin logo). If it fails, we still keep the photo.
-                try {
-                    const logo = document.querySelector('.watermark img');
-                    if (logo?.complete && logo.naturalWidth > 0 && logo.naturalHeight > 0) {
-                        const pad = Math.round(w * 0.02);
-                        const maxLogoW = Math.min(180, Math.round(w * 0.28));
-                        const ratio = logo.naturalHeight / logo.naturalWidth;
-                        const logoW = maxLogoW;
-                        const logoH = Math.round(logoW * ratio);
-                        ctx.globalAlpha = 0.9;
-                        ctx.drawImage(logo, w - logoW - pad, pad, logoW, logoH);
-                        ctx.globalAlpha = 1;
-                    }
-                } catch (e) {
-                    console.warn('Watermark draw skipped:', e);
-                }
-
-                return snapCanvas.toDataURL('image/png');
-            }
-
-            // Fallback (rare): html2canvas of the container.
-            const canvas = await html2canvas(captureElement, {
-                useCORS: true,
-                allowTaint: true,
-                scale: window.devicePixelRatio,
-            });
-            return canvas.toDataURL('image/png');
+function startCamera(video, container) {
+  return navigator.mediaDevices
+    .getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    .then((stream) => {
+      videoStream = stream;
+      video.srcObject = stream;
+      // Clear any previous camera error once we have a stream
+      if (container) {
+        const alertEl = container.querySelector('.alert-container');
+        if (alertEl) {
+          alertEl.innerHTML = '';
         }
-
-        function showAlert(title, text) {
-            Swal.fire({ title, text, icon: 'info' });
-        }
-
-        async function showCountdownModal(imageData, faceStatus, forced = false) {
-            clockModal.show();
-            const proceedBtn = $clockModal.find('button[type="submit"]')[0];
-            const proceedLabel = proceedBtn.querySelector('span');
-            let countdown = 5;
-
-           // proceedBtn.disabled = true;
-           // proceedLabel.textContent = `Proceed (${countdown})`;
-           proceedLabel.textContent = `Proceed`;
-            proceedBtn.disabled = false;
-
-          /*  const interval = setInterval(() => {
-                countdown--;
-                proceedLabel.textContent = countdown > 0 ? `Proceed (${countdown})` : 'Proceed';
-                if (countdown <= 0) {
-                    clearInterval(interval);
-                    proceedBtn.disabled = false;
-                }
-            }, 1000);*/
-
-            let locationPayload = null;
-            try {
-                if (window.getGPSCoordinates) {
-                    const coords = await window.getGPSCoordinates();
-                    locationPayload = {
-                        coordinates: {
-                            lat: coords.lat,
-                            lng: coords.lng,
-                        },
-                        provider: 'browser-geolocation',
-                    };
-                }
-            } catch (e) {
-                console.warn('GPS not available or denied:', e);
-            }
-
-            Livewire.dispatch('imageCaptured', [imageData, faceStatus, forced, locationPayload]);
-        }
-
-        async function startCamera() {
-            try {
-                if (stream) return; // prevent double-start
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                $video[0].srcObject = stream;
-                
-                // Apply mirror transform to video preview
-                $video[0].style.transform = 'scaleX(-1)';
-                $video[0].style.webkitTransform = 'scaleX(-1)';
-
-                $video[0].onloadeddata = async () => {
-                    await loadFaceApiModels();
-                    await $video[0].play();
-                    detectFacesLoop();
-                };
-            } catch (err) {
-                showAlert('Please be informed', 'Camera and location access are required to continue.');
-            }
-        }
-
-        function stopCamera() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-                $video[0].srcObject = null;
-            }
-        }
-
-        async function loadFaceApiModels() {
-            try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri('/faceapi');
-                console.log('Face API model loaded');
-            } catch (error) {
-                console.error('Failed to load Face API model:', error);
-            }
-        }
-
-        async function detectFacesLoop() {
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
-
-            async function detect() {
-                try {
-                    if ($video[0].readyState >= 2) {
-                        const results = await faceapi.detectAllFaces($video[0], options);
-                        if (results.length === 0) {
-                            $alertContainer.html(`
-                                <div class="alert-no-face">
-                                    <div>Face Is Not Detected</div>
-                                </div>
-                            `);
-                            isFaceDetected = false;
-                        } else {
-                            $alertContainer.empty();
-                            isFaceDetected = true;
-                        }
-                    }
-                } catch (err) {
-                    console.error('Face detection error:', err);
-                }
-                requestAnimationFrame(detect);
-            }
-
-            detect();
-        }
-
-        $video.on('loadedmetadata', () => {
-            canvas.width = $video[0].videoWidth;
-            canvas.height = $video[0].videoHeight;
-        });
+      }
+      return video.play();
     });
+}
+
+function showCameraError(container, err) {
+  const alertEl = container.querySelector('.alert-container');
+  if (!alertEl) return;
+  const msg =
+    err.name === 'NotAllowedError'
+      ? 'Camera access was denied. Please allow camera and refresh.'
+      : err.name === 'NotFoundError'
+        ? 'No camera found.'
+        : 'Could not start camera. Please check permissions.';
+  alertEl.innerHTML = `<div class="alert alert-warning mb-0">${msg}</div>`;
+}
+
+function captureAndOpenModal(video, canvas, isForcedOut) {
+  if (!video.srcObject || video.readyState < 2) {
+    if (window.Livewire) {
+      window.Livewire.dispatch('alert', [
+        {
+          showAlert: true,
+          status: 'info',
+          title: 'Camera not ready',
+          message: 'Please wait for the camera to load, or allow camera access.',
+        },
+      ]);
+    }
+    return;
+  }
+
+  const ctx = canvas.getContext('2d');
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) return;
+
+  canvas.width = w;
+  canvas.height = h;
+  // Un-mirror: video is displayed with scaleX(-1), so flip when drawing to canvas
+  ctx.save();
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, w, h);
+  ctx.restore();
+
+  const imageData = canvas.toDataURL('image/jpeg', 0.9);
+
+  // Get location (optional; don't block capture)
+  getLocation()
+    .then(({ location: locationStr, error: locationError }) => {
+      sendCaptureToLivewire(canvas, imageData, isForcedOut, locationStr, locationError);
+    })
+    .catch(() => {
+      sendCaptureToLivewire(canvas, imageData, isForcedOut, null, 'getLocation_failed');
+    });
+}
+
+function getLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve({ location: null, error: 'not_supported' });
+      return;
+    }
+    const timeoutMs = 10000;
+    const timeout = setTimeout(() => {
+      resolve({ location: null, error: 'timeout' });
+    }, timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timeout);
+        const { latitude, longitude } = pos.coords;
+        resolve({
+          location: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+          error: null,
+        });
+      },
+      (err) => {
+        clearTimeout(timeout);
+        const codeMap = {
+          1: 'permission_denied',
+          2: 'position_unavailable',
+          3: 'timeout',
+        };
+        resolve({
+          location: null,
+          error: codeMap[err.code] || 'unknown',
+        });
+      },
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 120000 }
+    );
+  });
+}
+
+function sendCaptureToLivewire(canvas, imageData, isForcedOut, location, locationError) {
+  const container = document.querySelector('.clockinout');
+  const uploadUrl = container?.dataset?.captureUploadUrl;
+
+  if (uploadUrl) {
+    // Upload image via multipart so Livewire update payload stays small (avoids "Unexpected token '<'" from HTML error response).
+    canvas.toBlob(
+      (blob) => {
+        const formData = new FormData();
+        formData.append('image', blob, 'capture.jpg');
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const headers = {};
+        if (csrf) headers['X-CSRF-TOKEN'] = csrf;
+        fetch(uploadUrl, { method: 'POST', body: formData, headers, credentials: 'same-origin' })
+          .then((res) => {
+            if (!res.ok) throw new Error(res.statusText);
+            return res.json();
+          })
+          .then((data) => {
+            if (window.Livewire && data.path) {
+              window.Livewire.dispatch('imageCaptured', [
+                data.path,
+                true,
+                isForcedOut,
+                location,
+                locationError ?? null,
+              ]);
+            }
+          })
+          .catch(() => {
+            if (window.Livewire) {
+              window.Livewire.dispatch('imageCaptured', [
+                imageData,
+                true,
+                isForcedOut,
+                location,
+                locationError ?? null,
+              ]);
+            }
+          })
+          .finally(() => {
+            showPreviewModal(imageData, location);
+          });
+      },
+      'image/jpeg',
+      0.9
+    );
+  } else {
+    if (window.Livewire) {
+      window.Livewire.dispatch('imageCaptured', [
+        imageData,
+        true,
+        isForcedOut,
+        location,
+        locationError ?? null,
+      ]);
+    }
+    showPreviewModal(imageData, location);
+  }
+}
+
+function formatCapturedAt(date) {
+  const d = date || new Date();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const am = h < 12;
+  const h12 = h % 12 || 12;
+  const time = `${h12}:${String(m).padStart(2, '0')} ${am ? 'AM' : 'PM'}`;
+  return `${months[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}, ${d.getFullYear()} • ${time}`;
+}
+
+function showPreviewModal(imageData, location) {
+  const previewImg = document.getElementById('clockInPreviewImage');
+  if (previewImg) previewImg.src = imageData;
+
+  const capturedEl = document.getElementById('clockInModalCaptured');
+  const locationEl = document.getElementById('clockInModalLocation');
+  if (capturedEl) capturedEl.textContent = formatCapturedAt(new Date());
+  // Show placeholder until Livewire updates with resolved address (geocoding runs server-side).
+  if (locationEl) {
+    const raw = location && String(location).trim();
+    const looksLikeCoords = raw && /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(raw.replace(/\s/g, ''));
+    locationEl.textContent = looksLikeCoords ? 'Resolving address…' : (raw || '—');
+  }
+
+  const modalEl = document.getElementById('clockInModal');
+  if (modalEl && typeof bootstrap !== 'undefined') {
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+}
+
+function retake() {
+  const modalEl = document.getElementById('clockInModal');
+  if (modalEl && typeof bootstrap !== 'undefined') {
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.hide();
+  }
+  const previewImg = document.getElementById('clockInPreviewImage');
+  if (previewImg) previewImg.removeAttribute('src');
+  if (window.Livewire) {
+    window.Livewire.dispatch('resetCapture');
+  }
 }

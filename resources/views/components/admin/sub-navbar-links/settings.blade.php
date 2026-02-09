@@ -18,7 +18,6 @@
             <li><a class="dropdown-item" href="{{route('payroll.settings')}}">Payroll Settings</a></li>
         @endcan
         @canany([
-            'read branches',
             'read departments',
             'read sections'
         ])
@@ -27,10 +26,6 @@
                     Location Management
                 </a>
                 <ul class="dropdown-menu">
-                    @can('read branches')
-                        <li><a class="dropdown-item" href="{{route('branch.index')}}">Central / Field Office</a></li>
-                    @endcan
-
                     @can('read departments')
                         <li><a class="dropdown-item" href="{{route('department.index')}}">Departments</a></li>
                     @endcan

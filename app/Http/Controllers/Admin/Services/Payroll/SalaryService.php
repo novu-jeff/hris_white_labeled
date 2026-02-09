@@ -405,10 +405,12 @@ class SalaryService extends Controller {
                 $pagibig = $hasDeductions ? $contribution_service->computePagibig($basic_salary)['employee_share'] ?? 0 : 0;
                 $philhealth = $hasDeductions ? $contribution_service->computePhilHealth($basic_salary)['employee_share'] ?? 0 : 0;
 
-                $w_tax = $hasDeductions ? $contribution_service->computeWithholdingTax($basic_salary) : 0;
-               // $other_loans = 0;
+                $night_differential = $payroll_service->computeNightShiftDifferential($basic_salary, $dtr_summary, $salary_type);
+                $gross_amount_earned = $basic_salary + $overtime + $holiday_pay + $allowances + $night_differential;
 
-                $gross_amount_earned = $basic_salary + $overtime + $holiday_pay + $allowances;
+                $total_contributions = $sss + $pagibig + $philhealth;
+                $taxable_income = max(0, $gross_amount_earned - $total_contributions);
+                $w_tax = $hasDeductions ? $contribution_service->computeWithholdingTax($taxable_income) : 0;
                 $total_deductions = $sss + $pagibig + $philhealth + $w_tax + $other_loans + $aut;
                 $net_amount = $gross_amount_earned - $total_deductions;
                 
@@ -429,6 +431,7 @@ class SalaryService extends Controller {
     // EARNINGS
     'overtime' => $overtime,
     'holiday_pay' => $holiday_pay,
+    'night_differential' => $night_differential,
     'allowances' => $allowances,
     'gross_amount_earned' => $gross_amount_earned,
 
@@ -456,6 +459,7 @@ class SalaryService extends Controller {
                     'basic_salary' => $basic_salary,
                     'overtime_pay' => $overtime,
                     'holiday_pay' => $holiday_pay,
+                    'night_differential' => $night_differential,
                     'allowances' => $allowances,
                     'aut' => $aut,
                     'gross_amount_earned' => round($gross_amount_earned, 2),

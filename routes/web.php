@@ -553,6 +553,8 @@ $employeeRoutes = function () {
 
         Route::get('clock-in-out', [EmployeeClockInOutController::class, 'index'])
             ->name('employee.clock');
+        Route::post('clock-capture-upload', [EmployeeClockInOutController::class, 'uploadCapture'])
+            ->name('employee.clock.capture-upload');
 
         Route::get('remaining-credit', [EmployeeRemainingCreditController::class, 'index'])
             ->name('employee.credit');

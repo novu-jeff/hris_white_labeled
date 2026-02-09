@@ -8,6 +8,8 @@ use App\Services\ClockInOutService;
 use App\Services\DailyTimeRecordService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -34,6 +36,7 @@ class Clock extends Component
     public $logs = [];
     public $manipulate_timestamp = '07:00';
     public $upload_accomplishment;
+    public $accomplishment_link;
 
     protected $listeners = [
         'imageCaptured',
@@ -43,7 +46,7 @@ class Clock extends Component
     ];
 
     protected $rules = [
-        'upload_accomplishment' => 'required|file|mimes:pdf|max:5120', // 5MB max
+        'accomplishment_link' => 'required|url|max:500',
     ];
 
     protected $validationAttributes = [
@@ -91,16 +94,18 @@ class Clock extends Component
 
     private function getLogs()
     {
+        $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
         $records = EmployeeTimelogs::with('employee.personal')
             ->where('employee_id', $this->employee_id)
             ->whereMonth('timestamp', now()->month)
             ->whereYear('timestamp', now()->year)
+            ->orderBy('timestamp')
             ->get();
 
         return $records
             ->groupBy(fn($record) => optional(Carbon::parse($record->timestamp))->format('j/n/Y') . '|' . ($record->employee_id ?? 'undefined'))
             ->filter()
-            ->map(function ($logs, $key) {
+            ->map(function ($logs, $key) use ($showLunch) {
                 [$date, $employee_id] = explode('|', $key);
                 $logs = $logs->sortBy('timestamp')->values();
 
@@ -108,38 +113,42 @@ class Clock extends Component
                     'time' => optional(Carbon::parse($log->timestamp))->format('H:i:s'),
                     'captured_image' => $log->captured_image,
                     'captured_location' => $log->captured_location,
-                    'accomplishment' => $log->accomplishment ?? null
+                    'accomplishment' => $log->accomplishment ?? null,
                 ];
 
-                $baseData = [
+                $ins = [];
+                $outs = [];
+                foreach ($logs as $log) {
+                    $status = (int) ($log->status ?? $log->status1 ?? 0);
+                    $formatted = $formatLog($log);
+                    if ($status === 0) {
+                        $ins[] = $formatted;
+                    } else {
+                        $outs[] = $formatted;
+                    }
+                }
+
+                $logsSlots = [null, null, null, null];
+                if ($showLunch && count($ins) >= 2 && count($outs) >= 2) {
+                    $logsSlots[0] = $ins[0];
+                    $logsSlots[1] = $outs[0];
+                    $logsSlots[2] = $ins[1];
+                    $logsSlots[3] = $outs[1];
+                } elseif ($showLunch) {
+                    $logsSlots[0] = $ins[0] ?? null;
+                    $logsSlots[3] = $outs[0] ?? null;
+                } else {
+                    $logsSlots[0] = $ins[0] ?? null;
+                    $logsSlots[1] = $outs[0] ?? null;
+                }
+
+                return [
                     'date' => $date,
                     'bsd_no' => $employee_id,
                     'employee' => optional($logs->first())->employee,
                     'origin' => optional($logs->first())->origin,
+                    'logs' => array_map(fn($s) => $s ?? [], $logsSlots),
                 ];
-
-                $count = $logs->count();
-                $lastHasAccomplishment = !empty(optional($logs->last())->accomplishment);
-
-                if ($count === 2 && $lastHasAccomplishment) {
-                    return array_merge($baseData, ['logs' => [
-                        $formatLog($logs[0]),
-                        [],
-                        [],
-                        $formatLog($logs[1]),
-                    ]]);
-                }
-
-                if ($count === 3 && $lastHasAccomplishment) {
-                    return array_merge($baseData, ['logs' => [
-                        $formatLog($logs[0]),
-                        $formatLog($logs[1]),
-                        [],
-                        $formatLog($logs[2]),
-                    ]]);
-                }
-
-                return array_merge($baseData, ['logs' => $logs->map($formatLog)->values()->all()]);
             })
             ->sortByDesc(fn($item) => Carbon::createFromFormat('j/n/Y', $item['date']))
             ->values();
@@ -160,8 +169,29 @@ class Clock extends Component
         $clockRecords = $model->get();
         $entry = $model->count();
 
+        $allowPastMidnight = $this->shiftAllowsPastMidnightClockOut($shiftSchedule);
+        if ($entry === 0 && $allowPastMidnight && now()->hour < 6) {
+            $yesterday = now()->subDay()->format('Y-m-d');
+            $yesterdayLogs = EmployeeTimelogs::where('employee_id', $bsd_no)
+                ->where('timestamp', 'LIKE', "{$yesterday}%")
+                ->orderBy('timestamp')
+                ->get();
+            $yesterdayCount = $yesterdayLogs->count();
+            if ($hasBreaktime && $yesterdayCount === 1) {
+                $entry = 1;
+                $this->entry = 1;
+            } elseif ($hasBreaktime && $yesterdayCount === 3) {
+                $entry = 3;
+                $this->entry = 3;
+            } elseif (!$hasBreaktime && $yesterdayCount === 1) {
+                $entry = 1;
+                $this->entry = 1;
+            }
+        } else {
+            $this->entry = $entry;
+        }
+
         $hasAccomplishment = $clockRecords->contains(fn($record) => !empty($record->accomplishment));
-        $this->entry = $entry;
 
         if ($hasAccomplishment) {
             $this->status = 'Done';
@@ -187,8 +217,22 @@ class Clock extends Component
 
         $this->dispatch('loadDefaults');
 
-        // Accomplishment is required every Friday during Clock Out.
         $this->requires_accomplishment = $this->shouldRequireAccomplishment();
+    }
+
+    /**
+     * Support shift and other overnight: clock in 6pm, clock out 2am = same shift (no 12am shenanigans).
+     */
+    private function shiftAllowsPastMidnightClockOut($shift): bool
+    {
+        if (!$shift) {
+            return false;
+        }
+        $duration = $shift->shift_duration ?? '';
+        $name = $shift->name ?? '';
+        $allowedDurations = ['extended', 'full-day', 'compressed', 'part-time', 'support'];
+        return in_array($duration, $allowedDurations, true)
+            || stripos($name, 'support') !== false;
     }
 
     private function shouldRequireAccomplishment(): bool
@@ -222,15 +266,16 @@ class Clock extends Component
             return;
         }
 
-       /* if (is_null($this->gps_location)) {
+        // Require location for clock in/out.
+        if (empty($this->gps_location)) {
             $this->dispatch('alert', [
                 'showAlert' => true,
-                'status' => 'info',
-                'title' => 'No Location Detected',
-                'message' => 'No location detected. Please make sure to enable your location or GPS.',
+                'status' => 'error',
+                'title' => 'Location required',
+                'message' => 'Location is required for clock in/out. Please allow location access in your browser, then retake the photo and proceed.',
             ]);
             return;
-        }*/
+        }
 
         if (empty($this->imageCaptured)) {
             $this->dispatch('alert', [
@@ -249,7 +294,7 @@ class Clock extends Component
                 'showAlert' => true,
                 'status' => 'error',
                 'title' => 'Accomplishment Report Required',
-                'message' => 'Please upload your accomplishment report before clocking out (required every Friday).',
+                'message' => 'Please provide your accomplishment report link before clocking out (required every Friday).',
             ]);
             return;
         }
@@ -304,6 +349,16 @@ class Clock extends Component
             return;
         }
 
+        if (empty($this->gps_location)) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Location required',
+                'message' => 'Location is required. Please allow location access and retake the photo.',
+            ]);
+            return;
+        }
+
         $service = app(ClockInOutService::class);
         $response = $service->insertLog($this->getEffectiveEntry(), $this->buildToProcess(), (string) $this->employee_no);
 
@@ -319,9 +374,36 @@ class Clock extends Component
 
     private function buildToProcess(): array
     {
+        $capturedImage = $this->imageCaptured;
+
+        // Temp file is in clock-capture-tmp (not livewire-tmp). Prefer session (set at upload) so Proceed works across workers/servers; else read file, then delete temp.
+        if (is_string($capturedImage) && str_starts_with($capturedImage, 'capture:')) {
+            $path = substr($capturedImage, 8);
+            $sessionKey = 'clock_capture_' . $path;
+            $base64 = session()->get($sessionKey);
+            if ($base64 !== null && $base64 !== '') {
+                session()->forget($sessionKey);
+                $capturedImage = 'data:image/jpeg;base64,' . $base64;
+            } else {
+                $fullPath = Storage::disk('local')->path($path);
+                if (file_exists($fullPath)) {
+                    $contents = file_get_contents($fullPath);
+                    $capturedImage = 'data:image/jpeg;base64,' . base64_encode($contents);
+                    @unlink($fullPath);
+                } else {
+                    Log::warning('Clock:buildToProcess missing capture file', [
+                        'path' => $path,
+                        'employee_no' => $this->employee_no,
+                        'storage_path' => Storage::disk('local')->path(''),
+                    ]);
+                    $capturedImage = null;
+                }
+            }
+        }
+
         return [
             'timestamp' => Carbon::now(),
-            'captured_image' => $this->imageCaptured,
+            'captured_image' => $capturedImage,
             'captured_location' => $this->gps_location,
             'accomplishment' => $this->accomplishment ?? null,
         ];
@@ -344,14 +426,29 @@ class Clock extends Component
         $this->toggleStatus();
     }
 
-    public function imageCaptured($imageData, $isFaceDetected = false, $isForcedOut = false, $location = null)
+    public function imageCaptured($imageData, $isFaceDetected = false, $isForcedOut = false, $location = null, $locationError = null)
     {
+        // Normalize to avoid corrupt payload (e.g. only accept scalar locationError).
+        $locationError = is_string($locationError) ? $locationError : null;
+
+        // Keep path as-is (capture:...) so Livewire response stays small; resolve to base64 only in buildToProcess() when saving.
+        // Do NOT read file or convert to base64 here — that would bloat the component state and cause 413/HTML response again.
+
+        Log::info('Clock:imageCaptured', [
+            'employee_no'    => $this->employee_no,
+            'raw_location'   => $location,
+            'location_error' => $locationError,
+        ]);
+
         $this->imageCaptured = $imageData;
         $this->isFaceDetected = $isFaceDetected;
         $this->isForcedOut = $isForcedOut;
         $this->captured_at = now()->toDateTimeString();
-        $this->gps_location = $location;
+        // Convert coordinates to real address using Google Geocoding (env: GOOGLE_MAPS_API_KEY).
+        $address = $this->resolveLocationFromCoordinates($location);
+        $this->gps_location = $address !== null ? $address : ($location ?? '');
         $this->requires_accomplishment = $this->shouldRequireAccomplishment();
+
     }
 
     public function resetCapture(): void
@@ -361,44 +458,32 @@ class Clock extends Component
         $this->isForcedOut = false;
         $this->captured_at = null;
         $this->upload_accomplishment = null;
+        $this->accomplishment_link = null;
         $this->accomplishment = null;
         $this->requires_accomplishment = false;
         $this->resetErrorBag();
     }
-
-    public function updatedUploadAccomplishment()
-    {
-        
-        $this->validateOnly('upload_accomplishment');
-    }
-
 
     public function saveAccomplishment()
     {
         $this->resetErrorBag();
 
         // Safety check
-        if (!$this->upload_accomplishment) {
+        if (!$this->accomplishment_link) {
             $this->dispatch('alert', [
                 'showAlert' => true,
                 'status' => 'error',
-                'title' => 'Missing File',
-                'message' => 'Please upload an accomplishment report.',
+                'title' => 'Missing Link',
+                'message' => 'Please enter an accomplishment report link.',
             ]);
             return;
         }
 
-        // Store the file
-        $file = $this->upload_accomplishment;
-        $fileName = $this->employee_no . '_' . time() . '.' . $file->getClientOriginalExtension();
-        $disk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
-        $file->storeAs('accomplishments', $fileName, $disk);
+        // Validate the link format
+        $this->validateOnly('accomplishment_link');
 
-        // Save the filename to DB or property
-        $this->accomplishment = $fileName;
-
-        // Optional: reset the property after upload if you want to allow re-upload
-        $this->upload_accomplishment = null;
+        // Save the link to the property that gets stored with the timelog
+        $this->accomplishment = $this->accomplishment_link;
 
         // Trigger clock or next step (this will show Recorded!/confirm, etc.)
         $this->triggerClock();
@@ -407,5 +492,69 @@ class Clock extends Component
     public function render()
     {
         return view('livewire.employee.clock');
+    }
+
+    /**
+     * Convert \"lat,lng\" coordinates into a formatted address using
+     * Google Maps Geocoding API. Returns null on any failure.
+     */
+    private function resolveLocationFromCoordinates(?string $coords): ?string
+    {
+        if (!$coords) {
+            return null;
+        }
+
+        $parts = array_map('trim', explode(',', $coords));
+        if (count($parts) < 2) {
+            return null;
+        }
+
+        $apiKey = config('services.google.maps_key');
+        if (empty($apiKey)) {
+            return null;
+        }
+
+        try {
+            Log::info('Clock:geocode request', [
+                'employee_no' => $this->employee_no,
+                'coords'     => $coords,
+            ]);
+
+            $response = Http::timeout(6)->withOptions(['cookies' => false])
+                ->get('https://maps.googleapis.com/maps/api/geocode/json', [
+                    'latlng' => implode(',', $parts),
+                    'key'    => $apiKey,
+                ]);
+
+            if (!$response->successful()) {
+                Log::warning('Clock:geocode http_error', [
+                    'employee_no'  => $this->employee_no,
+                    'status_code'  => $response->status(),
+                    'body'         => $response->body(),
+                ]);
+                return null;
+            }
+
+            $data = $response->json();
+
+            Log::info('Clock:geocode response', [
+                'employee_no'   => $this->employee_no,
+                'status'       => $data['status'] ?? null,
+                'has_results'  => !empty($data['results']),
+                'address'      => $data['results'][0]['formatted_address'] ?? null,
+            ]);
+
+            if (($data['status'] ?? '') !== 'OK' || empty($data['results'][0]['formatted_address'])) {
+                return null;
+            }
+
+            return $data['results'][0]['formatted_address'];
+        } catch (\Throwable $e) {
+            Log::error('Clock:geocode exception', [
+                'employee_no' => $this->employee_no,
+                'message'     => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 }

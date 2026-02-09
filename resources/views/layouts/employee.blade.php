@@ -49,7 +49,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
 
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -61,6 +60,7 @@
     @vite(['resources/sass/app.scss', 'resources/js/app.js', 'resources/sass/home-layout.scss', 'resources/sass/employee-layout.scss', 'resources/sass/chat.scss'])
 
     @yield('style')
+    @stack('style')
 
     @livewireStyles
     
@@ -169,7 +169,7 @@
 
 </head>
 <body>
-    <div id="app">
+    <div id="app" class="sidebar-open">
 
         <div class="scroll-top">
             <i class="fa-solid fa-arrow-up fa-bounce"></i>
@@ -287,6 +287,39 @@
 
 
     @yield('script')
+    {{-- Strip injected HTML from JSON responses (e.g. "<!-- This Commentary... -->" prepended by proxy/hosting) --}}
+    <script>
+    (function() {
+        if (window.__livewireFetchLogged) return;
+        var nativeFetch = window.fetch;
+        window.fetch = function(input, init) {
+            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            var isSameOrigin = url && (url.startsWith(window.location.origin) || url.startsWith('/'));
+            var isPost = !(init && init.method) || String(init.method).toUpperCase() === 'POST';
+            return nativeFetch.apply(this, arguments).then(function(response) {
+                if (!isSameOrigin || !isPost) return response;
+                return response.clone().text().then(function(text) {
+                    var trimmed = text.trimStart();
+                    if (trimmed.charAt(0) !== '<') return response;
+                    var jsonStart = trimmed.indexOf('{');
+                    if (jsonStart === -1) {
+                        console.error('[Livewire] Response was HTML, no JSON object found', { url: url, bodyPreview: text.slice(0, 800) });
+                        return response;
+                    }
+                    var strippedText = trimmed.slice(jsonStart);
+                    console.warn('[Livewire] Stripped leading HTML from response', { url: url, strippedBytes: jsonStart, bodyLength: text.length });
+                    var headers = new Headers(response.headers);
+                    headers.set('Content-Length', strippedText.length);
+                    return new Response(strippedText, { status: response.status, statusText: response.statusText, headers: headers });
+                }).catch(function(e) {
+                    console.warn('[Livewire] Could not process response:', e);
+                    return response;
+                });
+            });
+        };
+        window.__livewireFetchLogged = true;
+    })();
+    </script>
     @livewireScripts
     <script>
     let lastScrollTop = 0;
@@ -307,10 +340,17 @@
     document.addEventListener("DOMContentLoaded", function () {
         const sidebar = document.getElementById("employeeSidebar");
         const toggle = document.getElementById("sidebarToggle");
+        const app = document.getElementById("app");
 
-        if (toggle && sidebar) {
+        if (toggle && sidebar && app) {
+            // Mobile: start with sidebar closed (remove defaults from blade)
+            if (window.innerWidth <= 992) {
+                sidebar.classList.remove("active");
+                app.classList.remove("sidebar-open");
+            }
             toggle.addEventListener("click", function () {
                 sidebar.classList.toggle("active");
+                app.classList.toggle("sidebar-open", sidebar.classList.contains("active"));
             });
         }
 

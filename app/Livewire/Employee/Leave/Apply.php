@@ -4,6 +4,7 @@ namespace App\Livewire\Employee\Leave;
 
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeLeave;
+use App\Models\EmployeePersonal;
 use App\Models\EmployeeLeaveCard;
 use App\Models\EmployeeLeaveDates;
 use App\Models\Holiday;
@@ -147,7 +148,11 @@ class Apply extends Component
     }
 
     public function setSelectedDates($dates) {
-        $this->selectedDates = $dates;
+        if (is_array($dates)) {
+            $this->selectedDates = isset($dates['dates']) ? $dates['dates'] : $dates;
+        } else {
+            $this->selectedDates = [];
+        }
     }
 
     public function handleLeaveCredits(int $duration = null) {
@@ -459,7 +464,10 @@ class Apply extends Component
                             $allowSuperadmin ? 'superadmin' : null,
                         ])));
 
-                        $message = "Employee <strong>{$this->employee_no}</strong> submitted a leave application.";
+                        $personal = EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                        $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                        $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                        $message = 'Employee <strong>' . $display . '</strong> submitted a leave application.';
                         $redirect = route('ess.leave');
 
                         $rolesToNotify = Role::where('guard_name', 'web')

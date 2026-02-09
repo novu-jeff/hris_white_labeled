@@ -48,19 +48,34 @@ class ClockInOutService
 
     private function validateClockIn(Carbon $timeMark, $shift): array
     {
+        if (!empty($shift->allow_anytime_clockin)) {
+            return ['status' => true];
+        }
+
+        // Allow clock-in from 7:00 AM (configurable via EARLIEST_CLOCK_IN_ALLOWED). Clock-out logic unchanged.
+        $earliestAllowedTime = config('app.earliest_clock_in_allowed', '07:00');
+
         if ($shift->shift_duration === 'flexible') {
             $earliest = Carbon::parse($shift->earliest_in);
             $latest = Carbon::parse($shift->latest_in);
+            // Use the earlier of (shift earliest, 7am) so 7am clock-in is always allowed
+            $effectiveTime = ($earliest->format('H:i') > $earliestAllowedTime) ? $earliestAllowedTime : $earliest->format('H:i');
+            $effectiveEarliest = $timeMark->copy()->startOfDay()->setTimeFromTimeString($effectiveTime);
 
             return match (true) {
-                $timeMark->lt($earliest) => $this->info("The earliest clock in is " . $earliest->format('g:i A')),
+                $timeMark->lt($effectiveEarliest) => $this->info("The earliest clock in is " . $effectiveEarliest->format('g:i A')),
                 $timeMark->gt($latest) => $this->confirm("You're clocking in and will be marked as late."),
                 default => ['status' => true]
             };
         }
 
         $startShift = Carbon::parse($shift->start_shift);
-        return $timeMark->gt($startShift)
+        $effectiveStart = $timeMark->copy()->startOfDay()->setTimeFromTimeString($startShift->format('H:i'));
+        $effectiveEarliestDt = $timeMark->copy()->startOfDay()->setTimeFromTimeString($earliestAllowedTime);
+        if ($timeMark->lt($effectiveEarliestDt)) {
+            return $this->info("The earliest clock in is " . Carbon::parse($earliestAllowedTime)->format('g:i A'));
+        }
+        return $timeMark->gt($effectiveStart)
             ? $this->confirm("You're clocking in and will be marked as late.")
             : ['status' => true];
     }
@@ -79,9 +94,13 @@ class ClockInOutService
 
     private function validateClockOut(Carbon $timeMark, $shift, string $timestamp, string $employee_no): array
     {
+        if (!empty($shift->allow_anytime_clockout)) {
+            return ['status' => true];
+        }
+
         $minHours = (int) env('MIN_CLOCKOUT_HOURS', 9);
 
-        $firstLog = $this->getFirstLog($timestamp, $employee_no);
+        $firstLog = $this->getFirstLog($timestamp, $employee_no, $shift);
         $minExpectedOut = !empty($firstLog['timestamp'])
             ? Carbon::parse($firstLog['timestamp'])->addHours($minHours)
             : null;
@@ -112,19 +131,77 @@ class ClockInOutService
         return $this->info("Today's job is already done");
     }
 
-    private function getFirstLog(string $timestamp, string $employee_no): ?array
+    private function getFirstLog(string $timestamp, string $employee_no, $shift = null): ?array
     {
-        $date = Carbon::parse($timestamp)->toDateString();
+        $timeMark = Carbon::parse($timestamp);
+        $date = $timeMark->toDateString();
         $employeeId = $this->getEmployeeID($employee_no);
 
-        return EmployeeTimelogs::where('employee_id', $employeeId)
+        $firstLog = EmployeeTimelogs::where('employee_id', $employeeId)
             ->whereDate('timestamp', $date)
             ->orderBy('timestamp')
             ->first()?->toArray();
+
+        if ($firstLog) {
+            return $firstLog;
+        }
+
+        if ($shift && $this->shiftAllowsPastMidnightClockOut($shift)) {
+            $hour = (int) $timeMark->format('H');
+            if ($hour >= 0 && $hour < 6) {
+                $yesterday = $timeMark->copy()->subDay()->toDateString();
+                return EmployeeTimelogs::where('employee_id', $employeeId)
+                    ->whereDate('timestamp', $yesterday)
+                    ->orderBy('timestamp')
+                    ->first()?->toArray();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Support shift and other overnight shifts: clock in 6pm, clock out 2am (next calendar day)
+     * is still the same shift — no 12am shenanigans. Only these shifts get past-midnight exception.
+     */
+    private function shiftAllowsPastMidnightClockOut($shift): bool
+    {
+        if (!$shift) {
+            return false;
+        }
+        $duration = $shift->shift_duration ?? '';
+        $name = $shift->name ?? '';
+        $allowedDurations = ['extended', 'full-day', 'compressed', 'part-time', 'support'];
+        return in_array($duration, $allowedDurations, true)
+            || stripos($name, 'support') !== false;
     }
 
     public function insertLog(int $entry, array $toProcess, string $employee_no): array
     {
+        $employeeId = $this->getEmployeeID($employee_no);
+        $date = Carbon::parse($toProcess['timestamp'])->toDateString();
+        $currentCount = EmployeeTimelogs::where('employee_id', $employeeId)
+            ->whereDate('timestamp', $date)
+            ->count();
+
+        $isPastMidnightClockOut = false;
+        if (($entry === 1 || $entry === 3) && $currentCount === 0) {
+            try {
+                $shift = app(DailyTimeRecordService::class)->getShiftSchedule($employee_no);
+                $isPastMidnightClockOut = $this->shiftAllowsPastMidnightClockOut($shift);
+            } catch (\Throwable $e) {
+                $isPastMidnightClockOut = false;
+            }
+        }
+        if (!$isPastMidnightClockOut && $currentCount !== $entry) {
+            return [
+                'status' => false,
+                'alert' => 'error',
+                'title' => 'Duplicate or out-of-order clock',
+                'message' => 'A clock record was already recorded. Please refresh the page and try again if needed.',
+            ];
+        }
+
         $timestamp = $toProcess['timestamp'];
         $rawLocation = $toProcess['captured_location'] ?? null;
         $captured_location = $this->formatCapturedLocation($rawLocation);
@@ -137,7 +214,6 @@ class ClockInOutService
             $entry
         );
         $accomplishment = $toProcess['accomplishment'] ?? null;
-        $employeeId = $this->getEmployeeID($employee_no);
 
         $formattedTimestamp = Carbon::now()->format('Y-m-d') . ' ' . Carbon::parse($timestamp)->format('H:i');
         $statusMap = [0 => 0, 1 => 1, 2 => 0, 3 => 1];
@@ -213,21 +289,23 @@ class ClockInOutService
     }
 
     /**
-     * Store the captured image on disk, with a visual overlay that includes:
-     * - Clock label (Time In / Time Out)
-     * - Exact time & date
-     * - Optional location text and mini-map (when coordinates are available)
+     * Store the captured image in the final timelogs location only (never in livewire-tmp or temporary paths).
+     * Saves to: public disk "timelogs/{employee_no}_{timestamp}.png" (e.g. ni-075_1770116220.png)
+     * or S3 "timelogs/{filename}" when USE_S3_STORAGE is true. URL: APP_URL/storage/timelogs/filename.
+     * Also builds a visual overlay: clock label, time & date, optional location + mini-map.
      */
     private function insertImage(
         string $employee_no,
-        string $imageData,
+        ?string $imageData,
         string $timestamp,
         mixed $rawLocation,
         int $entry
     ): ?string
     {
-        if (!str_contains($imageData, 'base64,')) {
-            \Log::error('Invalid image data format.', compact('employee_no'));
+        if (empty($imageData) || !str_contains($imageData, 'base64,')) {
+            if (!empty($imageData)) {
+                \Log::error('Invalid image data format.', compact('employee_no'));
+            }
             return null;
         }
 
@@ -243,9 +321,10 @@ class ClockInOutService
         $finalImage = $this->buildOverlayedImage($decodedImage, $timestamp, $rawLocation, $entry, $employee_no);
 
         $filename = strtolower($employee_no . '_' . time() . '.png');
-
         $disk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
-        Storage::disk($disk)->put("timelogs/{$filename}", $finalImage ?? $decodedImage, ['visibility' => 'public']);
+        $path = "timelogs/{$filename}";
+        Storage::disk($disk)->put($path, $finalImage ?? $decodedImage, ['visibility' => 'public']);
+        \Log::info('Timelog image saved to final location', ['path' => $path, 'disk' => $disk, 'employee_no' => $employee_no]);
 
         return $filename;
     }
@@ -326,33 +405,39 @@ class ClockInOutService
         // Simple location label based on rawLocation payload.
         $locationLabel = $this->buildLocationLabel($rawLocation);
 
-        // Draw bottom overlay bar.
-        $barHeight = (int) max(90, $height * 0.27);
-        $barY = $height - $barHeight;
-        imagefilledrectangle($canvas, 0, $barY, $width, $height, $overlayBg);
+        // Draw a compact bottom-left overlay bar (avoid covering too much of the frame).
+        $barHeight = (int) max(110, $height * 0.18);      // ~18% of height, min 110px
+        $barWidth  = (int) min($width * 0.55, 420);       // left-side panel only
+        $barY      = $height - $barHeight;
+        $barX1     = 0;
+        $barX2     = $barWidth;
+        imagefilledrectangle($canvas, $barX1, $barY, $barX2, $height, $overlayBg);
 
-        // Text positioning (using built-in fonts for portability).
-        $xPadding = 16;
-        $y = $barY + 10;
+        // Text positioning (using built-in fonts for portability) inside the bar.
+        $xPadding = $barX1 + 16;
+        $y        = $barY + 10;
+
+        // GD imagestring uses Latin-1; convert UTF-8 (e.g. ñ) so it displays correctly.
+        $toLatin1 = fn (?string $s) => $s === null ? '' : (mb_convert_encoding($s, 'ISO-8859-1', 'UTF-8') ?: $s);
 
         // Label + time (bigger).
-        imagestring($canvas, 5, $xPadding, $y, $label . '  ' . $time, $accent);
+        imagestring($canvas, 5, $xPadding, $y, $toLatin1($label . '  ' . $time), $accent);
         $y += 20;
-        imagestring($canvas, 4, $xPadding, $y, $date, $white);
+        imagestring($canvas, 4, $xPadding, $y, $toLatin1($date), $white);
         $y += 18;
 
         if ($employeeName) {
-            imagestring($canvas, 4, $xPadding, $y, $employeeName, $white);
+            imagestring($canvas, 4, $xPadding, $y, $toLatin1($employeeName), $white);
             $y += 18;
         }
 
         if ($positionName) {
-            imagestring($canvas, 3, $xPadding, $y, $positionName, $white);
+            imagestring($canvas, 3, $xPadding, $y, $toLatin1($positionName), $white);
             $y += 18;
         }
 
         if ($locationLabel !== null) {
-            imagestring($canvas, 2, $xPadding, $y, $locationLabel, $white);
+            imagestring($canvas, 2, $xPadding, $y, $toLatin1($locationLabel), $white);
         }
 
         // Optional mini-map in the bottom-right if coordinates + API key are available.
@@ -459,7 +544,7 @@ class ClockInOutService
         $urlPath = "https://api.mapbox.com/styles/v1/{$style}/static/{$pin}/{$center}/300x300";
 
         try {
-            $response = Http::timeout(3)->get($urlPath, [
+            $response = Http::timeout(3)->withOptions(['cookies' => false])->get($urlPath, [
                 'access_token' => $token,
             ]);
 

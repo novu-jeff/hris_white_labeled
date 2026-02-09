@@ -48,7 +48,7 @@ class ReverseGeocodingService
 
         try {
             $url = "https://api.mapbox.com/geocoding/v5/mapbox.places/{$lng},{$lat}.json";
-            $response = Http::timeout(6)->get($url, [
+            $response = Http::timeout(6)->withOptions(['cookies' => false])->get($url, [
                 'access_token' => $token,
                 // Prefer most precise result.
                 'limit' => 1,
@@ -85,6 +85,7 @@ class ReverseGeocodingService
             $userAgent = (string) env('NOMINATIM_USER_AGENT', env('APP_NAME', 'HRIS') . ' (reverse-geocoding)');
 
             $response = Http::timeout(6)
+                ->withOptions(['cookies' => false])
                 ->withHeaders([
                     // Nominatim requires a valid UA identifying the application.
                     'User-Agent' => $userAgent,

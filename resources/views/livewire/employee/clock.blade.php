@@ -1,5 +1,5 @@
 <div>
-    <div class="clockinout">
+    <div class="clockinout" data-capture-upload-url="{{ route('employee.clock.capture-upload') }}">
         <div class="row">
             <!-- <div class="col-12 col-md-4 mb-5">
                 <label for="user" class="mb-3">Manipulate time for testing</label>
@@ -11,11 +11,12 @@
                     <div class="col-12 col-md-5 order-2 order-md-1">
                         <div class="row">
                             <div class="col-12 mb-3">
+                                @if ($status !== 'Done')
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-body">
                                         <div class="text-muted text-uppercase fw-bold" style="font-size: 12px;">Next action</div>
                                         <div class="fw-bold text-uppercase" style="font-size: 22px;">
-                                            {{$status}}
+                                            {{ $status }}
                                         </div>
                                         <div class="text-muted fst-italic mt-1" style="font-size: 12px;">
                                             We’ll capture your camera photo when you proceed.
@@ -23,19 +24,26 @@
 
                                         <button type="button"
                                             data-status="{{ $status }}"
-                                            class="clock-process btn btn-lg w-100 text-uppercase fw-bold px-4 py-3 mt-3
+                                            class="clock-process btn btn-lg w-100 text-uppercase fw-bold px-4 py-3 mt-3 d-none d-md-block
                                                 {{ in_array($status, ['Clock In', 'Clock Out']) ? 'btn-primary' : '' }}
-                                                {{ $status === 'Done' ? 'btn-danger' : '' }}
                                             ">
-                                            <span>{{ $status === 'Done' ? 'Done' : 'Capture & Proceed' }}</span>
+                                            <span>Capture & Proceed</span>
                                         </button>
                                     </div>
                                 </div>
+                                @else
+                                <div class="card border-0 shadow-sm bg-light">
+                                    <div class="card-body text-center py-4">
+                                        <p class="text-muted mb-0 fw-medium">You've completed today's clock entries.</p>
+                                        <small class="text-muted">Come back next time you need to clock in or out.</small>
+                                    </div>
+                                </div>
+                                @endif
                                 @php
                                     $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
                                 @endphp
                                 @if ($showLunch && in_array($status, ['Lunch Out']))
-                                    <div class="text-center mt-3">
+                                    <div class="text-center mt-3 d-none d-md-block">
                                         <button style="border-radius: 15px" class="clock-process-forced btn btn-primary border-3 w-100 py-3 text-uppercase fw-bold">
                                             Clock Out
                                         </button>
@@ -76,8 +84,29 @@
                             </div>
                             
                         </div>
-                        <div class="text-muted text-center text-muted text-uppercase mt-3 fst-italic">
+                        @if ($status !== 'Done')
+                        <div class="d-block d-md-none mt-3 mb-3">
+                            <button type="button"
+                                data-status="{{ $status }}"
+                                class="clock-process btn btn-lg w-100 text-uppercase fw-bold px-4 py-3
+                                    {{ in_array($status, ['Clock In', 'Clock Out']) ? 'btn-primary' : '' }}
+                                ">
+                                <span>Capture & Proceed</span>
+                            </button>
+                            @php $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN); @endphp
+                            @if ($showLunch && in_array($status, ['Lunch Out']))
+                                <div class="text-center mt-2">
+                                    <button type="button" style="border-radius: 15px" class="clock-process-forced btn btn-primary border-3 w-100 py-3 text-uppercase fw-bold">
+                                        Clock Out
+                                    </button>
+                                </div>
+                            @endif
+                        </div>
+                        @endif
+                        <div class="text-muted text-center text-uppercase mt-3 fst-italic">
                             <small>Please ensure your face is clearly visible before proceeding.</small>
+                            <br>
+                            <small class="text-warning">Location is required for clock in/out — please allow when your browser asks.</small>
                         </div>
                     </div>
                 </div>
@@ -117,7 +146,8 @@
                                     $accomplishment = collect($logList)->firstWhere('accomplishment');
                                     $hasImage = collect($logList)->contains(fn($log) => !empty($log['captured_image']));
                                     $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
-                                    $outIndex = $showLunch ? 3 : 1;
+                                    $filledIndexes = collect($logList)->keys()->filter(fn($i) => !empty($logList[$i]['time'] ?? null))->values();
+                                    $outIndex = $filledIndexes->count() >= 2 ? $filledIndexes->last() : null;
                                     $dateFormatted = \Carbon\Carbon::createFromFormat('j/n/Y', $item['date']);
                                 @endphp
 
@@ -141,7 +171,7 @@
                                                             {{ \Carbon\Carbon::parse($logList[0]['time'])->format('h:i A') }}
                                                         </span>
                                                     @endif
-                                                    @if(isset($logList[$outIndex]['time']))
+                                                    @if($outIndex !== null && isset($logList[$outIndex]['time']))
                                                         <span class="time-badge time-out">
                                                             <i class="fa-solid fa-arrow-right-from-bracket me-1"></i>
                                                             {{ \Carbon\Carbon::parse($logList[$outIndex]['time'])->format('h:i A') }}
@@ -178,7 +208,7 @@
                                                                             now()->addMinutes(60)
                                                                         );
                                                                     } else {
-                                                                        $clockInUrl = Storage::url('timelogs/' . $logList[0]['captured_image']);
+                                                                        $clockInUrl = Storage::disk('public')->url('timelogs/' . $logList[0]['captured_image']);
                                                                     }
                                                                 @endphp
                                                                 <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $clockInUrl }}" class="image-link">
@@ -217,10 +247,14 @@
                                                             @if (!empty($logList[1]['captured_image']))
                                                                 <div class="time-log-image">
                                                                     @php
-                                                                        $lunchOutUrl = Storage::disk('s3')->temporaryUrl(
-                                                                            'timelogs/' . $logList[1]['captured_image'],
-                                                                            now()->addMinutes(60)
-                                                                        );
+                                                                        if (env('USE_S3_STORAGE', false)) {
+                                                                            $lunchOutUrl = Storage::disk('s3')->temporaryUrl(
+                                                                                'timelogs/' . $logList[1]['captured_image'],
+                                                                                now()->addMinutes(60)
+                                                                            );
+                                                                        } else {
+                                                                            $lunchOutUrl = Storage::disk('public')->url('timelogs/' . $logList[1]['captured_image']);
+                                                                        }
                                                                     @endphp
                                                                     <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $lunchOutUrl }}" class="image-link">
                                                                         <img src="{{ $lunchOutUrl }}" alt="Lunch Out" class="log-image">
@@ -256,8 +290,18 @@
                                                             </div>
                                                             @if (!empty($logList[2]['captured_image']))
                                                                 <div class="time-log-image">
-                                                                    <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ Storage::url('timelogs/' . $logList[2]['captured_image']) }}" class="image-link">
-                                                                        <img src="{{ Storage::url('timelogs/' . $logList[2]['captured_image']) }}" alt="Lunch In" class="log-image">
+                                                                    @php
+                                                                        if (env('USE_S3_STORAGE', false)) {
+                                                                            $lunchInUrl = Storage::disk('s3')->temporaryUrl(
+                                                                                'timelogs/' . $logList[2]['captured_image'],
+                                                                                now()->addMinutes(60)
+                                                                            );
+                                                                        } else {
+                                                                            $lunchInUrl = Storage::disk('public')->url('timelogs/' . $logList[2]['captured_image']);
+                                                                        }
+                                                                    @endphp
+                                                                    <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $lunchInUrl }}" class="image-link">
+                                                                        <img src="{{ $lunchInUrl }}" alt="Lunch In" class="log-image">
                                                                         <div class="image-overlay">
                                                                             <i class="fa-solid fa-expand"></i>
                                                                         </div>
@@ -283,16 +327,26 @@
                                                             <span class="fw-semibold">Clock Out</span>
                                                         </div>
                                                         <div class="time-log-time">
-                                                            @if(isset($logList[$outIndex]['time']))
+                                                            @if($outIndex !== null && isset($logList[$outIndex]['time']))
                                                                 {{ \Carbon\Carbon::parse($logList[$outIndex]['time'])->format('h:i A') }}
                                                             @else
                                                                 <span class="text-muted">Not recorded</span>
                                                             @endif
                                                         </div>
-                                                        @if (!empty($logList[$outIndex]['captured_image']))
+                                                        @if ($outIndex !== null && !empty($logList[$outIndex]['captured_image']))
                                                             <div class="time-log-image">
-                                                                <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ Storage::url('timelogs/' . $logList[$outIndex]['captured_image']) }}" class="image-link">
-                                                                    <img src="{{ Storage::url('timelogs/' . $logList[$outIndex]['captured_image']) }}" alt="Clock Out" class="log-image">
+                                                                @php
+                                                                    if (env('USE_S3_STORAGE', false)) {
+                                                                        $clockOutUrl = Storage::disk('s3')->temporaryUrl(
+                                                                            'timelogs/' . $logList[$outIndex]['captured_image'],
+                                                                            now()->addMinutes(60)
+                                                                        );
+                                                                    } else {
+                                                                        $clockOutUrl = Storage::disk('public')->url('timelogs/' . $logList[$outIndex]['captured_image']);
+                                                                    }
+                                                                @endphp
+                                                                <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $clockOutUrl }}" class="image-link">
+                                                                    <img src="{{ $clockOutUrl }}" alt="Clock Out" class="log-image">
                                                                     <div class="image-overlay">
                                                                         <i class="fa-solid fa-expand"></i>
                                                                     </div>
@@ -313,13 +367,22 @@
                                             @if(!empty($accomplishment))
                                                 <div class="accomplishment-card mt-3">
                                                     <div class="d-flex align-items-center gap-2 mb-2">
-                                                        <i class="fa-solid fa-file-pdf text-danger"></i>
+                                                        <i class="fa-solid fa-link text-primary"></i>
                                                         <span class="fw-semibold">Accomplishment Report</span>
                                                     </div>
-                                                    <a href="{{ Storage::url('accomplishments/' . $accomplishment['accomplishment']) }}" download class="accomplishment-link">
-                                                        <i class="fa-solid fa-download me-2"></i>
-                                                        {{ $accomplishment['accomplishment'] }}
-                                                    </a>
+                                                    @php
+                                                        $accVal = $accomplishment['accomplishment'] ?? '';
+                                                        $isUrl = is_string($accVal) && (str_starts_with($accVal, 'http://') || str_starts_with($accVal, 'https://'));
+                                                    @endphp
+                                                    @if($isUrl)
+                                                        <a href="{{ $accVal }}" target="_blank" rel="noopener" class="accomplishment-link">
+                                                            <i class="fa-solid fa-external-link-alt me-2"></i>Open link
+                                                        </a>
+                                                    @else
+                                                        <a href="{{ Storage::url('accomplishments/' . $accVal) }}" download class="accomplishment-link">
+                                                            <i class="fa-solid fa-download me-2"></i>{{ $accVal }}
+                                                        </a>
+                                                    @endif
                                                 </div>
                                             @endif
                                         </div>
@@ -718,6 +781,28 @@
                 padding: 0.75rem;
             }
         }
+
+        /* Accomplishment report link field - ensure always visible */
+        .accomplishment-link-section {
+            display: block !important;
+        }
+        .accomplishment-link-input {
+            display: block !important;
+            width: 100% !important;
+            min-height: 42px !important;
+            padding: 0.5rem 0.75rem !important;
+            border: 1px solid #ced4da !important;
+            border-radius: 0.375rem;
+            background-color: #fff !important;
+            font-size: 1rem;
+        }
+
+        /* Scrollable modal body */
+        #clockInModal .modal-body-scrollable {
+            max-height: min(70vh, 500px);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
     </style>
 
 
@@ -732,66 +817,59 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <div class="modal-body px-3">
-                    {{-- Captured image preview --}}
-                    <div class="mb-3" wire:ignore>
-                        <img id="clockInPreviewImage" src="" alt="Captured Image" class="img-fluid rounded shadow clock-preview-img">
+                <div class="modal-body modal-body-scrollable px-3">
+                    {{-- Captured image preview with Novulutions logo at top right --}}
+                    <div class="mb-3 clock-preview-wrapper" wire:ignore>
+                        <div class="clock-preview-watermark">
+                            <img src="{{ asset('/img/' . $provider['client_logo']) }}" alt="">
+                        </div>
+                        <img id="clockInPreviewImage" src="" alt="Captured Image" class="img-fluid clock-preview-img">
                     </div>
 
-                    {{-- Capture details (date/time) --}}
-                    <div class="card border-0 bg-light mb-3">
+                    {{-- Capture details (date/time/location) + Accomplishment link when required --}}
+                    <div class="card border-0 bg-light mb-3" style="margin-bottom: 20px;">
                         <div class="card-body py-3">
                             <div class="row g-2">
-                                <div class="col-12">
+                                <div class="col-12 col-md-6">
                                     <div class="text-muted text-uppercase fw-bold" style="font-size: 12px;">Captured</div>
-                                    <div class="fw-semibold">
+                                    <div id="clockInModalCaptured" class="fw-semibold">
                                         {{ $captured_at ? \Carbon\Carbon::parse($captured_at)->format('M d, Y • h:i A') : '—' }}
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <div class="text-muted text-uppercase fw-bold" style="font-size: 12px;">Location</div>
+                                    <div id="clockInModalLocation" class="fw-semibold small">
+                                        {{ $gps_location ? e($gps_location) : '—' }}
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        @if($requires_accomplishment)
+                            <div class="accomplishment-link-section mb-3 px-3 pb-3">
+                                <label for="accomplishmentLink" class="form-label fw-semibold d-block mb-2">Accomplishment Report Link</label>
+                                <input type="url" wire:model="accomplishment_link" id="accomplishmentLink" class="form-control accomplishment-link-input" placeholder="https://docs.google.com/... or paste your link here" style="min-height: 42px; border: 1px solid #ced4da;">
+                                <small class="text-muted d-block mt-1">
+                                    Paste the URL to your accomplishment report (e.g. Google Drive, OneDrive, PDF link).
+                                </small>
+                                @error('accomplishment_link')
+                                    <span class="text-danger d-block mt-1">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        @endif
                     </div>
-
-                    @if($requires_accomplishment)
-                        {{-- Accomplishment file input --}}
-                        <div class="mb-3">
-                            <label for="accomplishmentFile" class="text-start">Accomplishment Report (PDF)</label>
-                            <input
-                                type="file"
-                                wire:model="upload_accomplishment"
-                                id="accomplishmentFile"
-                                class="form-control"
-                                accept="application/pdf"
-                            />
-
-                            @error('upload_accomplishment')
-                                <span class="text-danger">{{ $message }}</span>
-                            @enderror
-
-
-                            {{-- Temporary preview link --}}
-                            @if($upload_accomplishment)
-                                <p class="mt-2">
-                                    Selected File: 
-                                    
-                                      <strong>{{ $upload_accomplishment->getClientOriginalName() }}</strong>
-                                  
-                                </p>
-                            @endif
-                        </div>
-                    @endif
                 </div>
 
-                <div wire:ignore class="modal-footer border-0 d-flex gap-3 justify-content-center align-items-center flex-wrap px-3 pb-3">
+                <div class="modal-footer border-0 d-flex gap-3 justify-content-center align-items-center flex-wrap px-3 pb-3">
                     <button type="button" class="retakeButton btn btn-outline-danger py-3 px-5 text-uppercase fw-bold">
                         Retake
                     </button>
 
-                    <button type="submit"
+                    <button type="button"
                         class="btn btn-primary py-3 px-5 text-uppercase fw-bold d-flex align-items-center gap-2"
+                        wire:click="{{ $requires_accomplishment ? 'saveAccomplishment' : 'triggerClock' }}"
                         wire:target="{{ $requires_accomplishment ? 'saveAccomplishment' : 'triggerClock' }}"
                         wire:loading.attr="disabled">
-                        <span>Proceed</span>
+                        <span wire:loading.remove wire:target="{{ $requires_accomplishment ? 'saveAccomplishment' : 'triggerClock' }}">Proceed</span>
                         <span wire:loading wire:target="{{ $requires_accomplishment ? 'saveAccomplishment' : 'triggerClock' }}">
                             <i class="fa-solid fa-spinner fa-spin"></i>
                         </span>
@@ -806,7 +884,14 @@
 </div>
 
 <script type="module">
-    $(function() {
-        initializeClockFace();
-    })
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof window.initializeClockFace === 'function') {
+            window.initializeClockFace();
+        }
+    });
+    document.addEventListener('livewire:navigated', function() {
+        if (document.querySelector('.clockinout') && typeof window.initializeClockFace === 'function') {
+            window.initializeClockFace();
+        }
+    });
 </script>

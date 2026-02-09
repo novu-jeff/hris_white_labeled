@@ -13,6 +13,7 @@ use App\Models\EmployeeCivilService;
 use App\Models\EmployeeEducation;
 use App\Models\EmployeeEmploymentHistory;
 use App\Models\EmployeeInformation;
+use App\Models\EmployementTypes;
 use App\Models\EmployeeOtherWorks;
 use App\Models\EmployeeParents;
 use App\Models\EmployeePersonal;
@@ -161,6 +162,7 @@ class HRISProcessingService extends Controller
                 'status' => $data['status'],
                 'salary_method' => $data['salary_method'],
                 'salary' => $salary,
+                'has_salary' => (bool) ($data['has_salary'] ?? false),
                 'allowance' => (isset($data['allowance']) && $data['allowance'] !== '') ? $data['allowance'] : null,
                 'payroll_account_number' => $data['payroll_account_number'],
             ]);
@@ -219,6 +221,7 @@ class HRISProcessingService extends Controller
 
                 $data['email']        = $record->email;
                 $data['email_id']     = $record->email_id;
+                $data['firstname']    = $firstname;
                 $data['fullname']     = $fullname !== '' ? $fullname : 'Employee ' . $record->employee_no;
                 $data['employee_no']  = strtoupper($record->employee_no);
 
@@ -800,6 +803,12 @@ class HRISProcessingService extends Controller
     $eligible    = $data['type'] ?? null;
     $position_id = $data['position_id'] ?? null;
     $step_id     = $data['step_id'] ?? null;
+    $hasSalary   = (bool) ($data['has_salary'] ?? false);
+
+    $internTypeId = EmployementTypes::where('name', 'Interns')->value('id');
+    if ($internTypeId !== null && (string) $eligible === (string) $internTypeId && !$hasSalary) {
+        $data['salary'] = 0;
+    }
 
     if (in_array($eligible, [1, 2]) && $position_id && $step_id) {
 

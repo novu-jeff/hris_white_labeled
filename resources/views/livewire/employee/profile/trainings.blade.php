@@ -1,8 +1,9 @@
 <form wire:submit.prevent="save" wire:target="save">
     <div>
+        <h6 class="text-uppercase fw-bold mb-3">Certifications / Trainings / Seminars</h6>
         <div class="d-flex justify-content-end mb-4">
             <button type="button" class="btn btn-info px-3 py-2 text-uppercase fw-bold" wire:click="addRecord">
-                <span wire:loading.remove wire:target="addRecord">Add Record </span>
+                <span wire:loading.remove wire:target="addRecord">Add Certification / Training / Seminar</span>
                 <span wire:loading wire:target="addRecord"><i class="fa-solid fa-spinner px-2 fa-spin"></i></span>
             </button>
         </div>

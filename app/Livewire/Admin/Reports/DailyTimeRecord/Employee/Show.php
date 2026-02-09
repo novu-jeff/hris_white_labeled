@@ -166,38 +166,42 @@ class Show extends Component
                     'time' => optional(Carbon::parse($log->timestamp))->format('H:i:s'),
                     'captured_image' => $log->captured_image,
                     'captured_location' => $log->captured_location,
-                    'accomplishment' => $log->accomplishment ?? null
+                    'accomplishment' => $log->accomplishment ?? null,
                 ];
 
-                $baseData = [
+                $ins = [];
+                $outs = [];
+                foreach ($logs as $log) {
+                    $status = (int) ($log->status ?? $log->status1 ?? 0);
+                    $formatted = $formatLog($log);
+                    if ($status === 0) {
+                        $ins[] = $formatted;
+                    } else {
+                        $outs[] = $formatted;
+                    }
+                }
+
+                $logsSlots = [null, null, null, null];
+                if ($this->showLunch && count($ins) >= 2 && count($outs) >= 2) {
+                    $logsSlots[0] = $ins[0];
+                    $logsSlots[1] = $outs[0];
+                    $logsSlots[2] = $ins[1];
+                    $logsSlots[3] = $outs[1];
+                } elseif ($this->showLunch) {
+                    $logsSlots[0] = $ins[0] ?? null;
+                    $logsSlots[3] = $outs[0] ?? null;
+                } else {
+                    $logsSlots[0] = $ins[0] ?? null;
+                    $logsSlots[1] = $outs[0] ?? null;
+                }
+
+                return [
                     'date' => $date,
                     'bsd_no' => $employee_id,
                     'employee' => optional($logs->first())->employee,
                     'origin' => optional($logs->first())->origin,
+                    'logs' => array_map(fn($s) => $s ?? [], $logsSlots),
                 ];
-
-                $count = $logs->count();
-                $lastHasAccomplishment = !empty(optional($logs->last())->accomplishment);
-
-                if ($count === 2 && $lastHasAccomplishment) {
-                    return array_merge($baseData, ['logs' => [
-                        $formatLog($logs[0]),
-                        [],
-                        [],
-                        $formatLog($logs[1]),
-                    ]]);
-                }
-
-                if ($count === 3 && $lastHasAccomplishment) {
-                    return array_merge($baseData, ['logs' => [
-                        $formatLog($logs[0]),
-                        $formatLog($logs[1]),
-                        [],
-                        $formatLog($logs[2]),
-                    ]]);
-                }
-
-                return array_merge($baseData, ['logs' => $logs->map($formatLog)->values()->all()]);
             })
             ->sortByDesc(fn($item) => Carbon::createFromFormat('j/n/Y', $item['date']))
             ->values()

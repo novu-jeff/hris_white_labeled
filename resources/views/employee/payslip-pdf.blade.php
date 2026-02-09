@@ -4,247 +4,294 @@
     <meta charset="utf-8">
     <title>Payslip</title>
     <style>
+        /* Novu blue: #005668 */
         body {
             font-family: Arial, sans-serif;
-            font-size: 12px;
+            font-size: 11px;
             margin: 0;
             padding: 0;
         }
 
         .inner-content {
-            max-width: 510px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
             position: relative;
-            padding: 20px;
+            padding: 28px 32px;
+            box-sizing: border-box;
         }
 
-        /* Watermark */
-        .watermark {
-            position: absolute;
-            top: 40%;
-            left: 50%;
-             transform: translate(-37%, -50%) rotate(-10deg);
-            font-size: 60px;
-            color: rgba(200, 200, 200, 0.2);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* Watermark */
-        .watermark1 {
-            position: absolute;
-            top: 25%;
-            left: 50%;
-             transform: translate(-37%, -50%) rotate(-10deg);
-            font-size: 60px;
-            color: rgba(200, 200, 200, 0.2);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* Watermark */
-        .watermark2 {
-            position: absolute;
-            top: 55%;
-            left: 50%;
-             transform: translate(-37%, -50%) rotate(-10deg);
-            font-size: 60px;
-            color: rgba(200, 200, 200, 0.2);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* Watermark */
-        .watermark3 {
-            position: absolute;
-            top: 73%;
-            left: 50%;
-            transform: translate(-37%, -50%) rotate(-10deg);
-            font-size: 60px;
-            color: rgba(200, 200, 200, 0.2);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* Watermark */
-        .watermark4 {
-            position: absolute;
-            top: 86%;
-            left: 50%;
-            transform: translate(-37%, -50%) rotate(-10deg);
-            font-size: 60px;
-            color: rgba(200, 200, 200, 0.2);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .header img {
-            width: 100px;
-            margin-bottom: 10px;
-        }
-
-        .header-text {
+        .company-name {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 16px;
+            margin-bottom: 14px;
+            text-align: left;
+            color: #005668;
         }
 
-        .info-table {
+        .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
+            margin-bottom: 16px;
         }
 
-        .info-table td {
-            padding: 4px 8px;
+        .header-table td {
+            padding: 6px 12px 6px 0;
+            vertical-align: top;
         }
 
-        .info-table td.label {
-            width: 50%;
+        .header-table .label {
             font-weight: bold;
+            width: 1%;
+            white-space: nowrap;
+            color: #005668;
         }
 
-        .info-table td.value {
+        .header-table .value {
+            width: 38%;
+        }
+
+        .header-table .col-spacer {
+            width: 4%;
+        }
+
+        .section-header {
+            background-color: #005668;
+            color: #fff;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 6px 8px;
+            margin: 0;
+        }
+
+        .total-row {
+            background-color: #005668;
+            color: #fff;
+            font-weight: bold;
+            padding: 6px 8px;
+        }
+
+        .two-col-wrap {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 16px;
+            table-layout: fixed;
+        }
+
+        .two-col-wrap td {
+            vertical-align: top;
+            padding: 0 12px 0 0;
             width: 50%;
+            box-sizing: border-box;
+        }
+
+        .two-col-wrap td:last-child {
+            padding: 0 0 0 12px;
+        }
+
+        .two-col-wrap td .payslip-table {
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .payslip-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #005668;
+            table-layout: fixed;
+        }
+
+        .payslip-table td {
+            padding: 6px 10px;
+            border: 1px solid #4a9fb5;
+            overflow: hidden;
+            word-wrap: break-word;
+        }
+
+        .payslip-table .item-label {
+            width: 58%;
+        }
+
+        .payslip-table .item-amount {
+            width: 42%;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .payslip-table .sub-label {
+            padding-left: 18px;
+        }
+
+        .net-pay-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4px;
+        }
+
+        .net-pay-table td {
+            background-color: #005668;
+            color: #fff;
+            font-weight: bold;
+            padding: 8px 10px;
+            border: 1px solid #005668;
+        }
+
+        .net-pay-table .amount {
             text-align: right;
         }
 
-        .section-title {
-            font-weight: bold;
-            font-size: 13px;
-            background-color: #f0f0f0;
-            padding: 5px;
-            margin-top: 15px;
-            margin-bottom: 5px;
+        .disclaimer {
+            margin-top: 20px;
+            font-size: 9px;
+            color: #333;
+            line-height: 1.4;
+            border: 1px solid #005668;
+            padding: 10px;
+            background: #f0f8f9;
         }
+        .disclaimer strong { color: #005668; }
 
-        .text-center {
+        .received-by {
+            margin-top: 20px;
+            padding-top: 8px;
             text-align: center;
         }
 
-        .issued {
-            margin-top: 20px;
+        .received-by .line {
+            margin-bottom: 4px;
+        }
+
+        .received-by .signature-line {
+            display: inline-block;
+            border-bottom: 1px solid #000;
+            min-width: 220px;
+            margin-left: 4px;
         }
 
     </style>
 </head>
 <body>
 <div class="inner-content">
-    <div class="watermark">CONFIDENTIAL</div>
-    <div class="watermark1">CONFIDENTIAL</div>
-    <div class="watermark2">CONFIDENTIAL</div>
-    <div class="watermark3">CONFIDENTIAL</div>
-    <div class="watermark4">CONFIDENTIAL</div>
+    @php
+        $provider = $provider ?? [];
+        $companyName = strtoupper($provider['company'] ?? 'NOVULUTIONS, INC.');
+        $payroll = $payslip->payroll ?? null;
+        $cutOffRaw = $payroll && is_string($payroll->cut_off_period) ? $payroll->cut_off_period : '';
+        $cutOff = $cutOffRaw;
+        if ($cutOff !== '' && str_contains($cutOff, ' to ')) {
+            $parts = array_map('trim', explode(' to ', $cutOff));
+            try {
+                $cutOff = \Carbon\Carbon::parse($parts[0] ?? '')->format('F j') . ' to ' . \Carbon\Carbon::parse($parts[1] ?? $parts[0])->format('F j, Y');
+            } catch (\Throwable $e) {
+                $cutOff = $cutOffRaw;
+            }
+        }
+        $payrollDate = $payroll && $payroll->payroll_date
+            ? \Carbon\Carbon::parse($payroll->payroll_date)->format('F j, Y')
+            : '';
+        $product = config('app.product');
+        $item = $payslip;
+        $num = fn($v) => number_format((float)($v ?? 0), 2);
+    @endphp
 
-    <div class="header">
-        <img src="{{ public_path('/img/' . $provider['client_logo']) }}" alt="Logo">
-        <div class="header-text">
-            Office of the Presidential Adviser on Peace, Reconciliation and Unity<br>
-            PAYROLL PAYMENT SLIP
-        </div>
-    </div>
+    @if(!empty($provider['client_logo']) && file_exists(public_path('img/' . $provider['client_logo'])))
+        <div style="margin-bottom: 12px;"><img src="{{ public_path('img/' . $provider['client_logo']) }}" alt="Logo" style="max-height: 50px;"></div>
+    @endif
+    <div class="company-name">{{ $companyName }}</div>
 
-    <!-- Employee Info -->
-    <table class="info-table">
+    <table class="header-table">
         <tr>
-            <td class="label">Cut Off Period:</td>
-            <td class="value">
-                {{ collect(explode(' to ', $payslip['payroll']['cut_off_period']))
-                    ->map(fn($date, $i) => \Carbon\Carbon::parse($date)->format($i === 0 ? 'F j' : 'F j, Y'))
-                    ->implode(' to ') }}
+            <td class="label">Employee No.</td>
+            <td class="value">{{ $item->employee_no ?? '' }}</td>
+            <td class="col-spacer"></td>
+            <td class="label">Payroll Date</td>
+            <td class="value">{{ $payrollDate }}</td>
+        </tr>
+        <tr>
+            <td class="label">Employee Name</td>
+            <td class="value">{{ $item->name ?? '' }}</td>
+            <td class="col-spacer"></td>
+            <td class="label">Cut-off Period</td>
+            <td class="value">{{ $cutOff }}</td>
+        </tr>
+        <tr>
+            <td class="label">Position</td>
+            <td class="value" colspan="3">{{ $item->position ?? '' }}</td>
+        </tr>
+    </table>
+
+    <table class="two-col-wrap">
+        <tr>
+            <td>
+                <div class="section-header">EARNINGS</div>
+                <table class="payslip-table">
+                    <tr><td class="item-label">Basic Salary</td><td class="item-amount">PHP {{ $num($item->basic_salary) }}</td></tr>
+                    <tr><td class="item-label">Allowance/s</td><td class="item-amount"></td></tr>
+                    <tr><td class="item-label sub-label">Communication</td><td class="item-amount">PHP {{ $num($item->communication_allowance ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Transportation</td><td class="item-amount">PHP {{ $num($item->transportation_allowance ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Other</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->allowances ?? 0) : ($item->pera ?? 0)) }}</td></tr>
+                    <tr><td class="item-label">De Minimis</td><td class="item-amount"></td></tr>
+                    <tr><td class="item-label sub-label">Rice Allowance</td><td class="item-amount">PHP {{ $num($item->rice_allowance ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Laundry Allowance</td><td class="item-amount">PHP {{ $num($item->laundry_allowance ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Medical Cash Allowance</td><td class="item-amount">PHP {{ $num($item->medical_cash_allowance ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Uniform Allowance</td><td class="item-amount">PHP {{ $num($item->uniform_allowance ?? 0) }}</td></tr>
+                    <tr><td class="item-label">Salary Adjustment</td><td class="item-amount">PHP {{ $num($item->salary_adjustment ?? 0) }}</td></tr>
+                    <tr><td class="item-label">Overtime pay</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->overtime_pay ?? 0) : 0) }}</td></tr>
+                    <tr><td class="item-label">Incentive</td><td class="item-amount">PHP {{ $num($item->incentive ?? 0) }}</td></tr>
+                    <tr><td class="item-label">Night differential</td><td class="item-amount">PHP {{ $num($item->night_differential ?? 0) }}</td></tr>
+                    <tr><td class="item-label">Leave conversion</td><td class="item-amount">PHP {{ $num($item->leave_conversion ?? 0) }}</td></tr>
+                    <tr><td class="total-row item-label">GROSS EARNINGS</td><td class="total-row item-amount">PHP {{ $num($item->gross_amount_earned) }}</td></tr>
+                </table>
+            </td>
+            <td>
+                <div class="section-header">DEDUCTIONS</div>
+                <table class="payslip-table">
+                    <tr><td class="item-label">Government</td><td class="item-amount"></td></tr>
+                    <tr><td class="item-label sub-label">Withholding Tax</td><td class="item-amount">PHP {{ $num($item->w_tax) }}</td></tr>
+                    <tr><td class="item-label sub-label">SSS</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->sss ?? 0) : 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">SSS - WISP</td><td class="item-amount">PHP {{ $num($item->sss_wisp ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">PhilHealth</td><td class="item-amount">PHP {{ $num($item->philhealth) }}</td></tr>
+                    <tr><td class="item-label sub-label">HDMF</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->pagibig ?? 0) : ($item->hdmf ?? 0)) }}</td></tr>
+                    <tr><td class="item-label">Others</td><td class="item-amount"></td></tr>
+                    <tr><td class="item-label sub-label">HDMF Loan</td><td class="item-amount">PHP {{ $num($item->hdmf_loan ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">SSS Loan</td><td class="item-amount">PHP {{ $num($item->sss_loan ?? 0) }}</td></tr>
+                    @if($payslip->deductions && $payslip->deductions->where('reference_type', 'loan')->count())
+                        @foreach($payslip->deductions->where('reference_type', 'loan') as $deduction)
+                            <tr><td class="item-label sub-label">{{ $deduction->loan->loanType->name ?? 'Other Loan' }}</td><td class="item-amount">PHP {{ $num($deduction->amount) }}</td></tr>
+                        @endforeach
+                    @endif
+                    <tr><td class="item-label sub-label">Other Loan</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->other_loans ?? 0) : 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Advances</td><td class="item-amount">PHP {{ $num($item->advances ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Excess HMO Coverage</td><td class="item-amount">PHP {{ $num($item->excess_hmo ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Social Responsibility</td><td class="item-amount">PHP {{ $num($item->social_responsibility ?? 0) }}</td></tr>
+                    <tr><td class="item-label sub-label">Others</td><td class="item-amount">PHP {{ $num($item->other_deductions ?? 0) }}</td></tr>
+                    @if($product === 'government')
+                        <tr><td class="item-label sub-label">GSIS (RLIP)</td><td class="item-amount">PHP {{ $num($item->rlip ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Lates / Undertime / Absences</td><td class="item-amount">PHP {{ $num($item->aut ?? 0) }}</td></tr>
+                    @endif
+                    <tr><td class="total-row item-label">Total Deduction</td><td class="total-row item-amount">PHP {{ $num($item->total_deductions) }}</td></tr>
+                </table>
             </td>
         </tr>
+    </table>
+
+    <table class="net-pay-table">
         <tr>
-            <td class="label">Payroll Date:</td>
-            <td class="value">{{ \Carbon\Carbon::parse($payslip['payroll']['payroll_date'])->format('F d, Y') }}</td>
-        </tr>
-        <tr>
-            <td class="label">Employee's Name:</td>
-            <td class="value">{{ $payslip['name'] }}</td>
-        </tr>
-        <tr>
-            <td class="label">Position:</td>
-            <td class="value">{{ $payslip['position'] }}</td>
-        </tr>
-        <tr>
-            <td class="label">Unit:</td>
-            <td class="value">{{ $payslip['information']['section']['name'] }}</td>
+            <td>NET PAY</td>
+            <td class="amount">PHP {{ $num($item->net_amount) }}</td>
         </tr>
     </table>
 
-    <!-- Earnings -->
-    <div class="section-title">*** Earnings ***</div>
-    <table class="info-table">
-        <tr>
-            <td class="label">Monthly Basic Salary:</td>
-            <td class="value">PHP {{ number_format($payslip['basic_salary'], 2) }}</td>
-        </tr>
-        <tr>
-            <td class="label">Personnel Economic Relief Allowance:</td>
-            <td class="value">PHP {{ number_format($payslip['pera'], 2) }}</td>
-        </tr>
-        <tr>
-            <td class="label">Overtime:</td>
-            <td class="value">PHP 0.00</td>
-        </tr>
-    </table>
-
-    <!-- Deductions -->
-    <div class="section-title">*** Deductions ***</div>
-    <!-- Loan Deductions -->
-@if($payslip->deductions->where('reference_type', 'loan')->count())
-    <table class="info-table">
-        @foreach($payslip->deductions->where('reference_type', 'loan') as $deduction)
-            <tr>
-                <td class="label">
-                    {{ $deduction->loan->loanType->name ?? 'Loan Deduction' }}
-                </td>
-                <td class="value">
-                    PHP {{ number_format($deduction->amount, 2) }}
-                </td>
-            </tr>
-        @endforeach
-    </table>
-@endif
-    <table class="info-table">
-        <tr><td class="label">GSIS Contribution:</td><td class="value">PHP {{ number_format($payslip['rlip'], 2) }}</td></tr>
-        <tr><td class="label">PAG-IBIG Contribution:</td><td class="value">PHP {{ number_format($payslip['hdmf'], 2) }}</td></tr>
-        <tr><td class="label">Phil Health Contribution:</td><td class="value">PHP {{ number_format($payslip['philhealth'], 2) }}</td></tr>
-        <tr><td class="label">GSIS Emergency Loan:</td><td class="value">PHP {{ number_format($payslip['emergency_loan'], 2) }}</td></tr>
-        <tr><td class="label">GSIS Conso Loan:</td><td class="value">PHP {{ number_format($payslip['consoloan'], 2) }}</td></tr>
-        <tr><td class="label">GSIS MPL:</td><td class="value">PHP {{ number_format($payslip['mpl'], 2) }}</td></tr>
-        <tr><td class="label">GSIS MPL Lite:</td><td class="value">PHP {{ number_format($payslip['mplstlms'], 2) }}</td></tr>
-        <tr><td class="label">GSIS CPL:</td><td class="value">PHP {{ number_format($payslip['cpl'], 2) }}</td></tr>
-        <tr><td class="label">HDMF Calamity Loan:</td><td class="value">PHP {{ number_format($payslip['hdmf'], 2) }}</td></tr>
-        <tr><td class="label">HDMF MP2:</td><td class="value">PHP {{ number_format($payslip['mp2'], 2) }}</td></tr>
-        <tr><td class="label">Cir375-ECQ:</td><td class="value">PHP {{ number_format($payslip['cir375_cir449'], 2) }}</td></tr>
-        <tr><td class="label">SSS:</td><td class="value">PHP {{ number_format($payslip['sss'], 2) }}</td></tr>
-        <tr><td class="label">PAGIBIG:</td><td class="value">PHP {{ number_format($payslip['pagibig'], 2) }}</td></tr>
-        <tr><td class="label">BIR Withholding TAX:</td><td class="value">PHP {{ number_format($payslip['w_tax'], 2) }}</td></tr>
-        <tr><td class="label">Lates / Undertime / Absences:</td><td class="value">PHP {{ number_format($payslip['aut'], 2) }}</td></tr>
-        <tr><td class="label">Total Deductions:</td><td class="value">PHP {{ number_format($payslip['total_deductions'], 2) }}</td></tr>
-    </table>
-
-    <!-- Net Pay -->
-    <div class="section-title">*** Net Pay ***</div>
-    <table class="info-table">
-        <tr><td class="label">Net Amount:</td><td class="value">PHP {{ number_format($payslip['net_amount'], 2) }}</td></tr>
-        <tr><td class="label">DBP:</td><td class="value">PHP {{ number_format($payslip['dbp'], 2) }}</td></tr>
-        <tr><td class="label">Unlad Kawani:</td><td class="value">PHP {{ number_format($payslip['kawani'], 2) }}</td></tr>
-        <tr><td class="label">Amount Due (15):</td><td class="value">PHP {{ number_format($payslip['salary'], 2) }}</td></tr>
-        <tr><td class="label">Amount Due (28):</td><td class="value">PHP {{ number_format($payslip['salary'], 2) }}</td></tr>
-    </table>
-
-    <!-- Issued By -->
-    <div class="issued text-center">
-        <div>Issued by : <span style="text-decoration: underline;">____________________</span></div>
-        <div>___________________________</div>
+    <div class="received-by">
+        <div class="line">Received By: <span class="signature-line"></span></div>
+        <div class="line" style="margin-top: 6px;">{{ $item->name ?? 'Employee Name' }}</div>
     </div>
 
+    <div class="disclaimer">
+        <strong>Disclaimer:</strong><br>
+        This payslip is confidential and intended solely for the authorized employee. By accessing or downloading this document through the HR Information System, the employee acknowledges responsibility for safeguarding its contents. This payslip is valid and official as of the date of issuance unless formally corrected by the Company. Any unauthorized disclosure or misuse may be subject to disciplinary action.
+    </div>
 </div>
 </body>
 </html>

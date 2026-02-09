@@ -174,7 +174,7 @@ class Index extends Component
                 'showAlert' => true,
                 'status' => 'error',
                 'title' => 'Access Denied!',
-                'message' => 'You are not allowed to approve/disapprove overtime (ATRO) requests.',
+                'message' => 'You are not allowed to approve/disapprove overtime application requests.',
             ]);
         }
 
@@ -226,7 +226,7 @@ class Index extends Component
                 'showAlert' => true,
                 'status' => 'error',
                 'title' => 'Access Denied!',
-                'message' => 'You are not allowed to approve/disapprove overtime (ATRO) requests.',
+                'message' => 'You are not allowed to approve/disapprove overtime application requests.',
             ]);
         }
 
@@ -337,7 +337,7 @@ class Index extends Component
                     'title' => 'Success!', 
                     'id' => $this->selected_id,
                     'isRemoveRowDT' => true,
-                    'message' => 'ATRO Application #' . strtoupper(format_id($record->id, 6)) . 'has been removed successfully.' 
+                    'message' => 'Overtime Application #' . strtoupper(format_id($record->id, 6)) . ' has been removed successfully.' 
                 ]);
 
             } else {

@@ -62,6 +62,7 @@ class SalaryItemsPayroll extends Model
             'overtime_pay',
             'aut',
             'holiday_pay',
+            'night_differential',
             'allowances',
             'gross_amount_earned',
             'sss',

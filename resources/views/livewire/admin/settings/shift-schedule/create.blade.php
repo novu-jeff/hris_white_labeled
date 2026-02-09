@@ -39,6 +39,30 @@
                                 @error('shift_duration') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>
                         </div>
+                        <div class="col-12 col-md-6 mb-4">
+                            <label class="mb-2 d-block">Breaktime</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_breaktime_required" wire:model="is_breaktime_required">
+                                <label class="form-check-label" for="is_breaktime_required">
+                                    Require lunch break (show Lunch In/Out)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 mb-4">
+                            <label class="mb-2 d-block">Clocking Rules</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="allow_anytime_clockin" wire:model="allow_anytime_clockin">
+                                <label class="form-check-label" for="allow_anytime_clockin">
+                                    Allow clock-in anytime (ignore earliest/latest)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="allow_anytime_clockout" wire:model="allow_anytime_clockout">
+                                <label class="form-check-label" for="allow_anytime_clockout">
+                                    Allow clock-out anytime (ignore minimum hours)
+                                </label>
+                            </div>
+                        </div>
                         
                         <div class="col-12 col-md-3 mb-3">
                             <label class="mb-2" for="{{ $isFlexible ? 'earliest_in' : 'start_shift' }}">
@@ -53,21 +77,23 @@
                             </div>
                         </div>
                         
-                        <div class="col-12 col-md-3 mb-3">
-                            <label class="mb-2" for="break_out">Lunch Out <span class="text-danger">*</span></label>
-                            <input type="time" wire:model="break_out" id="break_out" class="form-control">
-                            <div class="error-field">
-                                @error('break_out') <span class="text-danger">{{ $message }}</span> @enderror
+                        @if($is_breaktime_required)
+                            <div class="col-12 col-md-3 mb-3">
+                                <label class="mb-2" for="break_out">Lunch Out <span class="text-danger">*</span></label>
+                                <input type="time" wire:model="break_out" id="break_out" class="form-control">
+                                <div class="error-field">
+                                    @error('break_out') <span class="text-danger">{{ $message }}</span> @enderror
+                                </div>
                             </div>
-                        </div>
-                        
-                        <div class="col-12 col-md-3 mb-3">
-                            <label class="mb-2" for="break_in">Lunch In <span class="text-danger">*</span></label>
-                            <input type="time" wire:model="break_in" id="break_in" class="form-control">
-                            <div class="error-field">
-                                @error('break_in') <span class="text-danger">{{ $message }}</span> @enderror
+                            
+                            <div class="col-12 col-md-3 mb-3">
+                                <label class="mb-2" for="break_in">Lunch In <span class="text-danger">*</span></label>
+                                <input type="time" wire:model="break_in" id="break_in" class="form-control">
+                                <div class="error-field">
+                                    @error('break_in') <span class="text-danger">{{ $message }}</span> @enderror
+                                </div>
                             </div>
-                        </div>
+                        @endif
                         
                         <div class="col-12 col-md-3 mb-3">
                             <label class="mb-2" for="{{ $isFlexible ? 'latest_in' : 'end_shift' }}">

@@ -1,374 +1,183 @@
+@php
+    $provider = $provider ?? [];
+    $companyName = strtoupper($provider['company'] ?? 'NOVULUTIONS, INC.');
+    $payrollHeader = $payslip->payroll ?? null;
+    $cutOffRaw = $payrollHeader && is_string($payrollHeader->cut_off_period) ? $payrollHeader->cut_off_period : '';
+    $cutOff = $cutOffRaw;
+    if ($cutOff !== '' && str_contains($cutOff, ' to ')) {
+        $parts = array_map('trim', explode(' to ', $cutOff));
+        try {
+            $cutOff = \Carbon\Carbon::parse($parts[0] ?? '')->format('F j') . ' to ' . \Carbon\Carbon::parse($parts[1] ?? $parts[0])->format('F j, Y');
+        } catch (\Throwable $e) {
+            $cutOff = $cutOffRaw;
+        }
+    }
+    $payrollDate = $payrollHeader && $payrollHeader->payroll_date
+        ? \Carbon\Carbon::parse($payrollHeader->payroll_date)->format('F j, Y')
+        : '';
+    $product = config('app.product');
+    $item = $payslip;
+    $num = fn($v) => number_format((float)($v ?? 0), 2);
+@endphp
 <div class="payslip-wrapper">
-    {{-- Protected Payslip --}}
     <div class="payslip-container" id="payslipProtected">
+        <div class="inner-content payslip-novu-template">
+            {{-- HEADER: Company name + logo --}}
+            @if(!empty($provider['client_logo']))
+                <div class="mb-3"><img src="{{ asset('img/' . $provider['client_logo']) }}" alt="Logo" style="max-height: 50px;"></div>
+            @endif
+            <div class="company-name-novu">{{ $companyName }}</div>
 
-        <div class="inner-content">
-            {{-- HEADER --}}
-            <div class="header d-flex justify-content-center gap-3 align-items-center text-center px-5">
-                <div class="logo">
-                    <img style="width: 100px !important;" src="{{ asset('/img/' . $provider['client_logo']) }}">            
-                </div>    
-                <div class="header-text fw-bold text-center">
-                    Office of the Presidential Adviser on Peace, Reconciliation and Unity <br>
-                    PAYROLL PAYMENT SLIP
+            {{-- Employee & Payroll info (same layout as PDF) --}}
+            <table class="header-table-novu mb-3">
+                <tr>
+                    <td class="label">Employee No.</td>
+                    <td class="value">{{ $item->employee_no ?? '' }}</td>
+                    <td class="col-spacer"></td>
+                    <td class="label">Payroll Date</td>
+                    <td class="value text-end">{{ $payrollDate }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Employee Name</td>
+                    <td class="value">{{ $item->name ?? '' }}</td>
+                    <td class="col-spacer"></td>
+                    <td class="label">Cut-off Period</td>
+                    <td class="value text-end">{{ $cutOff }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Position</td>
+                    <td class="value" colspan="3">{{ $item->position ?? '' }}</td>
+                </tr>
+            </table>
+
+            {{-- Two columns: EARNINGS | DEDUCTIONS --}}
+            <div class="row g-4 mb-3 payslip-tables-row">
+                <div class="col-lg-6">
+                    <div class="section-header-novu">EARNINGS</div>
+                    <table class="payslip-table-novu">
+                        <tr><td class="item-label">Basic Salary</td><td class="item-amount">PHP {{ $num($item->basic_salary) }}</td></tr>
+                        <tr><td class="item-label">Allowance/s</td><td class="item-amount"></td></tr>
+                        <tr><td class="item-label sub-label">Communication</td><td class="item-amount">PHP {{ $num($item->communication_allowance ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Transportation</td><td class="item-amount">PHP {{ $num($item->transportation_allowance ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Other</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->allowances ?? 0) : ($item->pera ?? 0)) }}</td></tr>
+                        <tr><td class="item-label">De Minimis</td><td class="item-amount"></td></tr>
+                        <tr><td class="item-label sub-label">Rice Allowance</td><td class="item-amount">PHP {{ $num($item->rice_allowance ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Laundry Allowance</td><td class="item-amount">PHP {{ $num($item->laundry_allowance ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Medical Cash Allowance</td><td class="item-amount">PHP {{ $num($item->medical_cash_allowance ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Uniform Allowance</td><td class="item-amount">PHP {{ $num($item->uniform_allowance ?? 0) }}</td></tr>
+                        <tr><td class="item-label">Salary Adjustment</td><td class="item-amount">PHP {{ $num($item->salary_adjustment ?? 0) }}</td></tr>
+                        <tr><td class="item-label">Overtime pay</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->overtime_pay ?? 0) : 0) }}</td></tr>
+                        <tr><td class="item-label">Incentive</td><td class="item-amount">PHP {{ $num($item->incentive ?? 0) }}</td></tr>
+                        <tr><td class="item-label">Night differential</td><td class="item-amount">PHP {{ $num($item->night_differential ?? 0) }}</td></tr>
+                        <tr><td class="item-label">Leave conversion</td><td class="item-amount">PHP {{ $num($item->leave_conversion ?? 0) }}</td></tr>
+                        <tr><td class="total-row-novu item-label">GROSS EARNINGS</td><td class="total-row-novu item-amount">PHP {{ $num($item->gross_amount_earned) }}</td></tr>
+                    </table>
+                </div>
+                <div class="col-lg-6">
+                    <div class="section-header-novu">DEDUCTIONS</div>
+                    <table class="payslip-table-novu">
+                        <tr><td class="item-label">Government</td><td class="item-amount"></td></tr>
+                        <tr><td class="item-label sub-label">Withholding Tax</td><td class="item-amount">PHP {{ $num($item->w_tax) }}</td></tr>
+                        <tr><td class="item-label sub-label">SSS</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->sss ?? 0) : 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">SSS - WISP</td><td class="item-amount">PHP {{ $num($item->sss_wisp ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">PhilHealth</td><td class="item-amount">PHP {{ $num($item->philhealth) }}</td></tr>
+                        <tr><td class="item-label sub-label">HDMF</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->pagibig ?? 0) : ($item->hdmf ?? 0)) }}</td></tr>
+                        <tr><td class="item-label">Others</td><td class="item-amount"></td></tr>
+                        <tr><td class="item-label sub-label">HDMF Loan</td><td class="item-amount">PHP {{ $num($item->hdmf_loan ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">SSS Loan</td><td class="item-amount">PHP {{ $num($item->sss_loan ?? 0) }}</td></tr>
+                        @if($payslip->deductions && $payslip->deductions->where('reference_type', 'loan')->count())
+                            @foreach($payslip->deductions->where('reference_type', 'loan') as $deduction)
+                                <tr><td class="item-label sub-label">{{ $deduction->loan->loanType->name ?? 'Other Loan' }}</td><td class="item-amount">PHP {{ $num($deduction->amount) }}</td></tr>
+                            @endforeach
+                        @endif
+                        <tr><td class="item-label sub-label">Other Loan</td><td class="item-amount">PHP {{ $num($product === 'private' ? ($item->other_loans ?? 0) : 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Advances</td><td class="item-amount">PHP {{ $num($item->advances ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Excess HMO Coverage</td><td class="item-amount">PHP {{ $num($item->excess_hmo ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Social Responsibility</td><td class="item-amount">PHP {{ $num($item->social_responsibility ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Others</td><td class="item-amount">PHP {{ $num($item->other_deductions ?? 0) }}</td></tr>
+                        @if($product === 'government')
+                            <tr><td class="item-label sub-label">GSIS (RLIP)</td><td class="item-amount">PHP {{ $num($item->rlip ?? 0) }}</td></tr>
+                            <tr><td class="item-label sub-label">Lates / Undertime / Absences</td><td class="item-amount">PHP {{ $num($item->aut ?? 0) }}</td></tr>
+                        @endif
+                        <tr><td class="total-row-novu item-label">Total Deduction</td><td class="total-row-novu item-amount">PHP {{ $num($item->total_deductions) }}</td></tr>
+                    </table>
                 </div>
             </div>
 
-            {{-- EMPLOYEE INFO --}}
-            <div class="info border-section p-3 mt-3">
-                @foreach([
-                    'Cutt Off Period' => collect(explode(' to ', $payslip['payroll']['cut_off_period']))
-                        ->map(fn($date, $i) => \Carbon\Carbon::parse($date)->format($i === 0 ? 'F j' : 'F j, Y'))
-                        ->implode(' to '),
-                    'Payroll Date' => \Carbon\Carbon::parse($payslip['payroll']['payroll_date'])->format('F d, Y'),
-                    'Employee\'s Name' => $payslip['name'],
-                    'Position' => $payslip['position'],
-                    'Unit' => $payslip['information']['section']['name'],
-                ] as $label => $value)
-                    <div class="d-flex align-items-start border-bottom py-1">
-                        <div class="label fw-bold">{{ $label }}:</div>
-                        <div class="value ms-2">{{ $value }}</div>
-                    </div>
-                @endforeach
+            <div class="net-pay-row-novu py-2 px-3 mb-3">
+                <span class="fw-bold">NET PAY</span>
+                <span class="float-end">PHP {{ $num($item->net_amount) }}</span>
             </div>
 
-            {{-- EARNINGS --}}
-            <div class="info border-section p-3 mt-3">
-                <div class="tle px-2 fw-bold">*** Earnings ***</div>
-                <div class="d-flex align-items-start border-bottom py-1">
-                    <div class="label">Monthly Basic Salary:</div>
-                    <div class="value ms-2">PHP {{ number_format($payslip['basic_salary'], 2) }}</div>
-                </div>
-                <div class="d-flex align-items-start border-bottom py-1">
-                    <div class="label">Personnel Economic Relief Allowance:</div>
-                    <div class="value ms-2">PHP {{ number_format($payslip['pera'], 2)}}</div>
-                </div>
-                <div class="d-flex align-items-start border-bottom py-1">
-                    <div class="label">Overtime:</div>
-                    <div class="value ms-2">PHP 0.00</div>
-                </div>
+            <div class="received-by-novu mb-3 text-center">
+                <div>Received By: <span class="signature-line-novu"></span></div>
+                <div class="mt-1">{{ $item->name ?? 'Employee Name' }}</div>
             </div>
 
-            {{-- DEDUCTIONS --}}
-            <div class="info border-section p-3 mt-3">
-                <div class="tle px-2 fw-bold">*** Deductions ***</div>
-                
-                @foreach([
-                    'GSIS Contribution' => $payslip['rlip'],
-                    'PAG-IBIG Contribution' => $payslip['hdmf'],
-                    'Phil Health Contribution' => $payslip['philhealth'],
-                    'GSIS Emergency Loan' => $payslip['emergency_loan'],
-                    'GSIS Conso Loan' => $payslip['consoloan'],
-                    'GSIS Education Assistance Loan' => 0,
-                    'GSIS Policy Loan' => 0,
-                    'GSIS MPL' => $payslip['mpl'],
-                    'GSIS MPL Lite' => $payslip['mplstlms'],
-                    'GSIS CPL' => $payslip['cpl'],
-                    'HDMF Calamity Loan' => $payslip['hdmf'],
-                    'HDMF MP2' => $payslip['mp2'],
-                    'HDMF MP3' => 0,
-                    'Cir375-ECQ' => $payslip['cir375_cir449'],
-                    'SSS' => $payslip['sss'],
-                    'Loan Deductions' => $payslip['other_loans'],
-                    'PAGIBIG' => $payslip['pagibig'],
-                    'BIR Withholding TAX' => $payslip['w_tax'],
-                    'Lates / Undertime / Absences' => $payslip['aut'],
-                ] as $label => $value)
-                    <div class="d-flex align-items-start border-bottom py-1">
-                        <div class="label">{{ $label }}:</div>
-                        <div class="value ms-2">PHP {{ number_format($value, 2) }}</div>
-                    </div>
-                @endforeach
+            <div class="disclaimer-novu p-2 small text-secondary">
+                <strong>Disclaimer:</strong><br>
+                This payslip is confidential and intended solely for the authorized employee. By accessing or downloading this document through the HR Information System, the employee acknowledges responsibility for safeguarding its contents. This payslip is valid and official as of the date of issuance unless formally corrected by the Company. Any unauthorized disclosure or misuse may be subject to disciplinary action.
             </div>
-
-    @if($payslip->deductions->where('reference_type', 'loan')->count())
-
-        @foreach($payslip->deductions->where('reference_type', 'loan') as $deduction)
-            <div class="d-flex align-items-start border-bottom py-1">
-                <div class="label">
-                    {{ $deduction->loan->loanType->name ?? 'Loan Deduction' }}
-                </div>
-                <div class="value ms-2">
-                    PHP {{ number_format($deduction->amount, 2) }}
-                </div>
-            </div>
-        @endforeach
-    @endif
-
-
-            <div class="d-flex align-items-start border-bottom py-1 fw-bold">
-                <div class="label">Total Deductions:</div>
-                <div class="value ms-2">
-                    PHP {{ number_format($payslip['total_deductions'], 2) }}
-                </div>
-            </div>
-
-            {{-- NET PAY --}}
-            <div class="info border-section p-3 mt-3">
-                <div class="tle px-2 fw-bold">*** Net Pay ***</div>
-                @foreach([
-                    'Net Amount' => $payslip['net_amount'],
-                    'DBP' => $payslip['dbp'],
-                    'Unlad Kawani' => $payslip['kawani'],
-                    'Amount Due (15)' => $payslip['salary'],
-                    'Amount Due (28)' => $payslip['salary'],
-                ] as $label => $value)
-                    <div class="d-flex align-items-start border-bottom py-1">
-                        <div class="label">{{ $label }}:</div>
-                        <div class="value ms-2">PHP {{ number_format($value, 2) }}</div>
-                    </div>
-                @endforeach
-            </div>
-
-            {{-- ISSUED BY --}}
-            <div class="info border-section p-3 mt-3 text-center">
-                <div>Issued by: <span class="text-decoration-underline">____________________</span></div>
-                <div>___________________________</div>
-            </div>
-
         </div>
     </div>
 
-    {{-- SECURITY OVERLAYS --}}
     <div class="payslip-overlay"></div>
-
-    <div class="payslip-watermark-diagonal-1">CONFIDENTIAL1 • {{$payslip['name']}} • DO NOT COPY</div>
-    <div class="payslip-watermark-diagonal-2">CONFIDENTIAL 2• {{$payslip['name']}} • DO NOT COPY</div>
-<div class="payslip-watermark-diagonal-3">CONFIDENTIAL 3• {{$payslip['name']}} • DO NOT COPY</div>
-<div class="payslip-watermark-diagonal-4">CONFIDENTIAL4 • {{$payslip['name']}} • DO NOT COPY</div>
-<div class="payslip-watermark-diagonal-5">CONFIDENTIAL5 • {{$payslip['name']}} • DO NOT COPY</div>
-<div class="payslip-watermark-center-large">CONFIDENTIAL</div>
+    <div class="payslip-watermark-diagonal-1">CONFIDENTIAL • {{ $item->name ?? '' }} • DO NOT COPY</div>
+    <div class="payslip-watermark-diagonal-2">CONFIDENTIAL • DO NOT COPY</div>
+    <div class="payslip-watermark-diagonal-3">CONFIDENTIAL • DO NOT COPY</div>
+    <div class="payslip-watermark-diagonal-4">CONFIDENTIAL • DO NOT COPY</div>
+    <div class="payslip-watermark-diagonal-5">CONFIDENTIAL • DO NOT COPY</div>
+    <div class="payslip-watermark-center-large">CONFIDENTIAL</div>
 </div>
 
-
 <style>
-/* Wrapper */
-.payslip-wrapper {
-    position: relative;
-    max-width: 900px;
-    margin: 0 auto;
-    font-family: Arial, sans-serif;
-}
+.payslip-wrapper { --novu-blue: #005668; position: relative; width: 100%; max-width: 1200px; margin: 0; font-family: Arial, sans-serif; }
+.payslip-container { position: relative; z-index: 5; background: #fff; padding: 0; margin: 0; border: 2px solid #005668; box-shadow: 0 0 12px rgba(0, 86, 104, 0.15); width: 100%; box-sizing: border-box; }
+.payslip-container .inner-content.payslip-novu-template { padding: 24px 28px; max-width: 700px; }
+.payslip-novu-template .company-name-novu { font-weight: bold; font-size: 1.2rem; color: #005668; margin-bottom: 14px; }
+.payslip-novu-template .header-table-novu { width: 100%; }
+.payslip-novu-template .header-table-novu td { padding: 6px 14px 6px 0; vertical-align: top; }
+.payslip-novu-template .header-table-novu .label { font-weight: bold; color: #005668; white-space: nowrap; width: 1%; }
+.payslip-novu-template .header-table-novu .value { width: 38%; }
+.payslip-novu-template .header-table-novu .col-spacer { width: 4%; }
+.payslip-novu-template .section-header-novu { background: #005668; color: #fff; font-weight: bold; padding: 8px 12px; font-size: 13px; }
+.payslip-tables-row .col-lg-6 { min-width: 0; overflow: hidden; }
+.payslip-novu-template .payslip-table-novu { width: 100%; border: 1px solid #005668; border-collapse: collapse; table-layout: fixed; }
+.payslip-novu-template .payslip-table-novu td { padding: 8px 12px; border: 1px solid #4a9fb5; overflow: hidden; }
+.payslip-novu-template .payslip-table-novu .item-label { width: 58%; min-width: 0; }
+.payslip-novu-template .payslip-table-novu .item-amount { width: 42%; min-width: 110px; text-align: right; padding-left: 16px !important; white-space: nowrap; overflow: hidden; }
+.payslip-novu-template .payslip-table-novu .sub-label { padding-left: 20px; }
+.payslip-novu-template .total-row-novu { background: #005668; color: #fff; font-weight: bold; padding: 10px 12px !important; }
+.payslip-novu-template .net-pay-row-novu { background: #005668; color: #fff; font-weight: bold; border: 1px solid #005668; padding: 12px 16px !important; font-size: 1.05rem; }
+.payslip-novu-template .received-by-novu { text-align: center; }
+.payslip-novu-template .received-by-novu .signature-line-novu { display: inline-block; border-bottom: 1px solid #000; min-width: 280px; margin-left: 8px; }
+.payslip-novu-template .disclaimer-novu { border: 1px solid #ddd; background: #f9f9f9; line-height: 1.5; padding: 12px 16px !important; }
 
-/* Container */
-.payslip-container {
-    position: relative;
-    z-index: 5;
-    background: #fff;
-    padding: 20px;
-    border: 2px solid #333;
-    box-shadow: 0 0 10px rgba(0,0,0,0.2);
-}
-
-/* Section borders */
-.border-section {
-    border: 1px solid #333;
-    border-radius: 5px;
-}
-
-/* Row bottom lines */
-.border-bottom {
-    border-bottom: 1px dashed #999;
-}
-
-/* Overlay */
-.payslip-overlay {
-    position: absolute;
-    top:0; left:0;
-    width: 100%; height: 100%;
-    background: repeating-linear-gradient(
-        45deg,
-        rgba(255,255,255,0.03) 0,
-        rgba(255,255,255,0.03) 2px,
-        transparent 2px,
-        transparent 5px
-    );
-    pointer-events: none;
-    z-index: 10;
-}
-
-/* Watermark 1 (center diagonal) */
-.payslip-watermark {
-    position: absolute;
-    top:50%;
-    left:50%;
-    transform: translate(-50%, -50%) rotate(-30deg);
-    font-size: 60px;
-    font-weight: 900;
-    color: rgba(255,0,0,0.15);
-    white-space: nowrap;
-    pointer-events: none;
-    z-index: 20;
-}
-
-/* Watermark 2 (bottom-right) */
-.payslip-watermark-bottom {
-    position: absolute;
-    bottom: 365px;
-    right: 15px;
-    font-size: 25px;
-    font-weight: 700;
-    color: rgba(255,0,0,0.1);
-    pointer-events: none;
-    z-index: 20;
-}
-
-/* Blur effect */
-.payslip-container.blur {
-    filter: blur(25px);
-    transition: filter 0.3s;
-}
-
-/* Overlay only covers payslip */
-.payslip-overlay,
-.payslip-watermark,
-.payslip-watermark-bottom {
-    position: absolute;
-    pointer-events: none; /* IMPORTANT: allows clicks to pass through */
-    z-index: 10; /* above payslip but below page elements like chatbox */
-}
-
-/* Payslip container */
-.payslip-container {
-    position: relative;
-    z-index: 5;
-}
-
-/* Diagonal watermark #1 */
-.payslip-watermark-diagonal-1,
-.payslip-watermark-diagonal-2,
-.payslip-watermark-diagonal-3,
-.payslip-watermark-diagonal-4,
-.payslip-watermark-diagonal-5     {
-    position: absolute;
-    font-size: 40px;
-    font-weight: 100;
-    color: rgba(255, 0, 0, 0.08);
-    white-space: nowrap;
-    pointer-events: none;
-    z-index: 20;
-}
-
-/* Diagonal #1: top-left to bottom-right */
-.payslip-watermark-diagonal-1 {
-    top: 25%;
-    left: -40%;
-    transform: rotate(25deg);
-}
-
-/* Diagonal #2: bottom-left to top-right */
-.payslip-watermark-diagonal-2 {
-    bottom: 30%;
-    left: -40%;
-    transform: rotate(25deg);
-}
-
-/* Diagonal #2: bottom-left to top-right */
-.payslip-watermark-diagonal-3 {
-    bottom: 10%;
-    left: -40%;
-    transform: rotate(25deg);
-}
-
-/* Diagonal #2: bottom-left to top-right */
-.payslip-watermark-diagonal-4 {
-    top: 10%;
-    left: -40%;
-    transform: rotate(25deg);
-}
-
-/* Diagonal #2: bottom-left to top-right */
-.payslip-watermark-diagonal-5 {
-    top: 40%;
-    left: -40%;
-    transform: rotate(25deg);
-}
-
-/* Large center watermark */
-.payslip-watermark-center-large {
-    position: absolute;
-    top: 55%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 100px;
-    font-weight: 900;
-    color: rgba(255, 0, 0, 0.05);
-    pointer-events: none;
-    z-index: 20;
-    white-space: nowrap;
-}
-
-/* Keep previous bottom-right watermark */
-.payslip-watermark-bottom {
-    bottom: 15px;
-    right: 15px;
-    font-size: 25px;
-    font-weight: 700;
-    color: rgba(255, 0, 0, 0.1);
-    pointer-events: none;
-    z-index: 20;
-}
-
-/* Prevent printing */
-@media print {
-    body * { display: none !important; }
-}
+.payslip-overlay { position: absolute; top:0; left:0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, rgba(0,86,104,0.02) 0, rgba(0,86,104,0.02) 2px, transparent 2px, transparent 5px); pointer-events: none; z-index: 10; }
+.payslip-watermark-diagonal-1, .payslip-watermark-diagonal-2, .payslip-watermark-diagonal-3, .payslip-watermark-diagonal-4, .payslip-watermark-diagonal-5 { position: absolute; font-size: 36px; font-weight: 100; color: rgba(0, 86, 104, 0.08); white-space: nowrap; pointer-events: none; z-index: 20; }
+.payslip-watermark-diagonal-1 { top: 25%; left: -40%; transform: rotate(25deg); }
+.payslip-watermark-diagonal-2 { bottom: 30%; left: -40%; transform: rotate(25deg); }
+.payslip-watermark-diagonal-3 { bottom: 10%; left: -40%; transform: rotate(25deg); }
+.payslip-watermark-diagonal-4 { top: 10%; left: -40%; transform: rotate(25deg); }
+.payslip-watermark-diagonal-5 { top: 40%; left: -40%; transform: rotate(25deg); }
+.payslip-watermark-center-large { position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%); font-size: 90px; font-weight: 900; color: rgba(0, 86, 104, 0.06); pointer-events: none; z-index: 20; white-space: nowrap; }
+.payslip-container.blur { filter: blur(25px); transition: filter 0.3s; }
+@media print { .payslip-wrapper body * { display: none !important; } }
 </style>
 
-
 <script>
-const payslip = document.getElementById('payslipProtected');
-
-// Disable Ctrl/Cmd + P
-document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        alert("Printing is disabled on this page.");
-    }
-});
-
-// Disable right-click and selection
-document.addEventListener('contextmenu', e => e.preventDefault());
-document.addEventListener('selectstart', e => e.preventDefault());
-
-
-
-// Blur on PrintScreen
-document.addEventListener('keyup', e => {
-    if (e.key === "PrintScreen") {
-        payslip.classList.add('blur');
-        setTimeout(() => payslip.classList.remove('blur'), 1200);
-    }
-});
-
-// Only blur when the entire window loses focus (user switches tab or minimizes)
-/*window.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        payslip.classList.add('blur');
-    } else {
-        payslip.classList.remove('blur');
-    }
-});*/
-
-// Blur when tab loses focus
-window.addEventListener('blur', () => payslip.classList.add('blur'));
-window.addEventListener('focus', () => payslip.classList.remove('blur'));
-
-// Detect DevTools
-let devtoolsOpen = false;
-setInterval(() => {
-    const start = performance.now();
-    debugger;
-    if (performance.now() - start > 100) {
-        if (!devtoolsOpen) {
-            devtoolsOpen = true;
-            payslip.classList.add('blur');
-        }
-    } else {
-        if (devtoolsOpen) {
-            devtoolsOpen = false;
-            payslip.classList.remove('blur');
-        }
-    }
-}, 300);
+(function() {
+    const payslip = document.getElementById('payslipProtected');
+    if (!payslip) return;
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); alert("Printing is disabled on this page."); }
+    });
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+    document.addEventListener('keyup', function(e) {
+        if (e.key === "PrintScreen") { payslip.classList.add('blur'); setTimeout(function() { payslip.classList.remove('blur'); }, 1200); }
+    });
+    window.addEventListener('blur', function() { payslip.classList.add('blur'); });
+    window.addEventListener('focus', function() { payslip.classList.remove('blur'); });
+})();
 </script>

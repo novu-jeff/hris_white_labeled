@@ -15,7 +15,8 @@ class OtherDeductions extends Model
         'name',
         'amount',
         'amount_type',
-        'maximum_amount'
+        'maximum_amount',
+        'computation_mode',
     ];
 
 }

@@ -11,7 +11,6 @@ use App\Models\EmployeeTimelogs;
 use App\Models\EmployeeInformation;
 use App\Models\EmployeeLeave;
 use App\Models\EmployementTypes;
-use App\Models\SocialSecurityBilling;
 use App\Models\JobApplicants;
 use App\Models\OtherDeductions;
 use App\Models\OtherEarnings;
@@ -73,9 +72,46 @@ class Index extends Component
 
         $deductions = OtherDeductions::all();
 
-        $social_security = SocialSecurityBilling::with('items')
-            ->orderBy('billing_month', 'desc')
-            ->first();
+        // Work anniversaries, new hires & interns this month (date_hired month = current month)
+        $workAnniversariesThisMonth = EmployeeInformation::with(['personal', 'positions', 'employment_type'])
+            ->whereNotNull('date_hired')
+            ->whereMonth('date_hired', $this->now->month)
+            ->get()
+            ->map(function ($emp) {
+                $name = $emp->personal
+                    ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
+                    : $emp->employee_no;
+                $years = $emp->date_hired ? $this->now->diffInYears(Carbon::parse($emp->date_hired)) : 0;
+                $typeName = $emp->employment_type->name ?? null;
+                $isIntern = $typeName && stripos($typeName, 'intern') !== false;
+                return [
+                    'name'       => $name,
+                    'position'   => $emp->positions->name ?? '—',
+                    'date'       => Carbon::parse($emp->date_hired)->format('M d'),
+                    'years'      => $years,
+                    'is_new'     => $years === 0,
+                    'type_label' => $years === 0 ? ($isIntern ? 'Intern' : 'New hire') : null,
+                ];
+            });
+
+        // Birthdays this month (personal.birthday month = current month)
+        $birthdaysThisMonth = EmployeeInformation::with(['personal', 'positions'])
+            ->whereHas('personal', function ($q) {
+                $q->whereNotNull('birthday')->whereMonth('birthday', $this->now->month);
+            })
+            ->get()
+            ->map(function ($emp) {
+                $name = $emp->personal
+                    ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
+                    : $emp->employee_no;
+                return [
+                    'name'     => $name,
+                    'position' => $emp->positions->name ?? '—',
+                    'date'     => $emp->personal && $emp->personal->birthday
+                        ? Carbon::parse($emp->personal->birthday)->format('M d')
+                        : '—',
+                ];
+            });
 
         // Clock in / out summary for today, based on raw timelog records.
         // We derive employee-level status from timelog "status" (internal) or "status1" (external) flags:
@@ -151,7 +187,8 @@ class Index extends Component
                 'rejected' => $offsetCounts['disapproved'] ?? 0,
             ],
             'deductions' => $deductions,
-            'social_security' => $social_security ? $social_security->toArray() : [],
+            'work_anniversaries_this_month' => $workAnniversariesThisMonth->values()->all(),
+            'birthdays_this_month'          => $birthdaysThisMonth->values()->all(),
             'payroll' => [
                 'approved' => $payrollCounts['approved'] ?? 0,
                 'pending'  => $payrollCounts['pending'] ?? 0,

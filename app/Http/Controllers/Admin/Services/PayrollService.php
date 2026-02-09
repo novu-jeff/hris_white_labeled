@@ -187,19 +187,27 @@ class PayrollService extends Controller {
 
     public function computeWithholdingTax(float $taxableIncome): float
     {
-        if ($taxableIncome <= 20833) {
+        return \App\Services\ContributionsService::computeWithholdingTax($taxableIncome);
+    }
+
+    /**
+     * Night shift differential: 10% for work between 10pm–6am (configurable via settings).
+     */
+    public function computeNightShiftDifferential(float $basicSalary, array $dtrSummary, string $payType): float
+    {
+        $minutes = (int) ($dtrSummary['night_shift_minutes'] ?? 0);
+        if ($minutes <= 0) {
             return 0;
-        } elseif ($taxableIncome <= 33333) {
-            return ($taxableIncome - 20833) * 0.20;
-        } elseif ($taxableIncome <= 66667) {
-            return 2500 + ($taxableIncome - 33333) * 0.25;
-        } elseif ($taxableIncome <= 166667) {
-            return 10833.33 + ($taxableIncome - 66667) * 0.30;
-        } elseif ($taxableIncome <= 666667) {
-            return 40833.33 + ($taxableIncome - 166667) * 0.32;
-        } else {
-            return 200833.33 + ($taxableIncome - 666667) * 0.35;
         }
+
+        $rate = (float) (\App\Models\Setting::get('night_shift_differential', 10) / 100);
+        $workPerWeek = (int) ($dtrSummary['workingDaysPerWeek'] ?? 5);
+        $daysPerMonth = $workPerWeek > 5 ? 26 : 22;
+        $dailyRate = $basicSalary / $daysPerMonth;
+        $hourlyRate = $dailyRate / 8;
+        $nightHours = $minutes / 60;
+
+        return round($nightHours * $hourlyRate * $rate, 2);
     }
 
     public function computeBonusTax(float $bonus, float $cashGift = 0): float

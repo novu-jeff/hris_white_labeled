@@ -20,6 +20,7 @@ class Edit extends Component
     public $password;
     public $confirm_password;
     public $roles;
+    public $is_active;
 
     public function mount() {
         $this->loadRecords();
@@ -35,6 +36,7 @@ class Edit extends Component
         $this->email = $record->email;
         $this->username = $record->username;
         $this->role = $record->getRoleNames()[0];
+        $this->is_active = $record->is_active ? 1 : 0;
 
     }
 
@@ -63,6 +65,7 @@ class Edit extends Component
                 'nullable',
                 'string',
             ],
+            'is_active' => 'required|boolean',
         ];
     }
 
@@ -102,6 +105,7 @@ class Edit extends Component
                 $user->name = $this->name;
                 $user->username = $this->username;
                 $user->email = $this->email;
+                $user->is_active = (int) $this->is_active;
 
                 if ($this->password) {
                     $user->password = bcrypt($this->password); // Hash password if provided
@@ -117,11 +121,13 @@ class Edit extends Component
 
             DB::commit();
 
+            $statusLabel = $this->is_active ? 'enabled' : 'disabled';
+
             $this->dispatch('alert', [
                 'status' => 'success',
                 'title' => 'Success!', 
                 'showAlert' => true,
-                'message' => 'Admin ' . strtoupper($this->name) . ' was added successfully.'
+                'message' => 'Admin ' . strtoupper($this->name) . ' was updated successfully and is now ' . $statusLabel . '.'
             ]);
 
 

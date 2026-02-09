@@ -38,7 +38,13 @@
                                             {{ relative_time($message['created_at']) }}
                                         @endif
                                     @else
-                                        {{ relative_time($message['created_at']) }}
+                                        @if(!empty($message['seen_at']))
+                                            Seen {{ format_date($message['seen_at'], 'day_date_time_string') }}
+                                        @elseif(!empty($message['delivered_at']))
+                                            Delivered
+                                        @else
+                                            {{ relative_time($message['created_at']) }}
+                                        @endif
                                     @endif
                                 </small>
                             @endif
@@ -62,6 +68,25 @@
                                         @endif
                                     @endforeach
                                 </div>
+                                @if(empty($message['message']))
+                                    <small class="text-muted">
+                                        @if($message['from_role'] === 'admin')
+                                            @if(!empty($message['seen_at']))
+                                                Seen {{ format_date($message['seen_at'], 'day_date_time_string') }}
+                                            @elseif(!empty($message['delivered_at']))
+                                                Delivered
+                                            @else
+                                                {{ relative_time($message['created_at']) }}
+                                            @endif
+                                        @else
+                                            @if($message['isSeen'])
+                                                Seen at {{ format_date($message['created_at'], 'day_date_time_string') }}
+                                            @else
+                                                {{ relative_time($message['created_at']) }}
+                                            @endif
+                                        @endif
+                                    </small>
+                                @endif
                             @endif
                         </li>
                     @endif

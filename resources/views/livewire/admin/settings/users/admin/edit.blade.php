@@ -42,6 +42,16 @@
                             </div>
                         </div>
                         <div class="col-12 col-md-12 mb-4">
+                            <label class="mb-2" for="is_active">Status <span class="text-danger">*</span></label>
+                            <select wire:model="is_active" id="is_active" class="form-select">
+                                <option value="1">Enabled</option>
+                                <option value="0">Disabled</option>
+                            </select>
+                            <div class="error-field">
+                                @error('is_active') <span class="text-danger">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-12 mb-4">
                             <label class="mb-2" for="password">Password <span class="text-danger">*</span></label>
                             <input type="password" wire:model="password" id="password" class="form-control text-uppercase" placeholder="⦁⦁⦁⦁⦁⦁⦁⦁">
                             <div class="error-field">

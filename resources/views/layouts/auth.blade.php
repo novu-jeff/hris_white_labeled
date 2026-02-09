@@ -20,6 +20,39 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
     @vite(['resources/sass/app.scss', 'resources/js/app.js', 'resources/sass/auth.scss'])
     @livewireStyles
+    {{-- Strip injected HTML from JSON responses (e.g. "<!-- This Commentary... -->" prepended by proxy/hosting) --}}
+    <script>
+    (function() {
+        if (window.__livewireFetchLogged) return;
+        var nativeFetch = window.fetch;
+        window.fetch = function(input, init) {
+            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            var isSameOrigin = url && (url.startsWith(window.location.origin) || url.startsWith('/'));
+            var isPost = !(init && init.method) || String(init.method).toUpperCase() === 'POST';
+            return nativeFetch.apply(this, arguments).then(function(response) {
+                if (!isSameOrigin || !isPost) return response;
+                return response.clone().text().then(function(text) {
+                    var trimmed = text.trimStart();
+                    if (trimmed.charAt(0) !== '<') return response;
+                    var jsonStart = trimmed.indexOf('{');
+                    if (jsonStart === -1) {
+                        console.error('[Livewire] Response was HTML, no JSON object found', { url: url, bodyPreview: text.slice(0, 800) });
+                        return response;
+                    }
+                    var strippedText = trimmed.slice(jsonStart);
+                    console.warn('[Livewire] Stripped leading HTML from response', { url: url, strippedBytes: jsonStart, bodyLength: text.length });
+                    var headers = new Headers(response.headers);
+                    headers.set('Content-Length', strippedText.length);
+                    return new Response(strippedText, { status: response.status, statusText: response.statusText, headers: headers });
+                }).catch(function(e) {
+                    console.warn('[Livewire] Could not process response:', e);
+                    return response;
+                });
+            });
+        };
+        window.__livewireFetchLogged = true;
+    })();
+    </script>
     @livewireScripts
 </head>
 <body>

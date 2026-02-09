@@ -9,7 +9,7 @@ use App\Models\EmployeeUpdatePersonal;
 use App\Notifications\Notifications;
 use Auth;
 use Cache;
-use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -69,9 +69,9 @@ class Personal extends Component
         }
 
         try {
-            $client = new Client();
-            $response = $client->get('https://restcountries.com/v3.1/all?fields=name');
-            $countries = json_decode($response->getBody(), true);
+            $response = Http::timeout(10)->withOptions(['cookies' => false])
+                ->get('https://restcountries.com/v3.1/all?fields=name');
+            $countries = $response->json();
 
             // Validate response structure
             if (!is_array($countries)) {
@@ -343,8 +343,11 @@ class Personal extends Component
             'message' => "Your profile is now pending for HR's approval. We'll notify you once it's approved. Thank you!"
         ]);
 
-        $user = EmployeeAccount::find($this->employee_id);
-        $message = "Employee <strong>{$this->employee_no}</strong> has submitted updated <strong>profile information</strong>.";
+        $user = EmployeeAccount::with('personal')->find($this->employee_id);
+        $personal = $user->personal ?? EmployeePersonal::where('employee_no', $this->employee_no)->first();
+        $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+        $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+        $message = "Employee <strong>{$display}</strong> has submitted updated <strong>profile information</strong>.";
         $redirect = route('ess.approval-profile.show', ['employee_no' => $user->employee_no, 'form' => 'details']);
         $user->notify(new Notifications('info', $message, $redirect, 'admin'));
 

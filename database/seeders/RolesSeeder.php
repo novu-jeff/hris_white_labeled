@@ -27,7 +27,7 @@ class RolesSeeder extends Seeder
             ],
             [
                 'name' => 'manager',
-                'description' => 'A manager can approve employee leave and overtime (ATRO) requests.',
+                'description' => 'A manager can approve employee leave and overtime application requests.',
                 'guard_name' => 'web',
             ],
             [

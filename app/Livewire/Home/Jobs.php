@@ -192,7 +192,8 @@ class Jobs extends Component
 
     public function find()
     {
-        $this->isEmptySearch = empty($this->search_query);
+        $this->search_query = is_array($this->search_query ?? null) ? '' : (string) ($this->search_query ?? '');
+        $this->isEmptySearch = $this->search_query === '';
         $this->dispatch('navigateToSearch', $this->search_query);
         $this->search_term = $this->search_query;
     }
@@ -201,20 +202,21 @@ class Jobs extends Component
     {
         $model = JobPosts::with('applicants', 'employment_type');
 
-        if ($this->search_term) {
+        $searchQuery = is_array($this->search_query ?? null) ? '' : (string) ($this->search_query ?? '');
+        if ($this->search_term !== null && $this->search_term !== '') {
             $this->resetPage();
 
-            $model->where(function ($query) {
-                $query->where('position', 'like', '%' . $this->search_query . '%')
-                    ->orWhere('company_name', 'like', '%' . $this->search_query . '%')
-                    ->orWhere('location', 'like', '%' . $this->search_query . '%')
-                    ->orWhere('setup', 'like', '%' . $this->search_query . '%')
-                    ->orWhereHas('employment_type', function ($query) {
-                        $query->where('name', 'like', '%' . $this->search_query . '%');
+            $model->where(function ($query) use ($searchQuery) {
+                $query->where('position', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('company_name', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('location', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('setup', 'like', '%' . $searchQuery . '%')
+                    ->orWhereHas('employment_type', function ($q) use ($searchQuery) {
+                        $q->where('name', 'like', '%' . $searchQuery . '%');
                     })
-                    ->orWhere('min_salary', 'like', '%' . $this->search_query . '%')
-                    ->orWhere('max_salary', 'like', '%' . $this->search_query . '%')
-                    ->orWhere('slots', 'like', '%' . $this->search_query . '%');
+                    ->orWhere('min_salary', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('max_salary', 'like', '%' . $searchQuery . '%')
+                    ->orWhere('slots', 'like', '%' . $searchQuery . '%');
             });
         }
 

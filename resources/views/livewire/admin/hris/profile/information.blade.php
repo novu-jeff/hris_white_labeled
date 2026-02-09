@@ -95,18 +95,6 @@
                             @error('records.employee_information.section_id') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="mb-2" for="selectedBranchId">Central / Field Office</label>
-                        <select wire:model="selectedBranchId" id="selectedBranchId" class="form-select">
-                            <option value=""> - CHOOSE - </option>
-                            @foreach ($branches as $branch)
-                                <option value="{{$branch->id}}">{{$branch->code ? ($branch->code . ' - ') : ''}}{{$branch->name}}</option>
-                            @endforeach
-                        </select>
-                        <div class="error-field">
-                            @error('selectedBranchId') <span class="text-danger">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
                    <!-- <div class="col-md-6 mb-3">
                         <label class="mb-2" for="department">Cluster</label>
                         <input type="text" wire:model="records.employee_information.department" id="records.employee_information.department" class="form-control" readonly>
@@ -207,6 +195,22 @@
                         <h5 class="mb-0 text-uppercase fw-bold pt-4 pb-0 ps-2">Salary & Payroll Details</h5>
                         <hr>
                     </div>
+                    @if($internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId)
+                        <div class="col-12 mb-3">
+                            <label class="mb-2">Intern compensation</label>
+                            <div class="d-flex flex-wrap gap-4">
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" name="intern_compensation" id="comp_allowance_only" value="0" wire:model.live="records.employee_information.has_salary" wire:change="handleSalary">
+                                    <label class="form-check-label" for="comp_allowance_only">Allowance only</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" name="intern_compensation" id="comp_has_salary" value="1" wire:model.live="records.employee_information.has_salary" wire:change="handleSalary">
+                                    <label class="form-check-label" for="comp_has_salary">Has salary</label>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">Choose &quot;Allowance only&quot; if the intern receives allowance only (no basic salary), or &quot;Has salary&quot; to assign a basic salary and include in payroll.</small>
+                        </div>
+                    @endif
                     <div class="col-md-3 mb-3">
                         <label class="mb-2" for="salary_method">Salary Method <span class="text-danger">*</span></label>
                         <select wire:model="records.employee_information.salary_method" id="records.employee_information.salary_method" class="form-select">
@@ -223,7 +227,8 @@
                     @if($isGovernment)
                         <div class="col-md-3 mb-3">
                             <label class="mb-2" for="salary">Basic Salary <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control {{$records['employee_information']['type'] == 3 ? '' : 'restricted'}}" {{$records['employee_information']['type'] == 3 ? '' : 'readonly'}}>
+                            @php $isInternNoSalary = $internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId && empty($records['employee_information']['has_salary'] ?? false); @endphp
+                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control {{ $isInternNoSalary ? 'restricted' : ($records['employee_information']['type'] == 3 ? '' : 'restricted') }}" {{ $isInternNoSalary ? 'readonly' : ($records['employee_information']['type'] == 3 ? '' : 'readonly') }}>
                         <div class="error-field">
                                 @error('records.employee_information.salary') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
@@ -231,7 +236,8 @@
                     @else
                     <div class="col-md-3 mb-3">
                             <label class="mb-2" for="salary">Basic Salary <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control">
+                            @php $isInternNoSalary = $internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId && empty($records['employee_information']['has_salary'] ?? false); @endphp
+                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control {{ $isInternNoSalary ? 'restricted' : '' }}" {{ $isInternNoSalary ? 'readonly' : '' }}>
                         <div class="error-field">
                                 @error('records.employee_information.salary') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
@@ -240,6 +246,9 @@
                     <div class="col-md-3 mb-3">
                         <label class="mb-2" for="allowance">Allowance</label>
                         <input type="text" wire:model="records.employee_information.allowance" id="records.employee_information.allowance" class="form-control" placeholder="0.00">
+                        @if($internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId && empty($records['employee_information']['has_salary'] ?? false))
+                            <small class="text-muted">For allowance-only interns, set the amount here.</small>
+                        @endif
                         <div class="error-field">
                             @error('records.employee_information.allowance') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>

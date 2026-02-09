@@ -69,13 +69,6 @@
                         </div>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="mb-2" for="branch">Central / Field Office</label>
-                        <input type="text" wire:model="records.employee_information.branch" id="records.employee_information.branch" class="form-control" >
-                        <div class="error-field">
-                            @error('records.employee_information.branch') <span class="text-danger">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
                         <label class="mb-2" for="department">Cluster</label>
                         <input type="text" wire:model="records.employee_information.department" id="records.employee_information.department" class="form-control" >
                         <div class="error-field">

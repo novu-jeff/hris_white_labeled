@@ -134,7 +134,10 @@ class Index extends Component
                         ],
                         'payroll_date' => [
                             'label' => 'Payroll Date',
-                            'type' => 'date',
+                            'type' => 'datepicker',
+                            'value' => '',
+                            'class' => 'datepicker-single',
+                            'attr' => ['placeholder' => 'YYYY-MM-DD', 'autocomplete' => 'off'],
                             'rules' => ['required', 'date'],
                         ],
                         'has_deductions' => [

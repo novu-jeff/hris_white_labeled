@@ -35,6 +35,7 @@ class Edit extends Component
             'amount' => $records->amount,
             'amount_type' => $records->amount_type ?? 'amount',
             'maximum_amount' => $records->maximum_amount ?? null,
+            'computation_mode' => $records->computation_mode ?? 'manual',
         ];
 
     }
@@ -82,6 +83,7 @@ class Edit extends Component
             'fields.amount' => 'required|numeric|min:0',
             'fields.amount_type' => 'required|in:amount,percentage',
             'fields.maximum_amount' => 'nullable|numeric|min:0',
+            'fields.computation_mode' => 'required|in:manual,automatic',
         ];
 
         // If percentage, ensure it's between 0 and 100
@@ -140,6 +142,7 @@ class Edit extends Component
                 'amount' => $this->fields['amount'],
                 'amount_type' => $this->fields['amount_type'] ?? 'amount',
                 'maximum_amount' => $this->fields['maximum_amount'] ?? null,
+                'computation_mode' => $this->fields['computation_mode'] ?? 'manual',
             ]);
 
             $this->dispatch('alert', [

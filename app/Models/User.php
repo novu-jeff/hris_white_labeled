@@ -23,6 +23,7 @@ class User extends Authenticatable
         'email',
         'username',
         'password',
+        'is_active',
     ];
 
     protected $guard_name = 'web';
@@ -45,5 +46,6 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'is_active' => 'boolean',
     ];
 }

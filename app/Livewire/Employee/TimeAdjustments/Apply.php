@@ -3,6 +3,7 @@
 namespace App\Livewire\Employee\TimeAdjustments;
 
 use App\Models\EmployeeAccount;
+use App\Models\EmployeePersonal;
 use App\Models\EmployeeTimeAdjustments;
 use App\Models\EmployeeTimeAdjustmentsAttachments;
 use App\Notifications\Notifications;
@@ -153,7 +154,10 @@ class Apply extends Component
                     ]);
     
                     $user = EmployeeAccount::find($this->employee_id);
-                    $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted an application for <strong>request timelog</strong>.';
+                    $personal = $user->personal ?? EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                    $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                    $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                    $message = 'Employee <strong>' . $display . '</strong> has submitted an application for <strong>request timelog</strong>.';
                     $redirect = route('ess.time-adjustments');
 
                     $user->notify(new Notifications('info', $message, $redirect, 'admin'));

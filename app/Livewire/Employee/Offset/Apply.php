@@ -4,6 +4,7 @@ namespace App\Livewire\Employee\Offset;
 
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeOffsetApplication;
+use App\Models\EmployeePersonal;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -171,10 +172,25 @@ class Apply extends Component
             'employee_no' =>  'required',
             'date_filed' =>  'required|date',
             'offset_date_from' => 'required|date',
-            'offset_date_to' => 'required|date|after_or_equal:offset_date_from',
+            'offset_date_to' => ['required', 'date'],
             'purpose' => 'required|max:255',
         ];
-    
+
+        // Activity date must be within 30 days before or after offset date
+        if (!empty($this->offset_date_from)) {
+            try {
+                $from = Carbon::parse($this->offset_date_from);
+                $minDate = $from->copy()->subDays(30)->format('Y-m-d');
+                $maxDate = $from->copy()->addDays(30)->format('Y-m-d');
+                $rules['offset_date_to'] = array_merge($rules['offset_date_to'], [
+                    "after_or_equal:{$minDate}",
+                    "before_or_equal:{$maxDate}",
+                ]);
+            } catch (\Exception $e) {
+                // keep required|date only if parse fails
+            }
+        }
+
         return $rules;
     }
 
@@ -184,7 +200,8 @@ class Apply extends Component
             'offset_date_from.date' => 'The offset date from must be a valid date.',
             'offset_date_to.required' => 'The offset date to is required.',
             'offset_date_to.date' => 'The offset date to must be a valid date.',
-            'offset_date_to.after_or_equal' => 'The offset date to must be on or after the offset date from.',
+            'offset_date_to.after_or_equal' => 'The activity date must be within 30 days before or after the offset date.',
+            'offset_date_to.before_or_equal' => 'The activity date must be within 30 days before or after the offset date.',
         ];
     }
 
@@ -231,7 +248,10 @@ class Apply extends Component
                     ]);
 
                     $user = EmployeeAccount::find($this->employee_id);
-                    $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted an <strong>offset application</strong>.';
+                    $personal = $user->personal ?? EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                    $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                    $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                    $message = 'Employee <strong>' . $display . '</strong> has submitted an <strong>offset application</strong>.';
                     $redirect = route('ess.offset');
                     $user->notify(new Notifications('info', $message, $redirect, 'admin'));
 

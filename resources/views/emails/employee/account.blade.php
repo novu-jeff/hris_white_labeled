@@ -7,7 +7,10 @@
 </head>
 <body>
 
-    <p>Hello <strong>{{ ucwords($data['fullname']) }}</strong>,</p>
+    @php
+        $firstname = $data['firstname'] ?? trim(explode(' ', $data['fullname'] ?? '')[0] ?? '');
+    @endphp
+    <p>Hello {{ $firstname !== '' ? ucwords($firstname) . ',' : (ucwords($data['fullname'] ?? '') . ',') }}</p>
 
     @if(isset($data['is_newly_hired']) && $data['is_newly_hired'] == true)
 

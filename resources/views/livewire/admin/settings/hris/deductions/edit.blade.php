@@ -81,6 +81,17 @@
                             </div>
                             <small class="text-muted">Optional: Set a maximum cap for this deduction (leave empty for no limit)</small>
                         </div>
+                        <div class="col-12 col-md-12 mb-4">
+                            <label class="mb-2" for="fields.computation_mode">Computation <span class="text-danger">*</span></label>
+                            <select wire:model="fields.computation_mode" id="fields.computation_mode" class="form-select">
+                                <option value="manual">Manual (HR inputs per employee)</option>
+                                <option value="automatic">Automatic (system calculates where supported)</option>
+                            </select>
+                            <div class="error-field">
+                                @error('fields.computation_mode') <span class="text-danger">{{ $message }}</span> @enderror
+                            </div>
+                            <small class="text-muted">Manual: HR enters amount per employee (e.g. Withholding Tax, Gov't contributions, Social Responsibility). Automatic: system computes where applicable.</small>
+                        </div>
                     </div>
                 </div>
                 <hr class="mx-3">

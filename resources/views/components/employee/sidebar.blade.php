@@ -1,5 +1,5 @@
 @php use App\Helpers\EmployeeModules; @endphp
-<div class="employee-sidebar" id="employeeSidebar">
+<div class="employee-sidebar active" id="employeeSidebar">
 
     <div class="sidebar-header">
         <img src="{{ asset('/img/' . $provider['client_logo']) }}" class="sidebar-logo">
@@ -47,7 +47,7 @@
 
         @if(EmployeeModules::isNavModuleEnabled('atro'))
         <a href="{{ route('employee.atro') }}" class="menu-item">
-            <i class="fa-solid fa-business-time"></i> Overtime (ATRO)
+            <i class="fa-solid fa-business-time"></i> Overtime Application
         </a>
         @endif
 

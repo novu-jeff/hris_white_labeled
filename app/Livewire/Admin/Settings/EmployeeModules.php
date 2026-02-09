@@ -115,7 +115,7 @@ class EmployeeModules extends Component
             'time_adjustments' => 'Time Adjustments',
             'payslip' => 'Payslip',
             'leave' => 'Leave Application',
-            'atro' => 'Overtime (ATRO)',
+            'atro' => 'Overtime Application',
             'obs' => 'Official Business',
             'offset' => 'Offset Application',
             'team' => 'My Team',

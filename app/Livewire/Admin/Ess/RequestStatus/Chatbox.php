@@ -63,6 +63,12 @@ class Chatbox extends Component
             ->where(['from_id' => $user->employee_no, 'from_role' => 'employee', 'to_id' => 0, 'to_role' => 'admin'])
             ->get();
 
+        // Mark messages from employee to admin as delivered when admin loads the conversation
+        Message::where('from_id', $user->employee_no)
+            ->where('to_id', 0)
+            ->whereNull('delivered_at')
+            ->update(['delivered_at' => now()]);
+
         $this->records = [
             'user' => $user,
             'messages' => $sent->merge($received)->sortBy('id')->values(),
@@ -138,7 +144,7 @@ class Chatbox extends Component
 
             $messages = [
                 "Hello {$name}",
-                "I’m Juan Dela Cruz from the HR department. I just wanted to check in and see if there’s anything we can assist you with. If you have any questions or need support, feel free to reach out. We’re here to help!",
+                "I’m Josephine Garcia from the HR department. I just wanted to check in and see if there’s anything we can assist you with. If you have any questions or need support, feel free to reach out. We’re here to help!",
             ];
 
             foreach ($messages as $message) {
@@ -224,7 +230,11 @@ class Chatbox extends Component
         if ($this->selected_id) {
             Message::where('from_id', $this->selected_id)
                 ->where('to_id', 0)
-                ->update(['isSeen' => true]);
+                ->update([
+                    'isSeen' => true,
+                    'delivered_at' => \DB::raw('COALESCE(delivered_at, NOW())'),
+                    'seen_at' => now(),
+                ]);
         }
     }
 

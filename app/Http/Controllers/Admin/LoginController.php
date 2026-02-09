@@ -31,7 +31,8 @@ class LoginController extends Controller
 
         if(Auth::attempt([
             filter_var($request->email, FILTER_VALIDATE_EMAIL) ? 'email' : 'username' => $request->email,
-            'password' => $request->password
+            'password' => $request->password,
+            'is_active' => true,
         ])) {
 
             return redirect()->route('admin.dashboard');

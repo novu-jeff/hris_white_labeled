@@ -4,6 +4,7 @@ namespace App\Livewire\Employee\Atro;
 
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeAtro;
+use App\Models\EmployeePersonal;
 use App\Models\EmployeeAtroRelative;
 use App\Models\EmployeeInformation;
 use App\Models\User;
@@ -228,7 +229,10 @@ class Apply extends Component
                             $allowSuperadmin ? 'superadmin' : null,
                         ])));
 
-                        $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted an application for <strong>authority to render overtime</strong>.';
+                        $personal = EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                        $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                        $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                        $message = 'Employee <strong>' . $display . '</strong> has submitted an application for <strong>authority to render overtime</strong>.';
                         $redirect = route('ess.atro');
 
                         $rolesToNotify = Role::where('guard_name', 'web')

@@ -1,4 +1,10 @@
 <div>
+    <style>
+        /* Ensure daterangepicker calendar appears above the Create Payroll modal (Bootstrap modal z-index is 1055) */
+        .daterangepicker {
+            z-index: 9999 !important;
+        }
+    </style>
     <div class="d-md-flex justify-content-end gap-3">
          <button wire:click="selectPayroll('{{$type}}')" class="btn btn-primary text-uppercase px-5 py-3 fw-medium" type="button">
             Generate Payroll
@@ -58,6 +64,19 @@
                                         @case('date')
                                             <input
                                                 type="{{ $field['type'] }}"
+                                                id="{{ $fieldKey }}"
+                                                class="form-control {{ $inputClass }}"
+                                                wire:model.defer="{{ $fieldKey }}"
+                                                value="{{ $inputValue }}"
+                                                @foreach ($inputAttr as $attrKey => $attrVal)
+                                                    {{ $attrKey }}="{{ $attrVal }}"
+                                                @endforeach
+                                            >
+                                            @break
+
+                                        @case('datepicker')
+                                            <input
+                                                type="text"
                                                 id="{{ $fieldKey }}"
                                                 class="form-control {{ $inputClass }}"
                                                 wire:model.defer="{{ $fieldKey }}"
@@ -296,6 +315,19 @@
                 $('.range').on('apply.daterangepicker', function(ev, picker) {
                     @this.set('cut_off_period', picker.startDate.format('YYYY-MM-DD') + ' to ' + picker.endDate.format('YYYY-MM-DD'));
                     @this.set('ot_period', picker.startDate.format('YYYY-MM-DD') + ' to ' + picker.endDate.format('YYYY-MM-DD'));
+                });
+
+                // Single-date picker for Payroll Date (appears above modal via .daterangepicker z-index)
+                $('.datepicker-single').attr('autocomplete', 'off');
+                $('.datepicker-single').daterangepicker({
+                    singleDatePicker: true,
+                    locale: { format: 'YYYY-MM-DD' },
+                    autoUpdateInput: false
+                });
+                $('.datepicker-single').on('apply.daterangepicker', function(ev, picker) {
+                    var val = picker.startDate.format('YYYY-MM-DD');
+                    $(this).val(val);
+                    @this.set('payroll_date', val);
                 });
             });
 

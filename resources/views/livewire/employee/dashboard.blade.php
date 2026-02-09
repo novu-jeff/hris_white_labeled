@@ -1,4 +1,4 @@
-@section('style')
+@push('style')
 <style>
 
     td {
@@ -280,7 +280,7 @@
 
 
 </style>
-@endsection
+@endpush
 
 <div class="main-content flex-grow-1 p-4" >
     
@@ -488,22 +488,31 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="card shadow mb-4">
     <div class="card-body">
         <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">
-            DTR 
+            Daily Time Record
         </h4>
 
         @php
             $today = now()->format('Y-m-d');
             $visibleDTR = [];
+
+            // Keep only current and past days for the month
             foreach ($logs['dtr']['logs'] as $date => $day) {
-                if ($date <= $today) { // show only current and past days
+                if ($date <= $today) {
                     $visibleDTR[$date] = $day;
                 }
             }
-            ksort($visibleDTR); // sort by date ascending
+
+            // Sort by date ascending
+            ksort($visibleDTR);
+
+            // Show only the last 5 days (including today) to keep the section compact
+            if (count($visibleDTR) > 5) {
+                $visibleDTR = array_slice($visibleDTR, -5, 5, true);
+            }
         @endphp
 
         @php
@@ -575,13 +584,57 @@
     </div>
 </div>
 
+        {{-- Work anniversaries & birthdays this month --}}
+        <div class="row">
+            <div class="col-12 col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h4 class="fw-bold mb-2 bg-primary text-white p-2 rounded">Work anniversaries & welcome — {{ now()->format('F Y') }}</h4>
+                        <p class="small text-muted mb-3">Including new hires and interns this month.</p>
+                        @if(!empty($workAnniversariesThisMonth) && count($workAnniversariesThisMonth) > 0)
+                            <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
+                                @foreach($workAnniversariesThisMonth as $emp)
+                                    <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                        <span>
+                                            {{ $emp['name'] }}
+                                            @if(!empty($emp['type_label']))
+                                                <span class="badge bg-success ms-1">{{ $emp['type_label'] }}</span>
+                                            @endif
+                                            <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small>
+                                        </span>
+                                        <span class="text-muted small">{{ $emp['date'] }} @if($emp['years'] > 0)({{ $emp['years'] }}y)@endif</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="text-muted mb-0 small">No work anniversaries or new hires this month.</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">Birthdays — {{ now()->format('F Y') }}</h4>
+                        @if(!empty($birthdaysThisMonth) && count($birthdaysThisMonth) > 0)
+                            <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
+                                @foreach($birthdaysThisMonth as $emp)
+                                    <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                        <span>{{ $emp['name'] }} <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small></span>
+                                        <span class="text-muted small">{{ $emp['date'] }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="text-muted mb-0 small">No birthdays this month.</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    
+    </div>
+
+    </div>
 
 </div>
-
-
-</div>
-
-
-

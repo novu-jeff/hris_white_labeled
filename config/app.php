@@ -23,6 +23,7 @@ return [
     'allow_upload_timelogs' => env('ALLOW_UPLOAD_TIMELOGS'),
     'bsd_emp_identical' => env('BSD_EMP_IDENTICAL'),
     'lunch_tracking' => env('LUNCH_TRACKING', true),
+    'earliest_clock_in_allowed' => env('EARLIEST_CLOCK_IN_ALLOWED', '07:00'),
 
     /*
     |--------------------------------------------------------------------------

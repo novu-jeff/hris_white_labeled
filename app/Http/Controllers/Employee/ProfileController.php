@@ -17,7 +17,7 @@ class ProfileController extends Controller
         $allowed = [
             'personal', 'education', 'family',
             'children', 'employment-history', 'civil-service',
-            'trainings', 'other-works', 'skills',
+            'trainings',
             'security-notifications'
         ];
 

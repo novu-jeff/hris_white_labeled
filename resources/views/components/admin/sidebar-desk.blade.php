@@ -193,18 +193,14 @@
                 @endcan
 
                 <!-- Location Management -->
-                @canany(['read branches', 'read departments', 'read sections'])
+                @canany(['read departments', 'read sections'])
                 <div class="submenu-subgroup">
                     <p class="submenu-subtitle"> <i class="fa-solid fa-map-pin"></i> Location Management</p>
                     @can('read sections')
                     <a href="{{ route('section.index') }}" class="submenu-item">
                         <i class="fa-solid fa-sitemap"></i> Department</a>
                     @endcan
-                    @can('read branches')
-                    <a href="{{ route('branch.index') }}" class="submenu-item">
-                        <i class="fa-solid fa-building-flag"></i> Central / Field Office</a>
-                    @endcan
-                    
+
                 </div>
                 @endcanany
 
