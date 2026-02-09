@@ -14,6 +14,9 @@ class ShiftSchedule extends Model
         'name',
         'description',
         'shift_duration',
+        'is_breaktime_required',
+        'allow_anytime_clockin',
+        'allow_anytime_clockout',
         'earliest_in',
         'latest_in',
         'start_shift',
@@ -28,6 +31,12 @@ class ShiftSchedule extends Model
         'web_earliest_clockin',
         'web_latest_clockin',
     ];    
+
+    protected $casts = [
+        'is_breaktime_required' => 'boolean',
+        'allow_anytime_clockin' => 'boolean',
+        'allow_anytime_clockout' => 'boolean',
+    ];
 
     public function employees() {
         return $this->hasMany(EmployeeInformation::class, 'shift_id', 'id');

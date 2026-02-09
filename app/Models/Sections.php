@@ -14,7 +14,8 @@ class Sections extends Model
         'code',
         'name',
         'branch_id',
-        'department_id'
+        'department_id',
+        'supervisor_id'
     ];
 
     public function branch() {

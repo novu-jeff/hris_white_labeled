@@ -21,6 +21,7 @@ class DailyTimeRecord extends Component
     public $employee_no;
     public $errors;
     public $bsd_emp_identical;
+    public $showLunch;
 
     protected $dailyTimeRecordService;
 
@@ -35,6 +36,7 @@ class DailyTimeRecord extends Component
         $this->product = config('app.product');
         $this->company = CompanyInformation::first()->name ?? 'No Comapany Name';
         $this->bsd_emp_identical = config('app.bsd_emp_identical');
+        $this->showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
 
         $this->initializeService();
 

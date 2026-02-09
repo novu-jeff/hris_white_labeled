@@ -17,6 +17,13 @@ class Message extends Model
         'to_role',
         'message',
         'isSeen',
+        'delivered_at',
+        'seen_at',
+    ];
+
+    protected $casts = [
+        'delivered_at' => 'datetime',
+        'seen_at' => 'datetime',
     ];
 
     public function attachments() {

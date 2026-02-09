@@ -39,18 +39,24 @@ class ModelActivityObserver
     protected function logChange(Model $model, string $action)
     {
         $baseDirectory = storage_path('logs/trails/');
-        $path = request()->path();
-
-        if (str_contains($path, '/employee/')) {
-            $directory = $baseDirectory . 'employee/';
-        } elseif (str_contains($path, '/admin/')) {
-            $directory = $baseDirectory . 'admin/';
-        } else {
+        
+        // Handle cases where there's no HTTP request (e.g., jobs, queue workers)
+        try {
+            $path = request()->path();
+            if (str_contains($path, '/employee/')) {
+                $directory = $baseDirectory . 'employee/';
+            } elseif (str_contains($path, '/admin/')) {
+                $directory = $baseDirectory . 'admin/';
+            } else {
+                $directory = $baseDirectory;
+            }
+        } catch (\Exception $e) {
+            // No HTTP request available (e.g., running in a job/queue)
             $directory = $baseDirectory;
         }
 
         if (!File::exists($directory)) {
-            File::makeDirectory($directory, 0777, true, true);
+            File::makeDirectory($directory, 0775, true, true);
         }
 
         $filename = now()->format('m-d-y') . '.log';
@@ -73,6 +79,16 @@ class ModelActivityObserver
             json_encode($model->getAttributes(), JSON_PRETTY_PRINT)
         );
 
-        File::append($directory . $filename, $logEntry);
+        $filePath = $directory . $filename;
+        
+        // Ensure file has proper permissions if it exists
+        if (File::exists($filePath)) {
+            @chmod($filePath, 0664);
+        }
+        
+        File::append($filePath, $logEntry);
+        
+        // Set permissions after writing
+        @chmod($filePath, 0664);
     }
 }

@@ -54,6 +54,24 @@
                                 @error('fields.department') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>
                         </div>
+                        <div class="col-12 col-md-12 mb-4">
+                            <label class="mb-2" for="fields.supervisor">Supervisor</label>
+                            <select 
+                                wire:model="fields.supervisor" 
+                                id="fields.supervisor" 
+                                class="form-control text-uppercase" 
+                                >
+                                <option value=""> - CHOOSE - </option>
+                                @foreach ($employees as $employee)
+                                    <option value="{{$employee->employee_no}}">
+                                        ({{$employee->employee_no}}) {{$employee->personal->firstname ?? ''}} {{$employee->personal->lastname ?? ''}}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="error-field">
+                                @error('fields.supervisor') <span class="text-danger">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <hr class="mx-3">

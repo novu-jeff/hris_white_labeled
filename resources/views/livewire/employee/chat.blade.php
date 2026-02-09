@@ -24,7 +24,7 @@
                         </div>
 
                         <div class="modal-body">
-                            <div class="msg-body" wire:poll="loadRecords" wire:poll.keep-alive id="messagesContainer">
+                            <div class="msg-body" wire:poll.3s.visible="loadRecords" id="messagesContainer">
                                 <ul>
                                     @foreach ($records as $message)
                                         @if (!empty($message['message']) || !$message['attachments']->isEmpty())
@@ -34,8 +34,10 @@
                                                     @if($message['from_role'] == 'admin')
                                                         <span class="time">{{ relative_time($message['created_at']) }}</span>
                                                     @else
-                                                        @if($message['isSeen'])
-                                                            <span class="time">Seen at {{ format_date($message['created_at'], 'day_date_time_string') }}</span>
+                                                        @if(!empty($message['seen_at']))
+                                                            <span class="time">Seen {{ format_date($message['seen_at'], 'day_date_time_string') }}</span>
+                                                        @elseif(!empty($message['delivered_at']))
+                                                            <span class="time">Delivered</span>
                                                         @else
                                                             <span class="time">{{ relative_time($message['created_at']) }}</span>
                                                         @endif
@@ -62,6 +64,19 @@
                                                             @endif
                                                         @endforeach
                                                     </div>
+                                                    @if(empty($message['message']))
+                                                        @if($message['from_role'] != 'admin')
+                                                            @if(!empty($message['seen_at']))
+                                                                <span class="time">Seen {{ format_date($message['seen_at'], 'day_date_time_string') }}</span>
+                                                            @elseif(!empty($message['delivered_at']))
+                                                                <span class="time">Delivered</span>
+                                                            @else
+                                                                <span class="time">{{ relative_time($message['created_at']) }}</span>
+                                                            @endif
+                                                        @else
+                                                            <span class="time">{{ relative_time($message['created_at']) }}</span>
+                                                        @endif
+                                                    @endif
                                                 @endif
                                             </li>
                                         @endif

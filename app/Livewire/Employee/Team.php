@@ -4,6 +4,7 @@ namespace App\Livewire\Employee;
 
 use App\Models\EmployeeInformation;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Team extends Component
@@ -16,8 +17,15 @@ class Team extends Component
 
     public function loadRecords()
     {
-        $user = EmployeeInformation::with('section.branch', 'section.department')
-            ->where('employee_no', Auth::user()->employee_no)
+        $employeeUser = Auth::guard('employee')->user();
+
+        if (!$employeeUser) {
+            $this->records = [];
+            return;
+        }
+
+        $user = EmployeeInformation::with('section.department')
+            ->where('employee_no', $employeeUser->employee_no)
             ->first();
 
         if (!$user || !$user->section_id) {
@@ -30,19 +38,39 @@ class Team extends Component
 
         // Get all employees in the same section
         $employees = EmployeeInformation::with([
-            'section.branch',
             'section.department',
             'positions',
             'personal',
             'account'
-        ])->where('section_id', $sectionId)->get();
+        ])
+            ->where('section_id', $sectionId)
+            ->where('isDeleted', false)
+            ->where('status', 'active')
+            // If an employee account was deleted, don't show it in team listing
+            ->whereHas('account')
+            ->get();
+
+        // Get supervisor from section
+        $supervisorName = 'N/A';
+        $sectionData = DB::table('sections')->where('id', $sectionId)->first();
+        
+        if ($sectionData && $sectionData->supervisor_id) {
+            $supervisor = DB::table('employee_personal')
+                ->where('employee_no', $sectionData->supervisor_id)
+                ->select('firstname', 'lastname')
+                ->first();
+            
+            if ($supervisor) {
+                $supervisorName = strtoupper($supervisor->firstname . ' ' . $supervisor->lastname);
+            }
+        }
 
         // Group employees by position within the section
         $section = [
             'section_id' => $sectionId,
-            'section_name' => $user->section->name ?? 'Unassigned Section',
-            'department_name' => $user->section->department?->description ?? 'Unassigned Department',
-            'branch_name' => $user->section->branch?->name ?? 'Unassigned Branch',
+            // Department should display the section name (e.g., Lazarus)
+            'department_name' => $user->section->name ?? 'Unassigned Department',
+            'supervisor_name' => $supervisorName,
             'positions' => []
         ];
 

@@ -58,7 +58,8 @@ class Index extends Component
     public $activeYear;
 
     public function mount() {
-        $user_id = Auth::user()->employee_no;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+        $user_id = $user?->employee_no;
 
         if(is_null($user_id)) {
             return redirect()->route('employee.leave');
@@ -441,7 +442,7 @@ class Index extends Component
                 'route' => 'employee.leave',
             ],
             'atro' => [
-                'title' => 'ATRO Application',
+                'title' => 'Overtime Application',
                 'count' => EmployeeAtro::where('employee_no', $this->user_id)
                     ->where('status', 'pending')
                     ->count(),

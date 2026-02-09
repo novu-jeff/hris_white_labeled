@@ -44,6 +44,25 @@
     
     @vite(['resources/sass/app.scss', 'resources/js/app.js', 'resources/sass/admin-layout.scss', 'resources/sass/chat.scss'])
        <style>
+        /* Admin sidebar hover & cursor improvements */
+        .employee-sidebar .menu-item,
+        .employee-sidebar .submenu-item,
+        .employee-sidebar .menu-group-title {
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .employee-sidebar .menu-item:hover,
+        .employee-sidebar .submenu-item:hover {
+            background-color: rgba(15, 23, 42, 0.06);
+            color: #0f172a;
+        }
+
+        .employee-sidebar .menu-group-title:hover {
+            background-color: rgba(15, 23, 42, 0.04);
+            color: #0f172a;
+        }
+
         .chat-float-btn {
             position: fixed;
             bottom: 25px;
@@ -192,6 +211,39 @@
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.4.0/dist/handsontable.min.js"></script>
 
     @yield('script')
+    {{-- Strip injected HTML from JSON responses (e.g. "<!-- This Commentary... -->" prepended by proxy/hosting) --}}
+    <script>
+    (function() {
+        if (window.__livewireFetchLogged) return;
+        var nativeFetch = window.fetch;
+        window.fetch = function(input, init) {
+            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            var isSameOrigin = url && (url.startsWith(window.location.origin) || url.startsWith('/'));
+            var isPost = !(init && init.method) || String(init.method).toUpperCase() === 'POST';
+            return nativeFetch.apply(this, arguments).then(function(response) {
+                if (!isSameOrigin || !isPost) return response;
+                return response.clone().text().then(function(text) {
+                    var trimmed = text.trimStart();
+                    if (trimmed.charAt(0) !== '<') return response;
+                    var jsonStart = trimmed.indexOf('{');
+                    if (jsonStart === -1) {
+                        console.error('[Livewire] Response was HTML, no JSON object found', { url: url, bodyPreview: text.slice(0, 800) });
+                        return response;
+                    }
+                    var strippedText = trimmed.slice(jsonStart);
+                    console.warn('[Livewire] Stripped leading HTML from response', { url: url, strippedBytes: jsonStart, bodyLength: text.length });
+                    var headers = new Headers(response.headers);
+                    headers.set('Content-Length', strippedText.length);
+                    return new Response(strippedText, { status: response.status, statusText: response.statusText, headers: headers });
+                }).catch(function(e) {
+                    console.warn('[Livewire] Could not process response:', e);
+                    return response;
+                });
+            });
+        };
+        window.__livewireFetchLogged = true;
+    })();
+    </script>
  @livewireScripts
     <script>
     console.log("Livewire scripts loaded");
@@ -228,20 +280,24 @@
     const menuGroups = document.querySelectorAll("#adminSidebar .menu-group");
     const menuGroupTitles = document.querySelectorAll("#adminSidebar .menu-group-title");
     const submenuLinks = document.querySelectorAll("#adminSidebar .submenu-item");
+    const topLevelLinks = document.querySelectorAll("#adminSidebar .menu-item");
 
-    /* -----------------------------
-       1. AUTO EXPAND ACTIVE MENU GROUP
-    --------------------------------*/
-    submenuLinks.forEach(link => {
-        if (currentUrl.includes(link.href)) {
+    // 1. Mark active menu items (top-level and submenu) based on current URL
+    const markActiveLink = (link) => {
+        if (!link || !link.href) return;
+        if (currentUrl.startsWith(link.href)) {
+            link.classList.add("is-active");
             const group = link.closest(".menu-group");
-            group?.classList.add("active");
+            if (group) {
+                group.classList.add("active");
+            }
         }
-    });
+    };
 
-    /* -----------------------------
-       2. ACCORDION BEHAVIOR
-    --------------------------------*/
+    topLevelLinks.forEach(markActiveLink);
+    submenuLinks.forEach(markActiveLink);
+
+    // 2. Accordion behavior for menu groups
     menuGroupTitles.forEach(title => {
         title.addEventListener("click", function () {
             const parent = this.parentElement;
@@ -263,10 +319,6 @@
             });
         });
     });
-
-    /* -----------------------------
-       3. AUTO-SCROLL ON ANY MENU CLICK
-    --------------------------------*/
    
 });
 

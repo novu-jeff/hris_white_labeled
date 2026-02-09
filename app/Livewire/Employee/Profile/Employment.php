@@ -36,13 +36,21 @@ class Employment extends Component
 
     public function loadRecords() {
 
-        $this->employee_no = Auth::user()->employee_no;
-        $this->employee_id = Auth::user()->id;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+
+        if (!$user) {
+            return redirect()->route('employee.login');
+        }
+
+        $this->employee_no = $user->employee_no;
+        $this->employee_id = $user->id;
 
         $updated = EmployeeUpdateEmploymentHistory::where('employee_no', $this->employee_no)
+            ->orderBy('created_at', 'asc')
             ->get()
             ->toArray() ?? [];
         $stored = EmployeeEmploymentHistory::where('employee_no', $this->employee_no)
+            ->orderBy('created_at', 'asc')
             ->get()
             ->toArray() ?? [];
 
@@ -79,7 +87,23 @@ class Employment extends Component
             ]);
             return;
         }
+
+        // If called from confirmation without a valid index, bail safely.
+        if ($this->recordIndex === null) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Unable to delete',
+                'message' => 'No record selected for deletion.',
+            ]);
+            return;
+        }
         
+        // Support direct calls like removeRecord(false, index)
+        if ($index !== null) {
+            $this->recordIndex = $index;
+        }
+
         $updatedRecords = EmployeeUpdateEmploymentHistory::where('employee_no', $this->employee_no)
             ->orderBy('created_at', 'asc')
             ->get();
@@ -91,6 +115,24 @@ class Employment extends Component
         $records = $updatedRecords->isNotEmpty() ? $updatedRecords : $storedRecords;
 
         $record = $records[$this->recordIndex] ?? null;
+
+        if (!$record) {
+            // If it's a newly-added (unsaved) row, just remove from UI state.
+            if (isset($this->records[$this->recordIndex])) {
+                unset($this->records[$this->recordIndex]);
+                $this->records = array_values($this->records);
+                return;
+            }
+
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Record not found',
+                'message' => 'This record may have already been deleted. Please refresh the page.',
+            ]);
+            $this->loadRecords();
+            return;
+        }
 
         if ($record && $record->documents) {
             $path = 'documents/' . $this->employee_no . '/' . $record->documents;
@@ -121,14 +163,16 @@ class Employment extends Component
     ];
 
     protected function rules(?string $employee_no = null) {
-        return [
+        $isPrivate = config('app.product') === 'private';
+        $rules = [
             'records.*.position' => 'required|string|max:255',
             'records.*.department' => 'required|string|max:255',
             'records.*.monthly_salary' => 'required|numeric|min:0',
-            'records.*.employment_status' => 'required|string',
-            'records.*.isGovernment' => 'required|string',
-            'records.*.from_year' => 'required|numeric',
-            'records.*.to_year' => 'required|numeric',
+            'records.*.employment_status' => $isPrivate ? 'nullable|string' : 'required|string',
+            'records.*.isGovernment' => $isPrivate ? 'nullable|string' : 'required|string',
+            'records.*.salary_pay_grade' => $isPrivate ? 'nullable|string' : 'nullable|string',
+            'records.*.from_year' => 'required|string|max:20',
+            'records.*.to_year' => 'required|string|max:20',
             'records.*.documents' => 'nullable|mimes:jpg,png,jpeg,pdf',
             'records.*.documents' => function ($attribute, $value, $fail) {
                 $allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -138,10 +182,11 @@ class Employment extends Component
                         if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
                             $fail("The document must be a JPEG, PNG, or PDF file.");
                         }
-                    } 
+                    }
                 }
             },
         ];
+        return $rules;
     }
 
     protected function messages() {
@@ -384,8 +429,11 @@ class Employment extends Component
                     'message' => 'You\'re profile is now in pending for HR\'s approval. We\'ll sent you a notification once approved. Thank you!',
                 ]);
 
-                $user = EmployeeAccount::find($this->employee_id);
-                $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted his/her updated <strong>profile information</strong>.';
+                $user = EmployeeAccount::with('personal')->find($this->employee_id);
+                $personal = $user->personal ?? EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                $message = 'Employee <strong>' . $display . '</strong> has submitted his/her updated <strong>profile information</strong>.';
                 $redirect = route('ess.approval-profile.show', ['employee_no' => $user->employee_no, 'form' => 'employment']);
                 $user->notify(new Notifications('info', $message, $redirect, 'admin'));
 

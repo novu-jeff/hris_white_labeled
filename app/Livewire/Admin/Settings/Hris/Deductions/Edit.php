@@ -6,6 +6,7 @@ use App\Models\EmployementTypes;
 use App\Models\OtherDeductions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class Edit extends Component
@@ -32,6 +33,9 @@ class Edit extends Component
             'name' => $records->name,
             'code' => $records->code,
             'amount' => $records->amount,
+            'amount_type' => $records->amount_type ?? 'amount',
+            'maximum_amount' => $records->maximum_amount ?? null,
+            'computation_mode' => $records->computation_mode ?? 'manual',
         ];
 
     }
@@ -63,11 +67,31 @@ class Edit extends Component
     }
 
     public function rules() {
-        return [
-            'fields.code' => 'required|string|max:255|exists:other_deductions,code',
-            'fields.name' => 'required|string|max:255|exists:other_deductions,name',
-            'fields.amount' => 'required|numeric',
+        $rules = [
+            'fields.code' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('other_deductions', 'code')->ignore($this->id),
+            ],
+            'fields.name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('other_deductions', 'name')->ignore($this->id),
+            ],
+            'fields.amount' => 'required|numeric|min:0',
+            'fields.amount_type' => 'required|in:amount,percentage',
+            'fields.maximum_amount' => 'nullable|numeric|min:0',
+            'fields.computation_mode' => 'required|in:manual,automatic',
         ];
+
+        // If percentage, ensure it's between 0 and 100
+        if (isset($this->fields['amount_type']) && $this->fields['amount_type'] === 'percentage') {
+            $rules['fields.amount'] = 'required|numeric|min:0|max:100';
+        }
+
+        return $rules;
     }
 
     public function messages() {
@@ -75,13 +99,21 @@ class Edit extends Component
             'fields.code.required' => 'The code field is required.',
             'fields.code.string' => 'The code must be a string.',
             'fields.code.max' => 'The code may not be greater than 255 characters.',
+            'fields.code.unique' => 'The code has already been taken.',
 
             'fields.name.required' => 'The name field is required.',
             'fields.name.string' => 'The name must be a string.',
             'fields.name.max' => 'The name may not be greater than 255 characters.',
+            'fields.name.unique' => 'The name has already been taken.',
 
             'fields.amount.required' => 'The amount field is required.',
             'fields.amount.numeric' => 'The amount must be a number.',
+            'fields.amount.min' => 'The amount must be 0 or greater.',
+            'fields.amount.max' => 'The percentage must not exceed 100%.',
+            'fields.amount_type.required' => 'The amount type is required.',
+            'fields.amount_type.in' => 'The amount type must be either amount or percentage.',
+            'fields.maximum_amount.numeric' => 'The maximum amount must be a number.',
+            'fields.maximum_amount.min' => 'The maximum amount must be 0 or greater.',
         ];
     }
     
@@ -108,6 +140,9 @@ class Edit extends Component
                 'code' => $this->fields['code'],
                 'name' => $this->fields['name'],
                 'amount' => $this->fields['amount'],
+                'amount_type' => $this->fields['amount_type'] ?? 'amount',
+                'maximum_amount' => $this->fields['maximum_amount'] ?? null,
+                'computation_mode' => $this->fields['computation_mode'] ?? 'manual',
             ]);
 
             $this->dispatch('alert', [

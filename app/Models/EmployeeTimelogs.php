@@ -37,6 +37,7 @@ class EmployeeTimelogs extends Model
                 'employee_id',
                 'timestamp',
                 'status',
+                'punch_type',
                 'isWeb',
                 'captured_image',
                 'captured_location',

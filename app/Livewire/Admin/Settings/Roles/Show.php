@@ -38,7 +38,7 @@ class Show extends Component
             'timekeeping' => ['timelogs', 'correction-timelogs'],
             'payroll' => [],
             'ess' => [
-                'leave', 'obs', 'atro', 'time-adjustments', 'payslip-request', 'announcements', 
+                'leave', 'obs', 'offset', 'atro', 'time-adjustments', 'payslip-request', 'announcements', 
                 'employee-profile-approval', 'messages', 'faqs'],
             'reports' => ['dtr', 'bir-2316'],
             'settings' => [
@@ -49,7 +49,7 @@ class Show extends Component
             ],
             'employee' => [
                 'apply-leave', 'clock-in-out', 'apply-atro', 'apply-time-adjustments', 'payslip', 'employee-payslip-request', 'employee-messages',
-                'apply-obs', 'employee-dtr', 'my-directory', 'my-team', 'employee-announcements', 'my-profile',
+                'apply-obs', 'apply-offset', 'employee-dtr', 'my-directory', 'my-team', 'employee-announcements', 'my-profile',
             ]
         ];
     
@@ -58,7 +58,7 @@ class Show extends Component
             $this->permissions = [
                 'employee' => [
                     'apply-leave', 'clock-in-out', 'remaining-credit', 'apply-atro', 'apply-time-adjustments', 'payslip', 'employee-messages',
-                    'apply-obs', 'employee-dtr', 'my-directory', 'my-team', 'employee-announcements', 'my-profile',
+                    'apply-obs', 'apply-offset', 'employee-dtr', 'my-directory', 'my-team', 'employee-announcements', 'my-profile',
                 ]
             ];
         } else {

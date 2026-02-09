@@ -31,6 +31,18 @@ class Index extends Component
     {
         $query = EmployeeInformation::with('personal');
 
+        // Sort by latest time in/out when timelogs are on the same DB as employee_information.
+        $timelogsConnection = (new EmployeeTimelogs)->getConnectionName();
+        $infoConnection = (new EmployeeInformation)->getConnectionName();
+        if ($timelogsConnection === $infoConnection) {
+            $query->addSelect([
+                'employee_information.*',
+                'last_timelog' => EmployeeTimelogs::query()
+                    ->selectRaw('MAX(timestamp)')
+                    ->whereRaw('timelogs.employee_id COLLATE utf8mb4_unicode_ci = employee_information.employee_no COLLATE utf8mb4_unicode_ci'),
+            ])->orderByDesc('last_timelog');
+        }
+
         if ($this->selectedType !== null) {
             if ($this->selectedType === 'unassigned') {
                 $query->whereNull('employment_type_id');

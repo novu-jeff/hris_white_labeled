@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Livewire\Admin\Ess\TimeAdjustments\Index as AdminEssTimeAdjustmentsIndex;
 use App\Observers\ModelActivityObserver;
 use App\Services\DailyTimeRecordService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Livewire::component('admin.ess.time-adjustments.index', AdminEssTimeAdjustmentsIndex::class);
 
         view()->share('product', config('app.product'));
         $provider = env('APP_PROVIDER', 'novulutions');

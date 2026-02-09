@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Ess\BusinessSlip;
 
+use App\Helpers\SupervisorApproval;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeBusinessSlip;
 use App\Notifications\Notifications;
@@ -43,6 +44,16 @@ class Index extends Component
 
     public function disapproved(bool $isNotify = true) {
 
+        $employeeNo = EmployeeBusinessSlip::where('id', $this->selected_id)->value('employee_no');
+        if ($employeeNo && !SupervisorApproval::canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove official business applications for this employee.',
+            ]);
+        }
+
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
@@ -81,6 +92,16 @@ class Index extends Component
     }
 
     public function approved(bool $isNotify = true) {
+
+        $employeeNo = EmployeeBusinessSlip::where('id', $this->selected_id)->value('employee_no');
+        if ($employeeNo && !SupervisorApproval::canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove official business applications for this employee.',
+            ]);
+        }
 
         if($isNotify) {
 

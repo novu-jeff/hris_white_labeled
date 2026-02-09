@@ -749,6 +749,7 @@ class Index extends Component
             $data = [
                 'is_newly_hired' => true,
                 'employee_no' => null,
+                'firstname' => $record->applicant->firstname ?? '',
                 'fullname' => $record->applicant->firstname . ' ' . $record->applicant->lastname,
                 'slug' => $record->job->slug,
                 'position' => $record->job->position,

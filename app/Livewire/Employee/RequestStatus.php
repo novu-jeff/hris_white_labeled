@@ -18,11 +18,33 @@ class RequestStatus extends Component
     
     use WithFileUploads;
 
+    public $isChatOpen = false;
     public $user;
     public $message;
     public $records;
     public $attachments = [];
     public $preview_attachments;
+
+    protected $listeners = [
+        'setChatOpen',
+        'markMessagesAsSeen',
+    ];
+
+    public function setChatOpen($open = false): void
+    {
+        $this->isChatOpen = (bool) $open;
+
+        if ($this->isChatOpen) {
+            $this->loadRecords();
+            $this->makeSeen();
+            $this->dispatch('showLatest');
+        }
+    }
+
+    public function markMessagesAsSeen(): void
+    {
+        $this->makeSeen();
+    }
     
     public function mount() {
         $this->user = Auth::user()->load('personal')->personal;
@@ -43,6 +65,12 @@ class RequestStatus extends Component
             ->where('to_id', $this->user->employee_no)
             ->where('to_role', 'employee')
             ->get();
+
+        // Mark messages from admin to this employee as delivered when employee loads the chat
+        Message::where('from_id', 0)
+            ->where('to_id', $this->user->employee_no)
+            ->whereNull('delivered_at')
+            ->update(['delivered_at' => now()]);
 
         $mergedMessages = $sent->merge($received);
         $sortedMessages = $mergedMessages->sortBy('id')->values();
@@ -65,7 +93,7 @@ class RequestStatus extends Component
                 [
                     'Hello ' . $name
                 ], [
-                    'I\'m Juan Dela Cruz from the HR department. I just wanted to check in and see if there\'s anything we can assist you with. If you have any questions or need support, feel free to reach out. We\'re here to help!'
+                    'I\'m Josephine Garcia from the HR department. I just wanted to check in and see if there\'s anything we can assist you with. If you have any questions or need support, feel free to reach out. We\'re here to help!'
                 ]
             ];
 
@@ -150,6 +178,8 @@ class RequestStatus extends Component
         return Message::where('to_id', $employee_no)
             ->update([
                 'isSeen' => true,
+                'delivered_at' => \DB::raw('COALESCE(delivered_at, NOW())'),
+                'seen_at' => now(),
             ]);
     }
 

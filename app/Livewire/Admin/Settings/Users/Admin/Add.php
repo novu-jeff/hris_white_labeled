@@ -72,10 +72,11 @@ class Add extends Component
                 'name' => $this->name,
                 'username' => $this->username,
                 'email' => $this->email,
-                'password' => $this->password
+                'password' => bcrypt($this->password),
             ]);
 
-            $user->assignRole($this->role);
+            // Ensure the new admin has exactly one role
+            $user->syncRoles([$this->role]);
 
             DB::commit();
 

@@ -30,8 +30,14 @@ class Family extends Component
 
     public function loadRecords() {
 
-        $this->employee_no = Auth::user()->employee_no;
-        $this->employee_id = Auth::user()->id;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+        if (!$user) {
+            // Session expired / wrong guard - redirect to employee login.
+            return redirect()->route('employee.login');
+        }
+
+        $this->employee_no = $user->employee_no;
+        $this->employee_id = $user->id;
 
         $updated = EmployeeUpdateParents::where('employee_no', $this->employee_no)->first();
         $stored = EmployeeParents::where('employee_no', $this->employee_no)->first();
@@ -238,8 +244,11 @@ class Family extends Component
                     'message' => 'You\'re profile is now in pending for HR\'s approval. We\'ll sent you a notification once approved. Thank you!',
                 ]);
 
-                $user = EmployeeAccount::find($this->employee_id);
-                $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted his/her updated <strong>profile information</strong>.';
+                $user = EmployeeAccount::with('personal')->find($this->employee_id);
+                $personal = $user->personal ?? \App\Models\EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                $message = 'Employee <strong>' . $display . '</strong> has submitted his/her updated <strong>profile information</strong>.';
                 $redirect = route('ess.approval-profile.show', ['employee_no' => $user->employee_no, 'form' => 'family']);
                 $user->notify(new Notifications('info', $message, $redirect, 'admin'));
 

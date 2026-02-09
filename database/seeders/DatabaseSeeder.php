@@ -37,8 +37,10 @@ class DatabaseSeeder extends Seeder
             SchedulerDefaultSeeder::class,
             AnnouncementSeeder::class,
             HolidaySeeder::class,
-        
+            SettingsSeeder::class,
+
             EmploymentTypesSeeder::class,
+            EmployeeModuleSettingsSeeder::class,
             BranchSeeder::class,
             DepartmentSeeder::class,
             SectionSeeder::class,

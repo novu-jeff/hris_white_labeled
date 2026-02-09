@@ -135,17 +135,13 @@ class DailyTimeRecordService {
         $weeklySchedule = $this->getWeeklySchedule($employee_no);
         $countWorkingDays = $this->countWorkingDays($weeklySchedule);
 
-        # weekly schedule only on first log
-        $firstScheduleId = collect($logs)->first()['schedule_id'] ?? null;
-
-       
-//dd($logs);
-        $firstLog = reset($logs); // Always gets FIRST element regardless of keys
-        $firstScheduleId = $firstLog['schedule_id'] ?? 1;
-      //  dd($firstScheduleId);
-        
-
-        $employeeSchedule = $this->getShiftScheduleById($firstScheduleId);
+        # Default shift schedule (fallback when a date has no logs or no schedule_id)
+        $defaultEmployeeSchedule = null;
+        try {
+            $defaultEmployeeSchedule = $this->getShiftSchedule($employee_no);
+        } catch (\Exception $e) {
+            $defaultEmployeeSchedule = $this->getShiftScheduleById(1);
+        }
 
         # Counters
         $absences = 0;
@@ -162,6 +158,7 @@ class DailyTimeRecordService {
         $total_undertime_freq = 0;
         $total_overtime_perminutes = 0;
         $total_overtime_freq = 0;
+        $total_night_shift_minutes = 0;
 
         $leavesCount = 0;
 
@@ -184,13 +181,24 @@ class DailyTimeRecordService {
 
             $dateLogs = $logs[$dateString] ?? null;
 
-            # schedules
+            # schedules - always use employee's assigned schedule for rest day determination
+            $weeklySchedule = $this->getWeeklySchedule($employee_no);
 
-            if(isset($dateLogs)) {
-                $weeklySchedule = $this->getWeeklyScheduleById($dateLogs['schedule_id']);
+            # Per-date shift schedule for support/varying shifts: use shift from that day's log, else employee default
+            $employeeSchedule = $defaultEmployeeSchedule;
+            if ($dateLogs !== null) {
+                $dateShiftId = $dateLogs['shift_id'] ?? $dateLogs['schedule_id'] ?? null;
+                if ($dateShiftId) {
+                    try {
+                        $employeeSchedule = $this->getShiftScheduleById($dateShiftId);
+                    } catch (\Exception $e) {
+                        // keep default
+                    }
+                }
             }
 
-            $is_break_required = $employeeSchedule->is_breaktime_required;
+            $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+            $is_break_required = $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
 
             $date_is_in_logs = isset($logs[$dateString]) && !empty($logs[$dateString]);
 
@@ -235,7 +243,7 @@ class DailyTimeRecordService {
                 $formattedLogs[$dateString] = $logs[$dateString];
 
                 # aut 
-                $aut = $this->undertimeAndTardiness($employee_no, $employeeSchedule, $dateLogs,$dateString);
+                $aut = $this->undertimeAndTardiness($employee_no, $employeeSchedule, $dateLogs, $dateString);
 
                 # Assign the correct values to formatted logs
                 $formattedLogs[$dateString]['aut']['tardiness']['minutes'] = $aut['tardiness_minutes'];
@@ -257,6 +265,10 @@ class DailyTimeRecordService {
                 }
 
                 $formattedLogs[$dateString]['aut']['overtime']['minutes'] = $overtimeMinutes;
+
+                $nightMinutes = $this->computeNightShiftMinutes($dateString, $dateLogs);
+                $total_night_shift_minutes += $nightMinutes;
+                $formattedLogs[$dateString]['aut']['night_shift_minutes'] = $nightMinutes;
 
                 # merge aut remarks to global remarks
                 $remarks = array_merge($remarks, $aut['remarks']);
@@ -304,7 +316,8 @@ class DailyTimeRecordService {
             'worked_on_legal_holidays'      => $workedOnLegalHolidays,
             'special_hol'                   => $specialHolidays,
             'worked_on_special_holidays'    => $workedOnSpecialHolidays,
-            'workingDaysPerWeek'            => $countWorkingDays
+            'workingDaysPerWeek'            => $countWorkingDays,
+            'night_shift_minutes'           => $total_night_shift_minutes
         ];
 
         $data  =  [
@@ -401,6 +414,9 @@ class DailyTimeRecordService {
             ->first();
 
         if (!$weeklySchedule) {
+            $weeklySchedule = DB::table('employee_schedules')->where('name', 'Default Schedule')->first();
+        }
+        if (!$weeklySchedule) {
             throw new \Exception("No Employee Schedule", 1);
         }
 
@@ -420,10 +436,13 @@ class DailyTimeRecordService {
      */
     public function getWeeklyScheduleById($schedule_id)
     {
-        $weeklySchedule = DB::table('employee_schedules')
-                    ->where('id', $schedule_id)
-                    ->first();
+        $weeklySchedule = $schedule_id
+            ? DB::table('employee_schedules')->where('id', $schedule_id)->first()
+            : null;
 
+        if (!$weeklySchedule) {
+            $weeklySchedule = DB::table('employee_schedules')->where('name', 'Default Schedule')->first();
+        }
         if (!$weeklySchedule) {
             throw new \Exception("No Employee Schedule", 1);
         }
@@ -586,10 +605,6 @@ class DailyTimeRecordService {
             $ownRemarks[] = $arrayWeeklySchedule[$dayRemarkKey];
         }
 
-         Log::info('Date In logs', [
-                'date_logs' => $date_is_in_logs
-            ]);
-
         if ($date_is_in_logs) {
             if ($isLegalHoliday) {
                 $workedOnLegalHolidays = true;
@@ -669,15 +684,6 @@ class DailyTimeRecordService {
             ->where('isDeleted', false)
             ->where('date', $monthDay)
             ->first();
-
-        if ($holiday) {
-            Log::info('Holiday matched', [
-                'input_date' => $date,
-                'lookup_key' => $monthDay,
-                'holiday_name' => $holiday->name,
-                'holiday_type' => $holiday->type,
-            ]);
-        }
 
         return $holiday;
     }
@@ -765,7 +771,10 @@ class DailyTimeRecordService {
 
         $ownRemark = [];
 
-        if ($employeeSchedule->is_breaktime_required) {
+        $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+        $isBreakRequired = $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
+
+        if ($isBreakRequired) {
             $timeIn = $log['clock_in'];
             $breakOut = $log['lunch_out'];
             $breakIn = $log['lunch_in'];
@@ -774,12 +783,26 @@ class DailyTimeRecordService {
                 $ownRemark[] = 'Discrepancy';
             }
         } else {
-            $timeIn = $log['clocn_in'];
+            $timeIn = $log['clock_in'];
             $timeOut = $log['clock_out'];
             $breakOut = $breakIn = null;
-            if($timeIn == null || $timeOut == null) {
+            if ($timeIn == null || $timeOut == null) {
                 $ownRemark[] = 'Discrepancy';
             }
+        }
+
+        // Incomplete/lost timelogs: do not compute AUT (avoids huge undertime e.g. 26h when clock_out is missing)
+        $timeInEmpty = $timeIn === null || trim((string) $timeIn) === '';
+        $timeOutEmpty = $timeOut === null || trim((string) $timeOut) === '';
+        if ($timeInEmpty || $timeOutEmpty) {
+            return [
+                'tardiness_minutes' => 0,
+                'tardiness_freq' => 0,
+                'undertime_minutes' => 0,
+                'undertime_freq' => 0,
+                'remarks' => $ownRemark,
+                'is_break_required' => $isBreakRequired,
+            ];
         }
 
         $firstLog = Carbon::parse("{$date} {$timeIn}");
@@ -790,6 +813,14 @@ class DailyTimeRecordService {
 
         if (!$scheduledIn || !$scheduledOut) {
             Log::warning("Missing schedule for {$employee_no} on {$date}");
+            return [
+                'tardiness_minutes' => 0,
+                'tardiness_freq' => 0,
+                'undertime_minutes' => 0,
+                'undertime_freq' => 0,
+                'remarks' => $ownRemark,
+                'is_break_required' => $isBreakRequired,
+            ];
         }
 
         # Tardiness
@@ -798,7 +829,6 @@ class DailyTimeRecordService {
             $TARDINESS_MINUTES += $minutesLate;
             $TARDINESS_FREQ++;
             $ownRemark[] = 'Late';
-            Log::info("Tardiness for {$employee_no} on {$date}: {$minutesLate} minutes late");
         }
 
         # Undertime
@@ -807,7 +837,6 @@ class DailyTimeRecordService {
             $UNDERTIME_MINUTES += $minutesUndertime;
             $UNDERTIME_FREQ++;
             $ownRemark[] = 'Undertime';
-            Log::info("Undertime for {$employee_no} on {$date}: {$minutesUndertime} minutes undertime");
         }
 
         return [
@@ -816,7 +845,7 @@ class DailyTimeRecordService {
             'undertime_minutes' => $UNDERTIME_MINUTES,
             'undertime_freq' => $UNDERTIME_FREQ,
             'remarks' => $ownRemark,
-            'is_break_required' => $employeeSchedule->is_breaktime_required ?? false,
+            'is_break_required' => $isBreakRequired,
         ];
     }
 
@@ -865,6 +894,49 @@ class DailyTimeRecordService {
         }
 
         return [null, null, null, null];
+    }
+
+    /**
+     * Compute night shift minutes (work between 10pm–6am) for a given date's logs.
+     */
+    private function computeNightShiftMinutes(string $dateString, array $dateLogs): int
+    {
+        $timelogs = $dateLogs['timelogs'] ?? [];
+        if (empty($timelogs)) {
+            $clockIn = $dateLogs['clock_in'] ?? null;
+            $clockOut = $dateLogs['clock_out'] ?? null;
+            if (!$clockIn || !$clockOut) {
+                return 0;
+            }
+            $workStart = Carbon::parse("{$dateString} {$clockIn}");
+            $workEnd = Carbon::parse("{$dateString} {$clockOut}");
+            if ($workEnd->lt($workStart)) {
+                $workEnd->addDay();
+            }
+        } else {
+            $timestamps = collect($timelogs)->pluck('timestamp')->filter();
+            if ($timestamps->isEmpty()) {
+                return 0;
+            }
+            $workStart = $timestamps->min();
+            $workEnd = $timestamps->max();
+            if (!$workStart instanceof Carbon) {
+                $workStart = Carbon::parse($workStart);
+            }
+            if (!$workEnd instanceof Carbon) {
+                $workEnd = Carbon::parse($workEnd);
+            }
+        }
+
+        $nightStart = Carbon::parse("{$dateString} 22:00");
+        $nightEnd = Carbon::parse("{$dateString} 06:00")->addDay();
+        $overlapStart = $workStart->greaterThan($nightStart) ? $workStart : $nightStart;
+        $overlapEnd = $workEnd->lessThan($nightEnd) ? $workEnd : $nightEnd;
+        if ($overlapEnd->lte($overlapStart)) {
+            return 0;
+        }
+
+        return (int) $overlapStart->diffInMinutes($overlapEnd);
     }
 
     /**
@@ -940,8 +1012,10 @@ class DailyTimeRecordService {
 
         foreach ($logs as $log) {
             $date = Carbon::parse($log->timestamp)->toDateString();
+            $status = $log->status ?? $log->status1 ?? 0;
             $groupedLogs[$date][] = [
                 'timestamp' => Carbon::parse($log->timestamp),
+                'status' => (int) $status,
                 'shift_id' => $log->shift_id ?? 1,
                 'schedule_id' => $log->schedule_id ?? 1,
                 'isWeb' => $log->isWeb,
@@ -954,15 +1028,15 @@ class DailyTimeRecordService {
         $processedLogs = [];
 
         foreach ($groupedLogs as $date => $entries) {
-            $timestamps = collect($entries)->pluck('timestamp')->sort()->values();
-            $firstEntry = $entries[0];
+            $entriesSorted = collect($entries)->sortBy('timestamp')->values()->all();
+            $firstEntry = $entriesSorted[0];
 
             $record = $this->initializeRecord($employee, $firstEntry, $date);
-            $this->assignTimestamps($record, $timestamps);
+            $this->assignTimestampsByStatus($record, $entriesSorted);
 
             $record['timelogs'] = [];
 
-            foreach ($entries as $entry) {
+            foreach ($entriesSorted as $entry) {
                 $record['timelogs'][] = [
                     'shift_id' => $entry['shift_id'],
                     'schedule_id' => $entry['schedule_id'],
@@ -976,7 +1050,49 @@ class DailyTimeRecordService {
 
             $processedLogs[$date] = $record;
         }
+
+        $this->mergeCrossMidnightClockOuts($processedLogs);
+
         return $processedLogs;
+    }
+
+    /**
+     * When a day has only 1 log in early morning (00:00-05:59) and the previous day has clock_in
+     * without clock_out, treat that log as clock_out for the previous day (past-midnight shift).
+     */
+    private function mergeCrossMidnightClockOuts(array &$processedLogs): void
+    {
+        $dates = array_keys($processedLogs);
+        sort($dates);
+
+        foreach ($dates as $i => $date) {
+            if ($i === 0) continue;
+
+            $record = &$processedLogs[$date];
+            $prevDate = $dates[$i - 1];
+            $prevRecord = $processedLogs[$prevDate] ?? null;
+
+            if (!$prevRecord || $prevRecord['clock_out'] !== null) continue;
+
+            $timestamps = collect($record['timelogs'] ?? [])->pluck('timestamp')->filter()->sort()->values();
+            if ($timestamps->count() !== 1) continue;
+
+            $ts = $timestamps->first();
+            $hour = $ts instanceof Carbon ? (int) $ts->format('H') : (int) Carbon::parse($ts)->format('H');
+            if ($hour < 0 || $hour >= 6) continue;
+
+            $prevRecord['clock_out'] = $ts instanceof Carbon ? $ts->format('h:i A') : Carbon::parse($ts)->format('h:i A');
+            $prevRecord['timelogs'][] = [
+                'timestamp' => $ts,
+                'shift_id' => $record['timelogs'][0]['shift_id'] ?? null,
+                'schedule_id' => $record['timelogs'][0]['schedule_id'] ?? null,
+                'isWeb' => $record['timelogs'][0]['isWeb'] ?? null,
+                'captured_image' => $record['timelogs'][0]['captured_image'] ?? null,
+                'captured_location' => $record['timelogs'][0]['captured_location'] ?? null,
+                'accomplishment' => $record['timelogs'][0]['accomplishment'] ?? null,
+            ];
+            unset($processedLogs[$date]);
+        }
     }
 
     /**
@@ -1010,69 +1126,45 @@ class DailyTimeRecordService {
     }
 
     /**
-     * Assigns time-in and time-out values (clock-in, lunch-in/out, clock-out) to the record
-     * based on the provided collection of timestamps.
+     * Assigns clock-in, lunch-in/out, clock-out using the stored status (0=in, 1=out).
+     * Prevents duplicate clock-ins from being displayed as clock-out when timestamps are identical.
      *
-     * Logic:
-     * - If 4 or more timestamps are present, assigns them in typical sequence.
-     * - If exactly 2 timestamps, assumes they are clock-in and clock-out.
-     * - If only 1 timestamp, assigns it to clock-in.
-     * - Otherwise, attempts to determine type based on time ranges:
-     *     - clock_in: 5 AM – 9 AM
-     *     - lunch_in: 11 AM – 12 PM
-     *     - lunch_out: 12 PM – 1 PM
-     *     - clock_out: 3 PM – 6 PM
+     * Expected sequence: 0,1,0,1 (clock_in, lunch_out, lunch_in, clock_out) or 0,1 (clock_in, clock_out).
      *
-     * @param array $record     Reference to the time log record to be updated
-     * @param \Illuminate\Support\Collection $timestamps   Collection of Carbon instances
+     * @param array $record  Reference to the time log record to be updated
+     * @param array $entries Sorted entries with 'timestamp' and 'status' keys
      * @return void
      */
-    private function assignTimestamps(&$record, $timestamps) {
-
-       // dd()
-
-        //dd($timestamps[3]->format('h:i A'));
-
-
-        if ($timestamps->count() >= 4) {
-           //dd($timestamps[$timestamps->count() - 2]->format('h:i A'));
-            $record['clock_in'] = $timestamps[0]->format('h:i A');
-            $record['lunch_in'] = $timestamps[1]->format('h:i A');
-            $record['lunch_out'] = $timestamps[$timestamps->count() - 2]->format('h:i A');
-            $record['clock_out'] = $timestamps[$timestamps->count() - 1]->format('h:i A');
-        } elseif ($timestamps->count() === 2) {
-          //  dd('here3');
-            # Special case: exactly two logs
-            $record['clock_in'] = $timestamps[0]->format('h:i A');
-            $record['clock_out'] = $timestamps[1]->format('h:i A');
-        } elseif($timestamps->count() == 1) {
-           // dd('here4');
-            $record['clock_in'] = $timestamps[0]->format('h:i A');
-        } else {
-        // dd($timestamps );
-            # Fallback: assign based on time ranges
-          //dd($record, $timestamps );
-            foreach ($timestamps as $ts) {
-               // dd($ts->format('h:i A'));   
-                $hour = (int) $ts->format('H');
-              //  dd($hour);
-                if (!isset($record['clock_in']) && $hour >= 5 && $hour <= 9) {
-                   // dd('here5');
-                    $record['clock_in'] = $ts->format('h:i A');
-                } elseif (!isset($record['lunch_in']) && $hour >= 11 && $hour <= 12) {
-                 //  dd($hour);
-                    $record['lunch_in'] = $ts->format('h:i A');
-                } elseif (!isset($record['lunch_out']) && $hour >= 12 && $hour <= 13) {
-
-                 // dd($record['lunch_out']);
-                    $record['lunch_out'] = $ts->format('h:i A');
-                } elseif (!isset($record['clock_out']) && $hour >= 15 && $hour <= 18) {
-                   // dd('here8');
-                    $record['clock_out'] = $ts->format('h:i A');
-                }
+    private function assignTimestampsByStatus(&$record, array $entries): void
+    {
+        $ins = [];
+        $outs = [];
+        foreach ($entries as $e) {
+            $ts = $e['timestamp'] instanceof Carbon ? $e['timestamp'] : Carbon::parse($e['timestamp']);
+            $status = (int) ($e['status'] ?? 0);
+            if ($status === 0) {
+                $ins[] = $ts;
+            } else {
+                $outs[] = $ts;
             }
         }
+
+        $fmt = fn($t) => $t instanceof Carbon ? $t->format('h:i A') : Carbon::parse($t)->format('h:i A');
+
+        $record['clock_in'] = isset($ins[0]) ? $fmt($ins[0]) : null;
+        $record['clock_out'] = null;
+        $record['lunch_out'] = null;
+        $record['lunch_in'] = null;
+
+        if (count($ins) >= 2 && count($outs) >= 2) {
+            $record['lunch_out'] = $fmt($outs[0]);
+            $record['lunch_in'] = $fmt($ins[1]);
+            $record['clock_out'] = $fmt($outs[1]);
+        } elseif (count($outs) >= 1) {
+            $record['clock_out'] = $fmt($outs[count($outs) - 1]);
+        }
     }
+
 
 
 }   

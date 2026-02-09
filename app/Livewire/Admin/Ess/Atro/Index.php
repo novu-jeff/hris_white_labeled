@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Ess\Atro;
 
+use App\Helpers\SupervisorApproval;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeAtro;
 use App\Models\Sections;
@@ -166,6 +167,17 @@ class Index extends Component
 
     public function disapproved(bool $isNotify = true) {
 
+        $employeeNo = EmployeeAtro::where('id', $this->selected_id)->value('employee_no');
+
+        if (!$this->canApprove($employeeNo ?? '')) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove overtime application requests.',
+            ]);
+        }
+
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
@@ -207,6 +219,17 @@ class Index extends Component
 
     public function approved(bool $isNotify = true) {
 
+        $employeeNo = EmployeeAtro::where('id', $this->selected_id)->value('employee_no');
+
+        if (!$this->canApprove($employeeNo ?? '')) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove overtime application requests.',
+            ]);
+        }
+
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
@@ -243,6 +266,44 @@ class Index extends Component
         }
     }
 
+    private function canApprove(?string $employeeNo = null): bool
+    {
+        $user = Auth::user();
+        if (!$user) return false;
+
+        $requiredRole = (string) config('ess.approver_role', 'admins');
+        $allowSuperadmin = (bool) config('ess.allow_superadmin', true);
+
+        if ($allowSuperadmin && method_exists($user, 'hasRole') && $user->hasRole('superadmin')) {
+            return true;
+        }
+
+        if (!method_exists($user, 'hasAnyRole')) {
+            $baseAllowed = method_exists($user, 'hasRole') ? $user->hasRole($requiredRole) : false;
+        } else {
+        // Support legacy role names without breaking approval access
+        $roles = array_values(array_unique(array_filter([
+            $requiredRole,
+            'admins',
+            'admin',
+            'manager',
+            'supervisor',
+        ])));
+
+        $baseAllowed = $user->hasAnyRole($roles);
+        }
+
+        if (!$baseAllowed) {
+            return false;
+        }
+
+        if (!$employeeNo) {
+            return true;
+        }
+
+        return SupervisorApproval::canApprove($employeeNo);
+    }
+
     public function remove(bool $isNotify = true, ? int $id = null) {
 
         if($isNotify) {
@@ -276,7 +337,7 @@ class Index extends Component
                     'title' => 'Success!', 
                     'id' => $this->selected_id,
                     'isRemoveRowDT' => true,
-                    'message' => 'ATRO Application #' . strtoupper(format_id($record->id, 6)) . 'has been removed successfully.' 
+                    'message' => 'Overtime Application #' . strtoupper(format_id($record->id, 6)) . ' has been removed successfully.' 
                 ]);
 
             } else {

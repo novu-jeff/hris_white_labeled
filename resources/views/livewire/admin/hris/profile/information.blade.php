@@ -95,13 +95,6 @@
                             @error('records.employee_information.section_id') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="mb-2" for="branch">Central / Field Office</label>
-                        <input type="text" wire:model="records.employee_information.branch" id="records.employee_information.branch" class="form-control" readonly>
-                        <div class="error-field">
-                            @error('records.employee_information.branch') <span class="text-danger">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
                    <!-- <div class="col-md-6 mb-3">
                         <label class="mb-2" for="department">Cluster</label>
                         <input type="text" wire:model="records.employee_information.department" id="records.employee_information.department" class="form-control" readonly>
@@ -202,6 +195,22 @@
                         <h5 class="mb-0 text-uppercase fw-bold pt-4 pb-0 ps-2">Salary & Payroll Details</h5>
                         <hr>
                     </div>
+                    @if($internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId)
+                        <div class="col-12 mb-3">
+                            <label class="mb-2">Intern compensation</label>
+                            <div class="d-flex flex-wrap gap-4">
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" name="intern_compensation" id="comp_allowance_only" value="0" wire:model.live="records.employee_information.has_salary" wire:change="handleSalary">
+                                    <label class="form-check-label" for="comp_allowance_only">Allowance only</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" name="intern_compensation" id="comp_has_salary" value="1" wire:model.live="records.employee_information.has_salary" wire:change="handleSalary">
+                                    <label class="form-check-label" for="comp_has_salary">Has salary</label>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">Choose &quot;Allowance only&quot; if the intern receives allowance only (no basic salary), or &quot;Has salary&quot; to assign a basic salary and include in payroll.</small>
+                        </div>
+                    @endif
                     <div class="col-md-3 mb-3">
                         <label class="mb-2" for="salary_method">Salary Method <span class="text-danger">*</span></label>
                         <select wire:model="records.employee_information.salary_method" id="records.employee_information.salary_method" class="form-select">
@@ -217,22 +226,34 @@
                     </div>
                     @if($isGovernment)
                         <div class="col-md-3 mb-3">
-                            <label class="mb-2" for="salary">Monthly Rate <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control {{$records['employee_information']['type'] == 3 ? '' : 'restricted'}}" {{$records['employee_information']['type'] == 3 ? '' : 'readonly'}}>
+                            <label class="mb-2" for="salary">Basic Salary <span class="text-danger">*</span></label>
+                            @php $isInternNoSalary = $internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId && empty($records['employee_information']['has_salary'] ?? false); @endphp
+                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control {{ $isInternNoSalary ? 'restricted' : ($records['employee_information']['type'] == 3 ? '' : 'restricted') }}" {{ $isInternNoSalary ? 'readonly' : ($records['employee_information']['type'] == 3 ? '' : 'readonly') }}>
                         <div class="error-field">
                                 @error('records.employee_information.salary') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                         </div>
                     @else
                     <div class="col-md-3 mb-3">
-                            <label class="mb-2" for="salary">Monthly Rate <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control">
+                            <label class="mb-2" for="salary">Basic Salary <span class="text-danger">*</span></label>
+                            @php $isInternNoSalary = $internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId && empty($records['employee_information']['has_salary'] ?? false); @endphp
+                            <input type="text" wire:model="records.employee_information.salary" id="records.employee_information.salary" class="form-control {{ $isInternNoSalary ? 'restricted' : '' }}" {{ $isInternNoSalary ? 'readonly' : '' }}>
                         <div class="error-field">
                                 @error('records.employee_information.salary') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                         </div>
                     @endif
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
+                        <label class="mb-2" for="allowance">Allowance</label>
+                        <input type="text" wire:model="records.employee_information.allowance" id="records.employee_information.allowance" class="form-control" placeholder="0.00">
+                        @if($internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId && empty($records['employee_information']['has_salary'] ?? false))
+                            <small class="text-muted">For allowance-only interns, set the amount here.</small>
+                        @endif
+                        <div class="error-field">
+                            @error('records.employee_information.allowance') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
                         <label class="mb-2" for="payroll_account_number">Payroll Account No.</label>
                         <input type="text" wire:model="records.employee_information.payroll_account_number" id="records.employee_information.payroll_account_number" class="form-control">
                         <div class="error-field">
@@ -240,9 +261,50 @@
                         </div>
                     </div>
                 </div>
-                <hr class="mt-5">
             </div>
         </div>
+        
+        <!-- Deduction Section -->
+        <div class="row">
+            <div class="col-12 mt-4 mb-3">
+                <h5 class="mb-0 text-uppercase fw-bold pt-4 pb-0 ps-2">Deductions</h5>
+                <hr>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">Tax (Withholding Tax)</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['tax'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">SSS</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['sss'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">HDMF (Pag-IBIG)</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['hdmf'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="mb-2">PhilHealth</label>
+                <div class="form-control bg-light d-flex align-items-center" style="cursor: not-allowed; min-height: 38px;">
+                    <span class="text-muted">₱</span>
+                    <span class="ms-1">{{ $deductions['philhealth'] ?? '0.00' }}</span>
+                </div>
+                <small class="text-muted">Calculated automatically</small>
+            </div>
+        </div>
+        
+        <hr class="mt-5">
         <div class="row">
             <div class="col-12 col-md-4 mb-4">
                 <div class="card mb-4 border-0">

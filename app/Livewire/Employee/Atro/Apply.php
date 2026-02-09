@@ -4,12 +4,16 @@ namespace App\Livewire\Employee\Atro;
 
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeAtro;
+use App\Models\EmployeePersonal;
 use App\Models\EmployeeAtroRelative;
 use App\Models\EmployeeInformation;
+use App\Models\User;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
+use Spatie\Permission\Models\Role;
 
 class Apply extends Component
 {
@@ -35,8 +39,13 @@ class Apply extends Component
 
     public function loadRecords() {
 
-        $employee_no = Auth::user()->employee_no;
-        $employee_id = Auth::user()->id;
+        $user = Auth::guard('employee')->user() ?? Auth::user();
+        if (!$user) {
+            return redirect()->route('employee.login');
+        }
+
+        $employee_no = $user->employee_no;
+        $employee_id = $user->id;
 
         $this->employee_id = $employee_id;
         $this->employee_no = $employee_no;
@@ -205,6 +214,45 @@ class Apply extends Component
 
                 if(is_null($this->record_id)) {
                     
+                    // Notify approvers (admin/manager) in web portal.
+                    // IMPORTANT: this must NEVER block the employee submit flow.
+                    try {
+                        $approverRole = (string) config('ess.approver_role', 'admins');
+                        $allowSuperadmin = filter_var(config('ess.allow_superadmin', true), FILTER_VALIDATE_BOOLEAN);
+
+                        $roleCandidates = array_values(array_unique(array_filter([
+                            $approverRole,
+                            // common legacy role names
+                            'admins',
+                            'admin',
+                            'manager',
+                            $allowSuperadmin ? 'superadmin' : null,
+                        ])));
+
+                        $personal = EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                        $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                        $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                        $message = 'Employee <strong>' . $display . '</strong> has submitted an application for <strong>authority to render overtime</strong>.';
+                        $redirect = route('ess.atro');
+
+                        $rolesToNotify = Role::where('guard_name', 'web')
+                            ->whereIn('name', $roleCandidates)
+                            ->pluck('name')
+                            ->toArray();
+
+                        foreach ($rolesToNotify as $roleName) {
+                            $approvers = User::role($roleName, 'web')->get();
+                            foreach ($approvers as $approver) {
+                                $approver->notify(new Notifications('info', $message, $redirect, (string) $roleName));
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('ATRO apply: approver notify failed', [
+                            'employee_no' => $this->employee_no,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+
                     $this->dispatch('alert', [
                         'showAlert' => true,
                         'status' => 'success',
@@ -212,11 +260,6 @@ class Apply extends Component
                         'message' => 'Your application has been submitted. You will receive an email regarding your application status as soon as we review it. Thank you for your understanding.',
                         'redirect' => '_reload'
                     ]);
-
-                    $user = EmployeeAccount::find($this->employee_id);
-                    $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted an application for <strong>authority to render overtime</strong>.';
-                    $redirect = route('ess.atro');
-                    $user->notify(new Notifications('info', $message, $redirect, 'admin'));
 
                     $this->resetExcept('employee_no', 'employee_id');
 

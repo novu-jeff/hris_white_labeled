@@ -20,14 +20,11 @@
                 <li class="nav-item" role="presentation">
                     <a href="{{ route('employee.profile', ['form' => 'employment-history']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'employment-history' ? 'active' : ''}}" id="pills-employment-tab" role="tab" aria-controls="pills-history" aria-selected="{{$form == 'employment' ? 'true' : 'false'}}">V. Work Experience</a>
                 </li>
-                    <li class="nav-item" role="presentation">
-                    <a href="{{ route('employee.profile', ['form' => 'other-works']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'other-works' ? 'active' : ''}}" id="pills-other-works-tab" role="tab" aria-controls="pills-others" aria-selected="{{$form == 'other-works' ? 'true' : 'false'}}">VI. Voluntary Work or Involvement in Civic / Non-Government / People / Voluntary Organizations</a>
+                <li class="nav-item" role="presentation">
+                    <a href="{{ route('employee.profile', ['form' => 'trainings']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'trainings' ? 'active' : ''}}" id="pills-trainings-tab" role="tab" aria-controls="pills-trainings" aria-selected="{{$form == 'trainings' ? 'true' : 'false'}}">VI. Certifications / Trainings / Seminars</a>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <a href="{{ route('employee.profile', ['form' => 'trainings']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'trainings' ? 'active' : ''}}" id="pills-trainings-tab" role="tab" aria-controls="pills-trainings" aria-selected="{{$form == 'trainings' ? 'true' : 'false'}}">VII. Learning and Development (L&D) Interventions / Training Programs Attended</a>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <a href="{{ route('employee.profile', ['form' => 'skills']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'skills' ? 'active' : ''}}" id="pills-skills-tab" role="tab" aria-controls="pills-skills" aria-selected="{{$form == 'skills' ? 'true' : 'false'}}">VIII. Skills or Hobbies</a>
+                    <a href="{{ route('employee.profile', ['form' => 'security-notifications']) }}" class="px-4 py-2 text-uppercase fw-bold nav-link {{$form == 'security-notifications' ? 'active' : ''}}" id="pills-security-notifications-tab" role="tab" aria-controls="pills-security-notifications" aria-selected="{{$form == 'security-notifications' ? 'true' : 'false'}}">Security &amp; Notifications</a>
                 </li>
             </ul>
             <div class="tab-content" id="pills-tabContent">
@@ -40,8 +37,7 @@
                         'employment-history' => 'employee.profile.employment',
                         'civil-service' => 'employee.profile.civil-service',
                         'trainings' => 'employee.profile.trainings',
-                        'other-works' => 'employee.profile.other-works',
-                        'skills' => 'employee.profile.skills',
+                        'security-notifications' => 'employee.profile.security-notifications',
                     ];
 
                     $view = $viewForms[$form];

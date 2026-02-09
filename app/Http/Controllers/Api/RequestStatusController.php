@@ -58,7 +58,7 @@ class RequestStatusController extends Controller
             $name = ucwords($this->user->firstname . ' ' . $user->lastname);
             $messages = [
                 'Hello ' . $name,
-                'I\'m Juan Dela Cruz from the HR department. I just wanted to check in and see if there\'s anything we can assist you with. If you have any questions or need support, feel free to reach out. We\'re here to help!'
+                'I\'m Josephine Garcia from the HR department. I just wanted to check in and see if there\'s anything we can assist you with. If you have any questions or need support, feel free to reach out. We\'re here to help!'
             ];
 
             foreach ($messages as $message) {

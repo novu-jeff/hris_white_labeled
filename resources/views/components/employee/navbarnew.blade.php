@@ -20,8 +20,8 @@
 <nav class="navbar navbar-light bg-white shadow-sm fixed-top">
     <div class="container-fluid px-2 px-lg-4 d-flex align-items-center">
 
-        <!-- LEFT: Sidebar toggle (mobile) -->
-        <button class="btn d-lg-none me-2" id="sidebarToggle">
+        <!-- LEFT: Sidebar toggle (visible on all viewports for collapse/expand) -->
+        <button class="btn me-2" id="sidebarToggle" aria-label="Toggle sidebar">
             <i class="fa-solid fa-bars"></i>
         </button>
 
@@ -59,8 +59,14 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li>
                             <a class="dropdown-item"
-                               href="{{ route('employee.profile', ['form' => 'profile']) }}">
+                               href="{{ route('employee.profile', ['form' => 'personal']) }}">
                                 <i class="fa-solid fa-user me-2"></i> My Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item"
+                               href="{{ route('employee.profile', ['form' => 'security-notifications']) }}">
+                                <i class="fa-solid fa-shield-halved me-2"></i> Security &amp; Notifications
                             </a>
                         </li>
                         <li>

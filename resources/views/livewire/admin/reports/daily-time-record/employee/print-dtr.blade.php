@@ -24,18 +24,25 @@
 
    
 
+    @php
+        $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+    @endphp
     {{-- TABLE --}}
     <table class="dtr-table">
         <thead>
             <tr>
                 <th rowspan="2">DAY</th>
-                <th colspan="2">A.M.</th>
-                <th colspan="2">P.M.</th>
+                <th colspan="{{ $showLunch ? '2' : '1' }}">A.M.</th>
+                <th colspan="{{ $showLunch ? '2' : '1' }}">P.M.</th>
             </tr>
             <tr>
                 <th>Arrival</th>
-                <th>Departure</th>
-                <th>Arrival</th>
+                @if($showLunch)
+                    <th>Departure</th>
+                @endif
+                @if($showLunch)
+                    <th>Arrival</th>
+                @endif
                 <th>Departure</th>
             </tr>
         </thead>
@@ -52,8 +59,12 @@
                         @else
                             {{ ' ' }}
                         @endisset</td>
-                    <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
-                    <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
+                    @if($showLunch)
+                        <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
+                    @endif
+                    @if($showLunch)
+                        <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
+                    @endif
                     <td> {{ isset($day['clock_out']) ? \Carbon\Carbon::parse($day['clock_out'])->format('g:i A') : ' ' }}</td>
                 </tr>
             @endforeach

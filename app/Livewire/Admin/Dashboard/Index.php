@@ -6,11 +6,11 @@ use App\Http\Controllers\Admin\Settings\HRIS\EmploymentTypeController;
 use App\Models\CompanyInformation;
 use App\Models\EmployeeAtro;
 use App\Models\EmployeeBusinessSlip;
+use App\Models\EmployeeOffsetApplication;
 use App\Models\EmployeeTimelogs;
 use App\Models\EmployeeInformation;
 use App\Models\EmployeeLeave;
 use App\Models\EmployementTypes;
-use App\Models\SocialSecurityBilling;
 use App\Models\JobApplicants;
 use App\Models\OtherDeductions;
 use App\Models\OtherEarnings;
@@ -65,14 +65,83 @@ class Index extends Component
             ->select('status', DB::raw('count(*) as total'))
             ->pluck('total', 'status')->toArray();
 
-        $earnings = OtherEarnings::all();
+        $offsetCounts = EmployeeOffsetApplication::where('isDeleted', false)
+            ->groupBy('status')
+            ->select('status', DB::raw('count(*) as total'))
+            ->pluck('total', 'status')->toArray();
+
         $deductions = OtherDeductions::all();
 
-        $social_security = SocialSecurityBilling::with('items')
-            ->orderBy('billing_month', 'desc')
-            ->first();
+        // Work anniversaries, new hires & interns this month (date_hired month = current month)
+        $workAnniversariesThisMonth = EmployeeInformation::with(['personal', 'positions', 'employment_type'])
+            ->whereNotNull('date_hired')
+            ->whereMonth('date_hired', $this->now->month)
+            ->get()
+            ->map(function ($emp) {
+                $name = $emp->personal
+                    ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
+                    : $emp->employee_no;
+                $years = $emp->date_hired ? $this->now->diffInYears(Carbon::parse($emp->date_hired)) : 0;
+                $typeName = $emp->employment_type->name ?? null;
+                $isIntern = $typeName && stripos($typeName, 'intern') !== false;
+                return [
+                    'name'       => $name,
+                    'position'   => $emp->positions->name ?? '—',
+                    'date'       => Carbon::parse($emp->date_hired)->format('M d'),
+                    'years'      => $years,
+                    'is_new'     => $years === 0,
+                    'type_label' => $years === 0 ? ($isIntern ? 'Intern' : 'New hire') : null,
+                ];
+            });
 
-        $clockinout = EmployeeTimelogs::whereDate('created_at', Carbon::today())->get();
+        // Birthdays this month (personal.birthday month = current month)
+        $birthdaysThisMonth = EmployeeInformation::with(['personal', 'positions'])
+            ->whereHas('personal', function ($q) {
+                $q->whereNotNull('birthday')->whereMonth('birthday', $this->now->month);
+            })
+            ->get()
+            ->map(function ($emp) {
+                $name = $emp->personal
+                    ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
+                    : $emp->employee_no;
+                return [
+                    'name'     => $name,
+                    'position' => $emp->positions->name ?? '—',
+                    'date'     => $emp->personal && $emp->personal->birthday
+                        ? Carbon::parse($emp->personal->birthday)->format('M d')
+                        : '—',
+                ];
+            });
+
+        // Clock in / out summary for today, based on raw timelog records.
+        // We derive employee-level status from timelog "status" (internal) or "status1" (external) flags:
+        //  - 0 = clock in
+        //  - 1 = clock out
+        $clockinoutLogs = EmployeeTimelogs::whereDate('timestamp', Carbon::today())->get();
+
+        $statusField = config('app.external_timelogs') ? 'status1' : 'status';
+        $clockedInCount = 0;
+        $inProgressCount = 0;
+        $clockedOutCount = 0;
+
+        $clockinoutLogs
+            ->groupBy('employee_id')
+            ->each(function ($logsPerEmployee) use (&$clockedInCount, &$inProgressCount, &$clockedOutCount, $statusField) {
+                $hasIn = $logsPerEmployee->contains($statusField, 0);
+                $hasOut = $logsPerEmployee->contains($statusField, 1);
+
+                if ($hasIn) {
+                    $clockedInCount++;
+                }
+
+                if ($hasIn && !$hasOut) {
+                    $inProgressCount++;
+                }
+
+                if ($hasOut) {
+                    $clockedOutCount++;
+                }
+            });
         
         $this->companyInfo = $this->getCompanyInformation();
 
@@ -93,9 +162,9 @@ class Index extends Component
             ],
             'employee' => $employeeCounts,
             'clockinout' => [
-                'clockin' => $clockinout->whereNotNull('clock_in')->count(),
-                'inprogress' => $clockinout->whereNotNull('clock_in')->whereNull('clock_out')->count(),
-                'clockout' => $clockinout->whereNotNull('clock_out')->count(),
+                'clockin'    => $clockedInCount,
+                'inprogress' => $inProgressCount,
+                'clockout'   => $clockedOutCount,
             ],
             'leave' => [
                 'pending' => $leaveCounts['pending'] ?? 0,
@@ -112,9 +181,14 @@ class Index extends Component
                 'granted' => $atroCounts['approved'] ?? 0,
                 'rejected' => $atroCounts['disapproved'] ?? 0,
             ],
-            'earnings' => $earnings,
+            'offset' => [
+                'pending' => $offsetCounts['pending'] ?? 0,
+                'granted' => $offsetCounts['approved'] ?? 0,
+                'rejected' => $offsetCounts['disapproved'] ?? 0,
+            ],
             'deductions' => $deductions,
-            'social_security' => $social_security ? $social_security->toArray() : [],
+            'work_anniversaries_this_month' => $workAnniversariesThisMonth->values()->all(),
+            'birthdays_this_month'          => $birthdaysThisMonth->values()->all(),
             'payroll' => [
                 'approved' => $payrollCounts['approved'] ?? 0,
                 'pending'  => $payrollCounts['pending'] ?? 0,

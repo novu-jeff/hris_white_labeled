@@ -141,14 +141,16 @@ class LeaveCardService extends Controller
             );
         }
 
-        // Deduct credits only for other types
+        // Deduct credits only for other types (use leave equivalent: half-day = 0.5 per date)
         if (!in_array($leaveCode, ['vl', 'sl', 'mfl'])) {
             $credit = LeaveCredits::where('employee_no', $employee_no)
                 ->where('leave_type_id', $data->leave_id)
                 ->first();
 
             if ($credit) {
-                $credit->credits -= $data->daysCovered;
+                $datesCount = $data->dates ? $data->dates->count() : 0;
+                $equivalent = ($data->duration ?? 'wholeday') === 'wholeday' ? $datesCount : $datesCount * 0.5;
+                $credit->credits -= $equivalent;
                 $credit->as_of = now()->format('Y-m');
                 $credit->save();
             }

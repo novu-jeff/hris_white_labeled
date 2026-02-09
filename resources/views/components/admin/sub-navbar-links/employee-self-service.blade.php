@@ -1,6 +1,7 @@
 @canany([
     'read leave',
     'read obs',
+    'read offset',
     'read atro',
     'read announcements',
     'read employee-profile-update',
@@ -18,6 +19,10 @@
 
         @can('read obs')
             <li><a class="dropdown-item" href="{{route('ess.obs')}}">Official Business Slip Application</a></li>
+        @endcan
+
+        @can('read offset')
+            <li><a class="dropdown-item" href="{{route('ess.offset')}}">Offset Application</a></li>
         @endcan
 
         @can('read atro')

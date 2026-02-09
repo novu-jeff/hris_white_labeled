@@ -261,14 +261,14 @@
                 <div class="accordion-body">
                     <div class="row">
                         <div class="col-12 col-md-6 mb-3">
-                            <label class="mb-2" for="height">Height</label>
+                            <label class="mb-2" for="height">Height (cm)</label>
                             <input type="text" wire:model="records.height" id="height" class="form-control text-uppercase">
                             <div class="error-field">
                                 @error('records.height') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>
                         </div>
                         <div class="col-12 col-md-6 mb-3">
-                            <label class="mb-2" for="weight">Weight</label>
+                            <label class="mb-2" for="weight">Weight (kg)</label>
                             <input type="text" wire:model="records.weight" id="weight" class="form-control text-uppercase">
                             <div class="error-field">
                                 @error('records.weight') <span class="text-danger">{{ $message }}</span> @enderror

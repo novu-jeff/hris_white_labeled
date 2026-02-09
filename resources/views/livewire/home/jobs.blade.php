@@ -3,7 +3,7 @@
         <div>
             <div class="content shadow {{$isEmptySearch ? 'error'  : '' }}">
                 <div class="search-box">
-                    <input type="text" name="search" id="search" class="form-control" wire:model.defer='search_query' placeholder="Job, Title, Keyword" value="{{$search_query ?? ''}}">
+                    <input type="text" name="search" id="search" class="form-control" wire:model.defer='search_query' placeholder="Job, Title, Keyword" value="{{ is_string($search_query ?? null) ? e($search_query) : '' }}">
                 </div>
                 <div class="search-submit" class="d-flex">
                     <button class="btn btn-primary px-4 py-2 text-light text-uppercase fw-bold" wire:click='find'>Search 
@@ -127,7 +127,7 @@
                                                 <h4 class="fw-bold">Oops! No jobs were found.</h4>
                                                 <p class="mb-0 fs-5">Unfortunately, we couldn't retrieve any data this time. We’re sorry for the inconvenience caused.</p>
                                                 <p class="mb-0 fs-5">
-                                                    If the issue persists, kindly contact our administrator at <a href="mailto:{{$provider['email']}}">{{$provider['email']}}</a>.
+                                                    If the issue persists, kindly contact our administrator at <a href="mailto:{{ e(is_string(data_get($provider ?? [], 'email')) ? data_get($provider ?? [], 'email') : '') }}">{{ e(is_string(data_get($provider ?? [], 'email')) ? data_get($provider ?? [], 'email') : '') }}</a>.
                                                     Thank you for letting us know, and we’ll work on resolving the issue as quickly as possible.
                                                 </p>
                                             @else

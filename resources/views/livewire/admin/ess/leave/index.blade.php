@@ -37,7 +37,7 @@
                         <div class="col-12 col-md-6 mb-4">
                             <label class="mb-2" for="duration">Duration</label>
                             <input type="text" id="duration" class="form-control restricted"
-                                value="{{ count($view_records->dates ?? []) }} {{ count($view_records->dates ?? []) === 1 ? 'Day' : 'Days' }} - {{ str_replace('_', ' ', $view_records->duration ?? '') }}" readonly>
+                                value="{{ $view_records->leave_equivalent ?? '0' }} {{ in_array((float)($view_records->leave_equivalent ?? 0), [0.5, 1.0], true) ? 'Day' : 'Days' }} - {{ str_replace('_', ' ', $view_records->duration ?? '') }}" readonly>
                         </div>
 
                        <div class="col-12 col-md-6 mb-4">
@@ -155,7 +155,13 @@
                                         <td>{{$record->employee_no}}</td>
                                         <td>{{$record->employee->personal->firstname . ' ' . $record->employee->personal->lastname}}</td>
                                         <td>{{$record->leave_type->name}}</td>
-                                        <td>{{ count($record->dates) }} {{ count($record->dates) === 1 ? 'Day' : 'Days' }}</td>
+                                        @php
+                                            $daysCount = count($record->dates ?? []);
+                                            $duration = $record->duration ?? 'wholeday';
+                                            $daysCoveredDisplay = ($duration === 'wholeday') ? $daysCount : $daysCount * 0.5;
+                                            $dayLabel = in_array(round($daysCoveredDisplay, 2), [0.5, 1.0], true) ? 'Day' : 'Days';
+                                        @endphp
+                                        <td>{{ $daysCoveredDisplay == (int)$daysCoveredDisplay ? (int)$daysCoveredDisplay : number_format($daysCoveredDisplay, 1) }} {{ $dayLabel }}</td>
                                         <td>{{format_date($record->created_at, 'date_string')}}</td>
                                         <td>
                                             <button type="button" wire:click="view({{$record->id}})" class="btn btn-primary mx-1">

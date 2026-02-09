@@ -30,6 +30,7 @@
                             </a>
                         </li>
                 
+                        @unlessrole('supervisor')
                         <!-- Recruitment -->
                         <li class="list-item has-submenu">
                             <a class="nav-link toggle-link">
@@ -66,6 +67,7 @@
                                 @endcan
                             </ul>
                         </li>
+                        @endunlessrole
 
                         <!-- ESS -->
                         <li class="list-item has-submenu">
@@ -80,6 +82,10 @@
                         
                                 @can('read obs')
                                     <li><a class="dropdown-item" href="{{route('ess.obs')}}">Official Business Slip Application</a></li>
+                                @endcan
+                        
+                                @can('read offset')
+                                    <li><a class="dropdown-item" href="{{route('ess.offset')}}">Offset Application</a></li>
                                 @endcan
                         
                                 @can('read atro')
@@ -111,6 +117,8 @@
                                 @endcan
                             </ul>
                         </li>
+
+                        @unlessrole('supervisor')
                         <!-- SETTINGS -->
                         <li class="list-item has-submenu">
                             <a class="nav-link toggle-link">
@@ -235,6 +243,24 @@
                                 @endcanany
                             </ul>
                         </li>
+                        @endunlessrole
+
+                        @if(auth()->check() && method_exists(auth()->user(), 'hasRole') && auth()->user()->hasRole('superadmin'))
+                            <li class="list-item mt-3">
+                                <a class="nav-link" href="{{ route('settings.employee-modules') }}">
+                                    <i class="fa-solid fa-sliders"></i>
+                                    Employee Modules
+                                </a>
+                            </li>
+                        @endif
+
+                        <li class="list-item mt-2">
+                            <a class="nav-link" href="{{ route('admin.change-password') }}">
+                                <i class="fa-solid fa-key"></i>
+                                Change Password
+                            </a>
+                        </li>
+
                         <!-- LOGOUT -->
                         <li class="list-item">
                             <a class="nav-link" href="{{route('admin.logout')}}">
@@ -247,7 +273,7 @@
             </div>
         </div>
         <div class="footer">
-            &copy; 2025 Novulutions Inc. All Rights Reserved.
+            &copy; {{ now()->format('Y') }} Novulutions Inc. All Rights Reserved.
         </div>
     </div>
 </div>

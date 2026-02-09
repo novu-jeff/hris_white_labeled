@@ -4,6 +4,8 @@ namespace App\Livewire\Admin\Hris\Profile;
 
 use App\Http\Controllers\Admin\Services\HRISProcessingService;
 use App\Http\Controllers\Admin\Services\OtherServices;
+use App\Services\ContributionsService;
+use App\Models\Branches;
 use App\Models\EmployeeInformation;
 use App\Models\EmployeeSchedule;
 use App\Models\EmployementTypes;
@@ -22,6 +24,7 @@ class Information extends Component
 
     public $form;
     public $employee_no;
+    public object $branches;
     public object $sections;
     public object $positions;
     public object $employmentTypes;
@@ -30,6 +33,9 @@ class Information extends Component
     public object $salaryGrade;
     public bool $isGovernment = false;
     public array $records;
+    public $selectedBranchId = null;
+    public array $deductions = [];
+    public ?int $internTypeId = null;
 
     protected $listeners = ['save'];
 
@@ -44,9 +50,11 @@ class Information extends Component
             return redirect()->route('hris.index');
         }
 
-        $this->sections = Sections::all();
+        $this->branches = Branches::orderBy('name')->get();
+        $this->sections = collect([]);
         $this->positions = collect([]);
         $this->employmentTypes = EmployementTypes::all();
+        $this->internTypeId = EmployementTypes::where('name', 'Interns')->value('id');
 
         $this->shiftSchedule = ShiftSchedule::all();
         $this->employeeSchedule = EmployeeSchedule::all();
@@ -91,6 +99,16 @@ class Information extends Component
             'leaveCredits' => $leaveCredits
         ];
 
+        // Calculate statutory deductions
+        $this->calculateDeductions($data);
+
+        // Initialize selected branch based on current section assignment
+        if (!empty($data->section_id)) {
+            $this->selectedBranchId = Sections::where('id', $data->section_id)->value('branch_id');
+        }
+
+        $this->refreshSections();
+
         if (!empty($data->section_id)) {
             $this->select_change('section');
         }
@@ -110,6 +128,8 @@ class Information extends Component
             $record = Sections::with('branch', 'department')->where('id', $section_id)->first();
             
             if($record) {
+                $this->selectedBranchId = $record->branch_id;
+                $this->refreshSections();
                 $this->records['employee_information']['branch'] = $record->branch->name ?? '';
                 $this->records['employee_information']['department'] = $record->department->name ?? '';
             } else {
@@ -117,6 +137,40 @@ class Information extends Component
                 $this->records['employee_information']['department'] = '';
             }
         }
+    }
+
+    public function updatedSelectedBranchId($value): void
+    {
+        $this->refreshSections();
+
+        // If the currently selected section doesn't belong to the selected branch, clear it.
+        $sectionId = $this->records['employee_information']['section_id'] ?? null;
+        if (!$sectionId) {
+            $this->records['employee_information']['branch'] = '';
+            $this->records['employee_information']['department'] = '';
+            return;
+        }
+
+        $belongs = Sections::where('id', $sectionId)
+            ->where('branch_id', $this->selectedBranchId)
+            ->exists();
+
+        if (!$belongs) {
+            $this->records['employee_information']['section_id'] = null;
+            $this->records['employee_information']['branch'] = '';
+            $this->records['employee_information']['department'] = '';
+        }
+    }
+
+    private function refreshSections(): void
+    {
+        $query = Sections::query();
+
+        if (!empty($this->selectedBranchId)) {
+            $query->where('branch_id', $this->selectedBranchId);
+        }
+
+        $this->sections = $query->orderBy('name')->get();
     }
 
   public function handleSalary()
@@ -189,9 +243,28 @@ class Information extends Component
         $this->positions = Positions::all();
         $this->isGovernment = false;
     }
+
+    // Intern without "has salary": force salary to 0 (both government and non-government)
+    if ($this->isIntern() && empty($this->records['employee_information']['has_salary'] ?? false)) {
+        $this->records['employee_information']['salary'] = 0;
+    }
 }
 
+    public function isIntern(): bool
+    {
+        if ($this->internTypeId === null || empty($this->records['employee_information']['type'])) {
+            return false;
+        }
+        return (string) $this->records['employee_information']['type'] === (string) $this->internTypeId;
+    }
 
+    protected function salaryValidationRule(): string
+    {
+        if ($this->isIntern() && empty($this->records['employee_information']['has_salary'] ?? false)) {
+            return 'nullable|numeric|min:0';
+        }
+        return 'required|numeric|gt:1000';
+    }
 
     public function formatInformation($data) {
         return [
@@ -212,6 +285,8 @@ class Information extends Component
             'status' => $data->status,
             'salary_method' => $data->salary_method,
             'salary' => $data->salary,
+            'has_salary' => (bool) ($data->has_salary ?? false),
+            'allowance' => $data->allowance ?? null,
             'payroll_account_number' => $data->payroll_account_number,
         ];
     }
@@ -279,7 +354,8 @@ class Information extends Component
             'records.employee_information.position_id' => 'required_if:records.employee_information.type,1,2|nullable|exists:positions,id|required_without:records.employee_information.type',
 
             'records.employee_information.step_id' => 'required|in:1,2,3,4,5,6,7,8',
-            'records.employee_information.salary' => 'required|numeric|gt:1000',
+            'records.employee_information.salary' => $this->salaryValidationRule(),
+            'records.employee_information.allowance' => 'nullable|numeric|min:0',
             'records.employee_information.salary_method' => 'nullable|in:cash,bank transfer,paycheck,e-wallet',
         ];
     }
@@ -304,9 +380,11 @@ class Information extends Component
             'records.employee_information.job_completion.date' => 'The job completion must be a valid date.',
             'records.employee_information.step_id.required' => 'The tranche step is required.',
             'records.employee_information.step_id.in' => 'The tranche step is invalid.',
-            'records.employee_information.salary.required' => 'The monthly rate is required',
-            'records.employee_information.salary.numeric' => 'The monthly rate must be numbers',
-            'records.employee_information.salary.gt' => 'The monthly rate must be greather than 1000',
+            'records.employee_information.salary.required' => 'The basic salary is required',
+            'records.employee_information.salary.numeric' => 'The basic salary must be numbers',
+            'records.employee_information.salary.gt' => 'The basic salary must be greater than 1000',
+            'records.employee_information.allowance.numeric' => 'The allowance must be a number',
+            'records.employee_information.allowance.min' => 'The allowance must be 0 or greater',
             'records.employee_information.salary_method.in' => 'The salary method must be one of the following: cash, bank transfer, paycheck, or e-wallet.',
             'records.employee_information.type.required' => 'The employment type is required',
             'records.employee_information.type.exists' => 'The selected employment type does not exists.',
@@ -362,6 +440,11 @@ class Information extends Component
 
         DB::beginTransaction();
 
+        // Normalize empty strings to null for nullable fields (preserve 0 as valid value)
+        if (isset($this->records['employee_information']['allowance']) && $this->records['employee_information']['allowance'] === '') {
+            $this->records['employee_information']['allowance'] = null;
+        }
+
         \Log::debug('saving employee information', [
             'employee_no' => $id,
             'records' => $this->records,
@@ -399,6 +482,30 @@ class Information extends Component
                 'message' => 'Error: ' . $e->getMessage()
             ]);
         }
+    }
+
+    private function calculateDeductions($data)
+    {
+        $salary = $data->salary ?? 0;
+        $contributionService = new ContributionsService();
+
+        // Calculate statutory deductions
+        $sssData = $contributionService->computeSSS((float)$salary);
+        $hdmfData = $contributionService->computePagibig((float)$salary);
+        $philhealthData = $contributionService->computePhilHealth((float)$salary);
+        $totalContributions = ($sssData['employee_share'] ?? 0) + ($hdmfData['employee_share'] ?? 0) + ($philhealthData['employee_share'] ?? 0);
+        $taxableIncome = max(0, $salary - $totalContributions);
+        $tax = ContributionsService::computeWithholdingTax($taxableIncome);
+        $sss = $sssData;
+        $hdmf = $hdmfData;
+        $philhealth = $philhealthData;
+
+        $this->deductions = [
+            'tax' => number_format($tax, 2),
+            'sss' => number_format($sss['employee_share'] ?? 0, 2),
+            'hdmf' => number_format($hdmf['employee_share'] ?? 0, 2),
+            'philhealth' => number_format($philhealth['employee_share'] ?? 0, 2),
+        ];
     }
 
     public function render()

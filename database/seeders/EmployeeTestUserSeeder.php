@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeInformation;
 use App\Models\EmployeePersonal;
+use App\Models\EmployementTypes;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -71,14 +72,49 @@ class EmployeeTestUserSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+            [
+                'employee_no' => 'NI-SAMPLE-01',
+                'bsd_no' => '900',
+                'shift_id' => 1,
+                'schedule_id' => 1,
+                'company_name' => '',
+                'email_id' => 'jeffprodev@hris.com',
+                'email' => 'jeffprodev@gmail.com',
+                'password' => Hash::make('password'),
+                'firstname' => 'Jeff',
+                'middlename' => null,
+                'lastname' => 'Prodev',
+                'birthday' => '2000-01-01',
+                'sex' => 'male',
+                'status' => 'active',
+                'salary' => '0',
+                'payroll_account_number' => null,
+                'date_hired' => now()->format('Y-m-d'),
+                'gsis_no' => null,
+                'pagibig_no' => null,
+                'philhealth_no' => null,
+                'sss_no' => null,
+                'tin_no' => null,
+                'employment_type' => 'Interns',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ];
-        
+
         foreach ($testEmployees as $employee) {
 
-            if($product == 'government') {
-                $section_id = rand(1,3);
+            $section_id = null;
+            $position_id = null;
+            $employment_type_id = null;
+
+            if ($product == 'government') {
+                $section_id = rand(1, 3);
                 $position_id = 1;
                 $employment_type_id = 1;
+            }
+
+            if (isset($employee['employment_type'])) {
+                $employment_type_id = EmployementTypes::where('name', $employee['employment_type'])->value('id');
             }
 
             EmployeeInformation::updateOrCreate(

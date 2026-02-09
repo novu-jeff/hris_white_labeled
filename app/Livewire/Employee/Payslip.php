@@ -24,6 +24,7 @@ class Payslip extends Component
     public $payroll;
     public $payslip;
     public $error;
+    public $periodMessage;
     public $requestStatus;
     public $currentPeriod;
     protected $listeners = ['request'];
@@ -58,6 +59,7 @@ class Payslip extends Component
         $this->payroll = $payroll;                 // Salary items
         $this->payslip = $payroll;                 // Salary items
         $this->currentPeriod = $payroll->payroll;  // Payroll header
+        $this->periodMessage = null;
 
         $this->checkRequest();
 
@@ -81,8 +83,10 @@ class Payslip extends Component
             $payroll_date = Carbon::parse($this->payroll->payroll_date)->format('F d, Y');
             $filename = $this->employee_no . '|Payslip for ' . $payroll_date . '.pdf';
 
+            $provider = config('meta')[env('APP_PROVIDER', 'novulutions')] ?? config('meta')['novulutions'];
             $pdf = Pdf::loadView('employee.payslip-pdf', [
-                'payslip' => $this->payroll
+                'payslip' => $this->payroll,
+                'provider' => $provider,
             ]);
 
             return response()->streamDownload(
@@ -162,9 +166,11 @@ class Payslip extends Component
         $next = $query->first();
 
         if (!$next) {
-            $this->error = 'No more payroll records in this direction.';
+            $this->periodMessage = $direction == '-1' ? 'No earlier period.' : 'No later period.';
             return;
         }
+
+        $this->periodMessage = null;
 
         // Update displayed data
         $this->payroll = $next;

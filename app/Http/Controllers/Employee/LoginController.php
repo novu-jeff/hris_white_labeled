@@ -27,10 +27,22 @@ class LoginController extends Controller
             return redirect()->back()->withInput()->withErrors($validator);
         }
 
-        // Determine identifier: email or employee_no
-        $identifier = filter_var($request->email, FILTER_VALIDATE_EMAIL) ? 'email_id' : 'employee_no';
+        // Allow login by email address, email_id (E-ID), or employee_no (E-No.)
+        $input = $request->email;
+        $isEmailFormat = filter_var($input, FILTER_VALIDATE_EMAIL);
 
-        $employeeAccount = EmployeeAccount::where($identifier, $request->email)->first();
+        if ($isEmailFormat) {
+            $employeeAccount = EmployeeAccount::where('email', $input)->first();
+            if ($employeeAccount) {
+                $identifier = 'email';
+            } else {
+                $employeeAccount = EmployeeAccount::where('email_id', $input)->first();
+                $identifier = 'email_id';
+            }
+        } else {
+            $identifier = 'employee_no';
+            $employeeAccount = EmployeeAccount::where('employee_no', $input)->first();
+        }
 
         // ---------------------------------------------------
         // 🔥 AUTO-UNLOCK AFTER 30 MINUTES
@@ -54,8 +66,8 @@ class LoginController extends Controller
         // ---------------------------------------------------
 
         // Try login
-        if (Auth::guard('employee')->attempt([
-            $identifier => $request->email,
+        if ($employeeAccount && Auth::guard('employee')->attempt([
+            $identifier => $input,
             'password' => $request->password
         ])) {
             // Reset attempts
@@ -125,11 +137,19 @@ class LoginController extends Controller
                 ->withErrors($validator);
         }
     
-        // Determine identifier: email or employee_no
-        $identifier = filter_var($request->email, FILTER_VALIDATE_EMAIL) ? 'email_id' : 'employee_no';
-    
-        // Fetch the employee account
-        $employeeAccount = EmployeeAccount::where($identifier, $request->email)->first();
+        // Allow login by email address, email_id (E-ID), or employee_no (E-No.)
+        $input = $request->email;
+        $isEmailFormat = filter_var($input, FILTER_VALIDATE_EMAIL);
+        if ($isEmailFormat) {
+            $employeeAccount = EmployeeAccount::where('email', $input)->first();
+            $identifier = $employeeAccount ? 'email' : 'email_id';
+            if (!$employeeAccount) {
+                $employeeAccount = EmployeeAccount::where('email_id', $input)->first();
+            }
+        } else {
+            $identifier = 'employee_no';
+            $employeeAccount = EmployeeAccount::where('employee_no', $input)->first();
+        }
     
         // Check if account exists and is locked
         if ($employeeAccount && $employeeAccount->isLocked) {
@@ -138,25 +158,25 @@ class LoginController extends Controller
                 ->withInput();
         }
     
-        if (Auth::guard('employee')->attempt([
-            $identifier => $request->email,
+        if ($employeeAccount && Auth::guard('employee')->attempt([
+            $identifier => $input,
             'password' => $request->password
         ])) {
             // Reset login attempts on successful login
             $employeeAccount->login_attempts = 0;
             $employeeAccount->save();
-    
+
             $employee = Auth::guard('employee')->user();
-    
+
             if ($employee->information->status !== 'active') {
                 Auth::guard('employee')->logout();
                 return redirect()->back()
                     ->with(['error' => 'Oops, your account is currently inactive.'])
                     ->withInput();
             }
-    
+
             return redirect()->route('employee.dashboard');
-    
+
         } else {
 
             if ($employeeAccount) {

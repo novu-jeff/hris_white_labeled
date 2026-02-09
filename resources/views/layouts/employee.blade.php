@@ -49,7 +49,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
 
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -61,6 +60,7 @@
     @vite(['resources/sass/app.scss', 'resources/js/app.js', 'resources/sass/home-layout.scss', 'resources/sass/employee-layout.scss', 'resources/sass/chat.scss'])
 
     @yield('style')
+    @stack('style')
 
     @livewireStyles
     
@@ -80,7 +80,8 @@
             align-items: center;
             cursor: pointer;
             box-shadow: 0 6px 18px rgba(0,0,0,0.2);
-            z-index: 9999;
+            /* Keep below Bootstrap modals (modal: 1055, backdrop: 1050) */
+            z-index: 1040;
         }
         .chat-float-btn i { font-size: 30px; }
 
@@ -93,7 +94,8 @@
     border: 1px solid #ccc;
     border-radius: 8px;
     box-shadow: 0px 4px 15px rgba(0,0,0,0.2);
-    z-index: 9999;
+    /* Keep below Bootstrap modals (modal: 1055, backdrop: 1050) */
+    z-index: 1040;
     display: flex;
     flex-direction: column;
     user-select: none;
@@ -167,7 +169,7 @@
 
 </head>
 <body>
-    <div id="app">
+    <div id="app" class="sidebar-open">
 
         <div class="scroll-top">
             <i class="fa-solid fa-arrow-up fa-bounce"></i>
@@ -175,16 +177,19 @@
 
         @livewire('employee.new-employee')
         @livewire('employee.account-status')
+        @livewire('employee.modals.change-password')
         
         @include('components.employee.navbarnew')
 
-        <!-- FLOATING CLOCK-IN/OUT BUTTON -->
+        <!-- FLOATING CLOCK-IN/OUT BUTTON (hidden in sidebar, visible only here) -->
         @canany(['read clock-in-out', 'write clock-in-out'])
+        @if(\App\Helpers\EmployeeModules::isNavModuleEnabled('clock'))
         <div id="floatingClockBtn">
             <a href="{{ route('employee.clock') }}" class="btn btn-success">
                 <i class="fa-solid fa-clock"></i> Clock In / Out
             </a>
         </div>
+        @endif
         @endcanany
 
           <!-- ================= SIDEBAR ================= -->
@@ -257,7 +262,7 @@
                 </div>
 
                 <p class="ending text-center mb-0 text-muted mt-5">
-                    &copy; 2025. Powered by {{$provider['company']}}
+                    &copy; {{ now()->format('Y') }}. Powered by {{$provider['company']}}
                 </p>
             </div>
         </div>
@@ -282,18 +287,50 @@
 
 
     @yield('script')
+    {{-- Strip injected HTML from JSON responses (e.g. "<!-- This Commentary... -->" prepended by proxy/hosting) --}}
+    <script>
+    (function() {
+        if (window.__livewireFetchLogged) return;
+        var nativeFetch = window.fetch;
+        window.fetch = function(input, init) {
+            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            var isSameOrigin = url && (url.startsWith(window.location.origin) || url.startsWith('/'));
+            var isPost = !(init && init.method) || String(init.method).toUpperCase() === 'POST';
+            return nativeFetch.apply(this, arguments).then(function(response) {
+                if (!isSameOrigin || !isPost) return response;
+                return response.clone().text().then(function(text) {
+                    var trimmed = text.trimStart();
+                    if (trimmed.charAt(0) !== '<') return response;
+                    var jsonStart = trimmed.indexOf('{');
+                    if (jsonStart === -1) {
+                        console.error('[Livewire] Response was HTML, no JSON object found', { url: url, bodyPreview: text.slice(0, 800) });
+                        return response;
+                    }
+                    var strippedText = trimmed.slice(jsonStart);
+                    console.warn('[Livewire] Stripped leading HTML from response', { url: url, strippedBytes: jsonStart, bodyLength: text.length });
+                    var headers = new Headers(response.headers);
+                    headers.set('Content-Length', strippedText.length);
+                    return new Response(strippedText, { status: response.status, statusText: response.statusText, headers: headers });
+                }).catch(function(e) {
+                    console.warn('[Livewire] Could not process response:', e);
+                    return response;
+                });
+            });
+        };
+        window.__livewireFetchLogged = true;
+    })();
+    </script>
     @livewireScripts
     <script>
     let lastScrollTop = 0;
     const clockBtn = document.getElementById("floatingClockBtn");
 
     window.addEventListener("scroll", function() {
+        if (!clockBtn) return;
         let st = window.pageYOffset || document.documentElement.scrollTop;
         if (st > lastScrollTop) {
-            // scrolling down
             clockBtn.style.opacity = "0.3";
         } else {
-            // scrolling up
             clockBtn.style.opacity = "1";
         }
         lastScrollTop = st <= 0 ? 0 : st;
@@ -303,43 +340,55 @@
     document.addEventListener("DOMContentLoaded", function () {
         const sidebar = document.getElementById("employeeSidebar");
         const toggle = document.getElementById("sidebarToggle");
+        const app = document.getElementById("app");
 
-        toggle.addEventListener("click", function () {
-            sidebar.classList.toggle("active");
+        if (toggle && sidebar && app) {
+            // Mobile: start with sidebar closed (remove defaults from blade)
+            if (window.innerWidth <= 992) {
+                sidebar.classList.remove("active");
+                app.classList.remove("sidebar-open");
+            }
+            toggle.addEventListener("click", function () {
+                sidebar.classList.toggle("active");
+                app.classList.toggle("sidebar-open", sidebar.classList.contains("active"));
+            });
+        }
+
+        // Highlight active employee menu item based on current URL
+        const currentUrl = window.location.href.split('#')[0];
+        const employeeLinks = document.querySelectorAll("#employeeSidebar .menu-item");
+
+        employeeLinks.forEach(link => {
+            if (!link.href) return;
+            const href = link.href.split('#')[0];
+            if (currentUrl === href || currentUrl.startsWith(href)) {
+                link.classList.add("is-active");
+            }
         });
     });
 
     
 function toggleChatbox() {
-    const chat = document.getElementById('chatboxWindow');
-    chat.classList.toggle('show');
+    const chatbox = document.getElementById('chatboxWindow');
+    if (!chatbox) return;
 
-      // Only emit after Livewire is ready
-    document.addEventListener('livewire:load', () => {
-        if (window.Livewire) {
-            window.Livewire.emit('markMessagesAsSeen');
+    const willOpen = (chatbox.style.display === "none" || chatbox.style.display === "");
+    chatbox.style.display = willOpen ? "block" : "none";
+    chatbox.classList.toggle('show', willOpen);
+
+    // Tell Livewire to start/stop polling ONLY when open
+    if (window.Livewire?.dispatch) {
+        window.Livewire.dispatch('setChatOpen', [willOpen]);
+        if (willOpen) {
+            window.Livewire.dispatch('markMessagesAsSeen');
         }
-    });
-    
-    setTimeout(() => {
-        const container = document.getElementById('messagesContainer');
-        container.scrollTop = container.scrollHeight;
-    }, 200);
+    }
 
-    
-    if (chatbox.style.display === "none" || chatbox.style.display === "") {
-        console.log("Showing  chatbox");
-        chatbox.style.display = "block";
-
-        // Scroll to the bottom after a short delay (for Livewire rendering)
+    if (willOpen) {
         setTimeout(() => {
-            const messagesContainer = chatbox.querySelector('#messagesContainer'); // replace with actual message container class/id
-            if(messagesContainer){
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }, 100); // 100ms delay to ensure messages are rendered
-    } else {
-        chatbox.style.display = "none";
+            const container = document.getElementById('messagesContainer');
+            if (container) container.scrollTop = container.scrollHeight;
+        }, 200);
     }
 }
 

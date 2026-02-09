@@ -15,28 +15,14 @@
                                 @error('date') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>
                         </div>
-                        <div class="col-12 col-md-3 mb-4">
+                        <div class="col-12 col-md-6 mb-4">
                             <label class="mb-2" for="clock_in">Clock In <span class="text-danger">*</span></label>
                             <input type="text" wire:model="clock_in" id="clock_in" class="timepicker form-control">
                             <div class="error-field">
                                 @error('clock_in') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>
                         </div>
-                        <div class="col-12 col-md-3 mb-4">
-                            <label class="mb-2" for="break_out">Lunch Out <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="break_out" id="break_out" class="timepicker form-control">
-                            <div class="error-field">
-                                @error('break_out') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-3 mb-4">
-                            <label class="mb-2" for="break_in">Lunch In <span class="text-danger">*</span></label>
-                            <input type="text" wire:model="break_in" id="break_in" class="timepicker form-control">
-                            <div class="error-field">
-                                @error('break_in') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-3 mb-4">
+                        <div class="col-12 col-md-6 mb-4">
                             <label class="mb-2" for="clock_out">Clock Out <span class="text-danger">*</span></label>
                             <input type="text" wire:model="clock_out" id="clock_out" class="timepicker form-control">
                             <div class="error-field">
@@ -51,12 +37,12 @@
                             </div>
                         </div>
                         <div class="col-12 mb-4">
-                            <label class="mb-2" for="attachments">Attachments <span class="text-danger">*</span></label>
+                            <label class="mb-2" for="attachments">Attachments (optional)</label>
                             <div class="mt-1 mb-3">
-                                <small class="text-muted fw-bold">Note: Please provide any supporting proof for the reason stated above.</small>
+                                <small class="text-muted fw-bold">Note: You may provide supporting proof for the reason stated above.</small>
                             </div>
-                            <input type="file" wire:model="attachments"   id="attachments" class="form-control mb-1" multiple>                            
-                            <small class="text-muted fw-medium fst-italic"><span class="text-danger">*</span> Accepts multiple files</small>
+                            <input type="file" wire:model="attachments" id="attachments" class="form-control mb-1" multiple>
+                            <small class="text-muted fw-medium fst-italic">Accepts multiple files (jpg, jpeg, png, gif, pdf)</small>
                             <div class="error-field">
                                 @error('attachments') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>

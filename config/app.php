@@ -22,6 +22,8 @@ return [
     'external_timelogs' => env('TIMELOGS_EXTERNAL'),
     'allow_upload_timelogs' => env('ALLOW_UPLOAD_TIMELOGS'),
     'bsd_emp_identical' => env('BSD_EMP_IDENTICAL'),
+    'lunch_tracking' => env('LUNCH_TRACKING', true),
+    'earliest_clock_in_allowed' => env('EARLIEST_CLOCK_IN_ALLOWED', '07:00'),
 
     /*
     |--------------------------------------------------------------------------
@@ -61,6 +63,10 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
+    'public_domain' => env('PUBLIC_DOMAIN'),
+    'careers_domain' => env('CAREERS_DOMAIN'),
+    'ess_domain' => env('ESS_DOMAIN'),
+    'hris_domain' => env('HRIS_DOMAIN'),
 
     'asset_url' => env('ASSET_URL'),
 

@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Settings\Hris\Section;
 use App\Models\Branches;
 use App\Models\Departments;
 use App\Models\Sections;
+use App\Models\EmployeeInformation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
@@ -23,9 +24,16 @@ class Create extends Component
     public function loadRecords() {
         $branches = Branches::all();
         $departments = Departments::all();
+        $employees = EmployeeInformation::with('personal', 'account')
+            ->where('status', 'active')
+            ->where('isDeleted', false)
+            ->whereHas('personal')
+            ->whereHas('account')
+            ->get();
 
         $this->branches = $branches;
         $this->departments = $departments;
+        $this->employees = $employees;
     }
 
     protected function rules() {
@@ -33,7 +41,8 @@ class Create extends Component
             'fields.name' => 'required|unique:sections,name',
             'fields.code' => 'required',
             'fields.branch' => 'required|exists:branches,id',
-            'fields.department' => 'required|exists:departments,id'
+            'fields.department' => 'required|exists:departments,id',
+            'fields.supervisor' => 'nullable|exists:employee_account,employee_no'
         ];
     }
 
@@ -49,6 +58,7 @@ class Create extends Component
     
             'fields.department.required' => 'The department is required.',
             'fields.department.exists' => 'The selected department is invalid or does not exist.',
+            'fields.supervisor.exists' => 'The selected supervisor is invalid or does not exist.',
         ];
     }
     
@@ -76,6 +86,7 @@ class Create extends Component
                 'name' => $this->fields['name'],
                 'branch_id' => $this->fields['branch'],
                 'department_id' => $this->fields['department'],
+                'supervisor_id' => $this->fields['supervisor'] ?? null,
             ]);
 
             DB::commit();

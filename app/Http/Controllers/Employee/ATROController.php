@@ -19,7 +19,7 @@ class ATROController extends Controller
             'action' => 'view',
             'title' => 'ESS | Authority to render overtime',
             'header' => 'Authority to render overtime ',
-            'sub' => 'Track and monitor your ATRO applications.'
+            'sub' => 'Track and monitor your overtime applications.'
         ]);
     }
 

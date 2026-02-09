@@ -26,8 +26,10 @@ class EmployeeInformation extends Model
         'employment_type_id',
         'status',
         'salary_method',
-        'salary',   
+        'salary',
+        'has_salary',
         'salary_type',
+        'allowance',
         'bank_account_no',
         'payroll_account_number',
         'isTransferingEmp'
@@ -129,6 +131,15 @@ class EmployeeInformation extends Model
     public function schedule()
     {
         return $this->belongsTo(ShiftSchedule::class, 'schedule_id');
+    }
+
+    /**
+     * Keep only real employee records.
+     * Real IDs are prefixed with "NI-" (e.g., NI-001). Dummy examples: 003, NO-003.
+     */
+    public function scopeReal($query)
+    {
+        return $query->where('employee_no', 'like', 'NI-%');
     }
 
 }

@@ -153,14 +153,15 @@ class EmploymentHistory extends Component
     ];
 
     protected function rules(?string $employee_no = null) {
+        $isPrivate = config('app.product') === 'private';
         return [
             'records.*.position' => 'required|string|max:255',
             'records.*.department' => 'required|string|max:255',
             'records.*.monthly_salary' => 'required|numeric|min:0',
-            'records.*.employment_status' => 'required|string',
-            'records.*.isGovernment' => 'required|string',
-            'records.*.from_year' => 'required|numeric',
-            'records.*.to_year' => 'required|numeric',
+            'records.*.employment_status' => $isPrivate ? 'nullable|string' : 'required|string',
+            'records.*.isGovernment' => $isPrivate ? 'nullable|string' : 'required|string',
+            'records.*.from_year' => 'required|string|max:20',
+            'records.*.to_year' => 'required|string|max:20',
             'records.*.documents' => 'nullable|mimes:jpg,png,jpeg,pdf',
             'records.*.documents' => function ($attribute, $value, $fail) {
                 $allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];

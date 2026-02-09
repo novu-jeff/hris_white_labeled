@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Ess\Leave;
 
+use App\Helpers\SupervisorApproval;
 use App\Http\Controllers\Admin\Services\LeaveCardService;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeLeave;
@@ -11,6 +12,7 @@ use App\Models\LeaveType;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -63,6 +65,17 @@ class Index extends Component
         
         $this->loadRecords($this->selected_id);
 
+        $employeeNo = $this->view_records->employee_no ?? null;
+
+        if (!$this->canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove leave requests.',
+            ]);
+        }
+
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
@@ -101,6 +114,17 @@ class Index extends Component
     public function approved(bool $isNotify = true) {
 
         $this->loadRecords($this->selected_id);
+
+        $employeeNo = $this->view_records->employee_no ?? null;
+
+        if (!$this->canApprove($employeeNo)) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'message' => 'You are not allowed to approve/disapprove leave requests.',
+            ]);
+        }
 
         if($isNotify) {
 
@@ -173,7 +197,7 @@ class Index extends Component
                         return $this->dispatch('showConfirmation', [
                             'title' => 'Please be Informed',
                             'message' => '
-                                Unfortunately, this employee\'s leave credits are insufficient. He/she is requesting '.$daysCovered.' day(s) of leave, but only have '.$leaveTotalCredits.' remaining. This may still proceed, but please note that this will be considered as Absence Without Pay (AUT w/o pay).
+                                Unfortunately, this employee\'s leave credits are insufficient. He/she is requesting '.$leaveEquiv.' day(s) of leave, but only have '.$leaveTotalCredits.' remaining. This may still proceed, but please note that this will be considered as Absence Without Pay (AUT w/o pay).
                             ',
                             'action' => 'approved'
                         ]);
@@ -195,12 +219,15 @@ class Index extends Component
                     ]);
                 }
 
-                if($daysCovered > $leaveCredits->credits) {
+                $leaveEquivOther = ($record->duration ?? 'wholeday') === 'wholeday'
+                    ? $daysCovered
+                    : round($daysCovered / 2 * 1.0, 2);
+                if($leaveEquivOther > $leaveCredits->credits) {
                     return $this->dispatch('alert', [
                         'showAlert' => true,
                         'status' => 'error',
                         'title' => 'Oops',
-                        'message' => 'Unfortunately, this employee have insufficient leave credits. Applying for '.$daysCovered.' day(s), but only have ' . $leaveCredits->credits . ' remaining leave credits.'
+                        'message' => 'Unfortunately, this employee have insufficient leave credits. Applying for '.$leaveEquivOther.' day(s), but only have ' . $leaveCredits->credits . ' remaining leave credits.'
                     ]);
                 }
             }
@@ -230,6 +257,46 @@ class Index extends Component
             return;
         }
 
+    }
+
+    private function canApprove(?string $employeeNo = null): bool
+    {
+        $user = Auth::user();
+        if (!$user) return false;
+
+        $requiredRole = (string) config('ess.approver_role', 'admins');
+        $allowSuperadmin = (bool) config('ess.allow_superadmin', true);
+
+        if ($allowSuperadmin && method_exists($user, 'hasRole') && $user->hasRole('superadmin')) {
+            return true;
+        }
+
+        if (!method_exists($user, 'hasAnyRole')) {
+            $baseAllowed = method_exists($user, 'hasRole') ? $user->hasRole($requiredRole) : false;
+        } else {
+        // Support legacy role names without breaking approval access
+        $roles = array_values(array_unique(array_filter([
+            $requiredRole,
+            'admins',
+            'admin',
+            'manager',
+            'supervisor',
+        ])));
+
+        $baseAllowed = $user->hasAnyRole($roles);
+        }
+
+        if (!$baseAllowed) {
+            return false;
+        }
+
+        // If no specific employee context, fall back to role-based behaviour.
+        if (!$employeeNo) {
+            return true;
+        }
+
+        // Apply supervisor-approval rules when enabled.
+        return SupervisorApproval::canApprove($employeeNo);
     }
 
     public function remove(bool $isNotify = true, ? int $id = null) {
@@ -294,14 +361,12 @@ class Index extends Component
             ->where('isDeleted', false);
 
         if ($this->search) {
-
             $this->resetPage();
-
-            $records = $model->where(function ($query) {
+            $model = $model->where(function ($query) {
                 $query->where('employee_no', 'like', '%' . $this->search . '%')
-                ->orWhereHas('employee', function ($subQuery) {
-                    $subQuery->whereRaw("CONCAT(firstname, ' ', lastname) LIKE ?", ['%' . $this->search . '%']);
-                });
+                    ->orWhereHas('employee', function ($subQuery) {
+                        $subQuery->whereRaw("CONCAT(COALESCE(firstname,''), ' ', COALESCE(lastname,'')) LIKE ?", ['%' . $this->search . '%']);
+                    });
             });
         }
 

@@ -13,7 +13,10 @@ class OtherDeductions extends Model
     protected $fillable = [
         'code',
         'name',
-        'amount'
+        'amount',
+        'amount_type',
+        'maximum_amount',
+        'computation_mode',
     ];
 
 }

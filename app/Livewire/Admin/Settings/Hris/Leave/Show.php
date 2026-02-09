@@ -18,6 +18,7 @@ use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
+use DateTime;
 
 class Show extends Component
 {
@@ -45,15 +46,28 @@ class Show extends Component
 
     protected $paginationTheme = 'bootstrap';
 
+    // Manual leave credit adjustment (for VL/SL leave cards)
+    public $manual_employee_no;
+    public $manual_year;
+    public $manual_period;
+    public $manual_vl_add = 0;
+    public $manual_sl_add = 0;
+    public $manual_note = '';
+    public $months = [
+        'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+        'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+    ];
+
     public function mount()
     {
+        $this->manual_year = (int) now()->format('Y');
+        $this->manual_period = strtoupper(now()->format('F'));
         $this->loadRecords();
     }
 
     public function loadRecords()
     {
         $employees = EmployeeInformation::with(['personal'])
-            ->where('employment_type_id', 1)
             ->get();
 
         $leaveType = LeaveType::where('id', $this->id)
@@ -391,6 +405,158 @@ class Show extends Component
         $this->selected_id = $employee_no ?? null;
     }
 
+    public function openManualAdd(string $employee_no): void
+    {
+        $this->manual_employee_no = $employee_no;
+        $this->manual_year = (int) now()->format('Y');
+        $this->manual_period = strtoupper(now()->format('F'));
+        $this->manual_vl_add = 0;
+        $this->manual_sl_add = 0;
+        $this->manual_note = '';
+        $this->resetErrorBag();
+    }
+
+    public function applyManualAdd(): void
+    {
+        if (Gate::denies('write leave-credits')) {
+            $this->dispatch('alert', [
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'showAlert' => true,
+                'message' => 'You do not have permission to perform this action.',
+            ]);
+            return;
+        }
+
+        // Only applicable to VL/SL leave cards (leave ids 1/2 page).
+        if (!($this->id == 1 || $this->id == 2)) {
+            $this->dispatch('alert', [
+                'status' => 'error',
+                'title' => 'Not supported',
+                'showAlert' => true,
+                'message' => 'Manual adjustments are only supported on VL/SL pages.',
+            ]);
+            return;
+        }
+
+        $this->validate([
+            'manual_employee_no' => 'required|string',
+            'manual_year' => 'required|integer|min:2000|max:2100',
+            'manual_period' => 'required|string',
+            'manual_vl_add' => 'nullable|numeric|min:0',
+            'manual_sl_add' => 'nullable|numeric|min:0',
+            'manual_note' => 'nullable|string|max:255',
+        ]);
+
+        $vlAdd = (float) ($this->manual_vl_add ?? 0);
+        $slAdd = (float) ($this->manual_sl_add ?? 0);
+
+        if ($vlAdd <= 0 && $slAdd <= 0) {
+            $this->dispatch('alert', [
+                'status' => 'error',
+                'title' => 'Nothing to add',
+                'showAlert' => true,
+                'message' => 'Please enter a VL and/or SL amount greater than 0.',
+            ]);
+            return;
+        }
+
+        $employeeNo = (string) $this->manual_employee_no;
+        $year = (int) $this->manual_year;
+        $period = strtoupper((string) $this->manual_period);
+
+        if (!in_array($period, $this->months, true)) {
+            $this->dispatch('alert', [
+                'status' => 'error',
+                'title' => 'Invalid period',
+                'showAlert' => true,
+                'message' => 'Please select a valid month.',
+            ]);
+            return;
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $target = EmployeeLeaveCard::where('employee_no', $employeeNo)
+                ->where('year', $year)
+                ->where('period', $period)
+                ->first();
+
+            if (!$target) {
+                DB::rollBack();
+                $this->dispatch('alert', [
+                    'status' => 'error',
+                    'title' => 'Leave card not found',
+                    'showAlert' => true,
+                    'message' => "No leave card row found for {$employeeNo} ({$period} {$year}).",
+                ]);
+                return;
+            }
+
+            // Apply adjustment as additional "earned" credits, then recompute balances forward.
+            $target->vl_earned = (float) ($target->vl_earned ?? 0) + $vlAdd;
+            $target->sl_earned = (float) ($target->sl_earned ?? 0) + $slAdd;
+
+            $stamp = 'MANUAL ADD';
+            $note = trim((string) $this->manual_note);
+            $parts = [];
+            if ($vlAdd > 0) $parts[] = "VL +{$vlAdd}";
+            if ($slAdd > 0) $parts[] = "SL +{$slAdd}";
+            $msg = $stamp . ': ' . implode(', ', $parts) . ($note !== '' ? " ({$note})" : '');
+
+            $existing = trim((string) ($target->particulars ?? ''));
+            $target->particulars = $existing !== '' ? ($existing . ', ' . $msg) : $msg;
+            $target->save();
+
+            // Recompute all balances across all years (carry-forward) for this employee.
+            $all = EmployeeLeaveCard::where('employee_no', $employeeNo)->get();
+            $grouped = $all->groupBy('year')->sortKeys();
+
+            $prevVl = 0.0;
+            $prevSl = 0.0;
+
+            foreach ($grouped as $yr => $items) {
+                $sorted = $items->sortBy(function ($item) {
+                    return DateTime::createFromFormat('F', $item->period)->format('m');
+                })->values();
+
+                foreach ($sorted as $row) {
+                    $vlEarned = (float) ($row->vl_earned ?? 0);
+                    $vlAutWPay = (float) ($row->vl_aut_w_pay ?? 0);
+                    $slEarned = (float) ($row->sl_earned ?? 0);
+                    $slAutWPay = (float) ($row->sl_aut_w_pay ?? 0);
+
+                    $prevVl = $prevVl + $vlEarned - $vlAutWPay;
+                    $prevSl = $prevSl + $slEarned - $slAutWPay;
+
+                    $row->vl_bal = number_format($prevVl, 3, '.', '');
+                    $row->sl_bal = number_format($prevSl, 3, '.', '');
+                    $row->save();
+                }
+            }
+
+            DB::commit();
+
+            $this->loadRecords();
+            $this->dispatch('hideModal', ['modal' => 'manualAddModal']);
+            $this->dispatch('alert', [
+                'status' => 'success',
+                'title' => 'Saved!',
+                'showAlert' => true,
+                'message' => 'Manual leave credits added successfully.',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $this->dispatch('alert', [
+                'status' => 'error',
+                'title' => 'Error!',
+                'showAlert' => true,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function upload_file() {
 
         if (Gate::denies('write leave-credits')) {
@@ -492,7 +658,7 @@ class Show extends Component
     {
 
         $model = EmployeeInformation::with(['personal'])
-            ->where('employment_type_id', 1);
+            ->whereNotNull('employee_no');
 
         if ($this->search) {
             $this->resetPage();

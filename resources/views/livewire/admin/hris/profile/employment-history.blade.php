@@ -12,13 +12,15 @@
                     <thead>
                         <tr>
                             <th rowspan="2" class="text-center"></th>
-                            <th colspan="2" class="text-center">Inclusive Dates <br> (mm/dd/yyyy)</th>
+                            <th colspan="2" class="text-center">Inclusive Dates <br> (Month / Year)</th>
                             <th rowspan="2" class="text-center">Position Title <br> (Write in full / Do not abbreviate)</th>
                             <th rowspan="2" class="text-center">Department / Agency / Office / Company <br> (Write in full / Do not abbreviate)</th>
                             <th rowspan="2" class="text-center">Monthly Salary</th>
+                            @if(config('app.product') != 'private')
                             <th rowspan="2" class="text-center">Salary / Job / Pay Grade (if applicable) <br> & Step (Format "00-0") / Increment</th>
                             <th rowspan="2" class="text-center">Status of Appointment</th>
                             <th rowspan="2" class="text-center">Gov't Service (Y / N)</th>
+                            @endif
                             <th rowspan="2" class="text-center">Documents</th>
                         </tr>
                         <tr>
@@ -35,13 +37,13 @@
                                     </button>
                                 </td>
                                 <td>
-                                    <input style="width: 300px" type="number" wire:model="records.{{$key}}.from_year" id="records.{{$key}}.from_year" class="form-control text-uppercase text-center">
+                                    <input style="width: 300px" type="text" wire:model="records.{{$key}}.from_year" id="records.{{$key}}.from_year" class="form-control text-uppercase text-center" placeholder="MM/YYYY">
                                     <div class="error-field">
                                         @error('records.'.$key.'.from_year') <span class="text-danger">{{ $message }}</span> @enderror
                                     </div>
                                 </td>
                                 <td>
-                                    <input style="width: 300px" type="number" wire:model="records.{{$key}}.to_year" id="records.{{$key}}.to_year" class="form-control text-uppercase text-center">
+                                    <input style="width: 300px" type="text" wire:model="records.{{$key}}.to_year" id="records.{{$key}}.to_year" class="form-control text-uppercase text-center" placeholder="MM/YYYY">
                                     <div class="error-field">
                                         @error('records.'.$key.'.to_year') <span class="text-danger">{{ $message }}</span> @enderror
                                     </div>
@@ -64,6 +66,7 @@
                                         @error('records.'.$key.'.monthly_salary') <span class="text-danger">{{ $message }}</span> @enderror
                                     </div>
                                 </td>
+                                @if(config('app.product') != 'private')
                                 <td>
                                     <input style="width: 100%" type="text" wire:model="records.{{$key}}.salary_pay_grade" id="records.{{$key}}.salary_pay_grade" class="form-control text-uppercase text-center">
                                     <div class="error-field">
@@ -85,7 +88,8 @@
                                     <div class="error-field">
                                         @error('records.'.$key.'.isGovernment') <span class="text-danger">{{ $message }}</span> @enderror
                                     </div>
-                                </td>                                                
+                                </td>
+                                @endif
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <div>

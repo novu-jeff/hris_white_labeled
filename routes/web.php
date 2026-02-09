@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\DownloadController;
 use App\Http\Controllers\Admin\ESSFAQController;
 use App\Http\Controllers\Admin\TimeAdjustmentsController as ESSTimeAdjustmentsController;
 use App\Http\Controllers\Admin\OfficialBusinessSlipController;
+use App\Http\Controllers\Admin\OffsetController;
 use App\Http\Controllers\Admin\PayrollController;
 use App\Http\Controllers\Admin\Reports\BIR\BIRController;
 use App\Http\Controllers\Admin\Reports\DailyTimeRecord\DailyTimeRecordController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\Admin\Settings\EmployeeScheduleController;
 use App\Http\Controllers\Admin\Settings\HRIS\EarningsController;
 use App\Http\Controllers\Admin\Settings\OrganizationController;
 use App\Http\Controllers\Admin\Settings\Payroll\HolidayController;
+use App\Http\Controllers\Admin\Settings\Payroll\PayrollSettingsController;
 use App\Http\Controllers\Admin\Settings\RoleController;
 use App\Http\Controllers\Admin\TimeKeepingController;
 use App\Http\Controllers\Admin\TranchesController;
@@ -73,6 +75,7 @@ use App\Http\Controllers\Employee\ATROController as EmployeeATROController;
 use App\Http\Controllers\Employee\ProfileController as EmployeeProfileController;
 use App\Http\Controllers\Employee\AnnouncementController as EmployeeAnnouncementController;
 use App\Http\Controllers\Employee\BusinessSlipController;
+use App\Http\Controllers\Employee\OffsetController as EmployeeOffsetController;
 use App\Http\Controllers\Employee\DirectoryController as EmployeeDirectoryController;
 use App\Http\Controllers\Employee\EmployeeDailyTimeRecordController;
 use App\Http\Controllers\Employee\TimeAdjustmentsController;
@@ -101,60 +104,80 @@ use App\Http\Controllers\Admin\LeaveImportController;
 |
 */
 
-Route::redirect('/', 'jobs', 301);;
+$careersDomain = config('app.careers_domain');
+$publicDomain = config('app.public_domain');
+$essDomain = config('app.ess_domain');
+$hrisDomain = config('app.hris_domain');
 
-Route::get('jobs', [HomeController::class, 'index'])
-        ->name('home.index')
+$publicRoutes = function () {
+    Route::get('jobs', [HomeController::class, 'index'])
+            ->name('home.index')
+            ->middleware('applicant:guest');
+    Route::get('jobs/view/{slug}', [ViewJobController::class, 'index'])
+        ->name('home.view-job')
         ->middleware('applicant:guest');
-Route::get('jobs/view/{slug}', [ViewJobController::class, 'index'])
-    ->name('home.view-job')
-    ->middleware('applicant:guest');
 
-Route::prefix('login')->group(function() {
-    Route::get('/', [HomeLoginController::class, 'index'])
-        ->name('home.login');
-    Route::post('/', [HomeLoginController::class, 'store'])
-        ->name('home.login.store');
-});
+    Route::prefix('login')->group(function() {
+        Route::get('/', [HomeLoginController::class, 'index'])
+            ->name('home.login');
+        Route::post('/', [HomeLoginController::class, 'store'])
+            ->name('home.login.store');
+    });
 
-Route::any('logout', [HomeLoginController::class, 'logout'])
-    ->name('home.logout');
+    Route::any('logout', [HomeLoginController::class, 'logout'])
+        ->name('home.logout');
 
-Route::prefix('register')->group(function() {
-    Route::get('/', [RegisterController::class, 'index'])
-        ->name('home.register');
-    Route::post('/', [RegisterController::class, 'store'])
-        ->name('home.register');
-});
-        
+    Route::prefix('register')->group(function() {
+        Route::get('/', [RegisterController::class, 'index'])
+            ->name('home.register');
+        Route::post('/', [RegisterController::class, 'store'])
+            ->name('home.register');
+    });
 
-Route::middleware(['applicant'])->group(function() {
-    Route::get('my/jobs/applied', [AppliedController::class, 'index'])
-        ->name('home.applied');
+    Route::middleware(['applicant'])->group(function() {
+        Route::get('my/jobs/applied', [AppliedController::class, 'index'])
+            ->name('home.applied');
 
-    Route::get('my/jobs/saved', [SavedJobsController::class, 'index'])
-        ->name('home.saved');
+        Route::get('my/jobs/saved', [SavedJobsController::class, 'index'])
+            ->name('home.saved');
 
-    Route::get('jobs/applied/view-job/{slug}', [ViewJobController::class, 'index'])
-        ->name('home.applied.view-job');
-    
-    Route::get('search/{search?}', [HomeController::class, 'index'])
-        ->name('home.search');
-    
-    Route::get('my/profile', [ProfileController::class, 'index'])
-        ->name('home.profile');
-    
-    Route::get('assessment/respond/{job_id}/{interview_id}', [HomeInterviewController::class, 'interview'])
-        ->name('interview-respond');
-    
-    Route::get('job/offer/upload/signed/{job_id}', [HomeInterviewController::class, 'offer'])
-        ->name('upload-signed-offer');
-    
-    Route::get('job/requirements/upload/{job_id}', [HomeInterviewController::class, 'requirements'])
-        ->name('upload-requirements');
-});
-    
-Route::prefix('admin')->group(function() {
+        Route::get('jobs/applied/view-job/{slug}', [ViewJobController::class, 'index'])
+            ->name('home.applied.view-job');
+
+        Route::get('search/{search?}', [HomeController::class, 'index'])
+            ->name('home.search');
+
+        Route::get('my/profile', [ProfileController::class, 'index'])
+            ->name('home.profile');
+
+        Route::get('assessment/respond/{job_id}/{interview_id}', [HomeInterviewController::class, 'interview'])
+            ->name('interview-respond');
+
+        Route::get('job/offer/upload/signed/{job_id}', [HomeInterviewController::class, 'offer'])
+            ->name('upload-signed-offer');
+
+        Route::get('job/requirements/upload/{job_id}', [HomeInterviewController::class, 'requirements'])
+            ->name('upload-requirements');
+    });
+};
+
+if ($careersDomain) {
+    Route::domain($careersDomain)->group(function () use ($publicRoutes) {
+        Route::redirect('/', 'jobs', 301);
+        $publicRoutes();
+    });
+} elseif ($publicDomain) {
+    Route::domain($publicDomain)->group(function () use ($publicRoutes) {
+        Route::redirect('/', 'jobs', 301);
+        $publicRoutes();
+    });
+} else {
+    Route::redirect('/', 'jobs', 301);
+    $publicRoutes();
+}
+
+$adminRoutes = function () {
+    Route::prefix('admin')->group(function() {
 
     Route::redirect('/', 'admin/login', 302);
 
@@ -173,6 +196,11 @@ Route::prefix('admin')->group(function() {
 
         Route::get('dashboard', [AdminDashboardController::class, 'index'])
             ->name('admin.dashboard');
+
+        Route::get('profile/change-password', [AdminLoginController::class, 'changePassword'])
+            ->name('admin.change-password');
+        Route::post('profile/change-password', [AdminLoginController::class, 'updatePassword'])
+            ->name('admin.change-password.update');
 
         Route::get('download', [DownloadController::class, 'index'])
             ->name('download.view');
@@ -238,6 +266,9 @@ Route::prefix('admin')->group(function() {
             
             Route::get('official-business-slip', [OfficialBusinessSlipController::class, 'index'])
                 ->name('ess.obs');
+
+            Route::get('offset', [OffsetController::class, 'index'])
+                ->name('ess.offset');
 
             Route::get('authority-to-render-over-time', [ESSAuthorityToRenderTimeController::class, 'index'])
                 ->name('ess.atro');
@@ -404,18 +435,25 @@ Route::prefix('admin')->group(function() {
                 ->names('users.access');
 
             Route::get('/user-trails', [App\Http\Controllers\TrailController::class, 'index'])
-    ->name('user.trails');    
+    ->name('user.trails');
+
+            Route::get('/employee-modules', [App\Http\Controllers\Admin\Settings\EmployeeModulesController::class, 'index'])
+                ->name('settings.employee-modules');
             
             Route::prefix('payroll')->group( function() {
                 Route::resource('/holidays', HolidayController::class)->only('create', 'index', 'edit')
                     ->names('holiday');
+                Route::get('/settings', [PayrollSettingsController::class, 'index'])
+                    ->name('payroll.settings');
             });
         });
     });
 
 });
+};
 
-Route::prefix('employee')->middleware('check_employee_allowed_module')->group(function() {
+$employeeRoutes = function () {
+    Route::prefix('employee')->middleware('check_employee_allowed_module')->group(function() {
 
 
     Route::get('forgot-password', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
@@ -462,6 +500,16 @@ Route::prefix('employee')->middleware('check_employee_allowed_module')->group(fu
                 ->name('employee.obs.edit');
         });
 
+        Route::prefix('offset')->group(function() {
+
+            Route::get('/', [EmployeeOffsetController::class, 'index'])
+                ->name('employee.offset.index');
+            Route::get('apply', [EmployeeOffsetController::class, 'create'])
+                ->name('employee.offset.apply');
+            Route::get('edit/{id}', [EmployeeOffsetController::class, 'edit'])
+                ->name('employee.offset.edit');
+        });
+
         Route::prefix('authority-to-render-time')->group(function() {
 
             Route::get('/', [EmployeeATROController::class, 'index'])
@@ -505,6 +553,8 @@ Route::prefix('employee')->middleware('check_employee_allowed_module')->group(fu
 
         Route::get('clock-in-out', [EmployeeClockInOutController::class, 'index'])
             ->name('employee.clock');
+        Route::post('clock-capture-upload', [EmployeeClockInOutController::class, 'uploadCapture'])
+            ->name('employee.clock.capture-upload');
 
         Route::get('remaining-credit', [EmployeeRemainingCreditController::class, 'index'])
             ->name('employee.credit');
@@ -531,5 +581,22 @@ Route::prefix('employee')->middleware('check_employee_allowed_module')->group(fu
 
     });
 });
+};
 
+if ($hrisDomain) {
+    Route::domain($hrisDomain)->group(function () use ($adminRoutes) {
+        Route::redirect('/', '/admin/login', 302);
+        $adminRoutes();
+    });
+} else {
+    $adminRoutes();
+}
 
+if ($essDomain) {
+    Route::domain($essDomain)->group(function () use ($employeeRoutes) {
+        Route::redirect('/', '/employee/login', 302);
+        $employeeRoutes();
+    });
+} else {
+    $employeeRoutes();
+}

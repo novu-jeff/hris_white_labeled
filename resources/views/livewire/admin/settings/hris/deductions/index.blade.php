@@ -1,5 +1,9 @@
 <div class="card border-0 mt-3">
     <div class="card-body p-0">
+        <div class="alert alert-info border-0 mb-4">
+            <strong class="text-uppercase">Deductions — HR input per employee</strong>
+            <p class="mb-0 mt-2 small">HR can input amounts per employee for: <strong>Withholding Tax</strong>, <strong>Gov't contributions</strong> (SSS, HDMF, PhilHealth, etc.), <strong>Social Responsibility</strong>, and other deduction types. Use <strong>Manage</strong> to set amounts per employee. Choose <strong>Manual</strong> to enter values per employee; choose <strong>Automatic</strong> to let the system compute where supported.</p>
+        </div>
         <div class="row mb-4">
             <div class="col-md-6 d-flex align-items-center gap-2">
                 <label for="entries" class="form-label mb-0">Show entries:</label>
@@ -28,6 +32,7 @@
                     <tr>
                         <th>Code</th>
                         <th>Name</th>
+                        <th>Computation</th>
                         <th style="max-width: 200px;">Action</th>
                     </tr>
                 </thead>                
@@ -36,21 +41,29 @@
                         <tr data-id="{{$record->id}}">
                             <td>{{$record->code}}</td>
                             <td>{{$record->name}}</td>
-                            <td class="d-flex justify-content-start">
-                               <a href="{{route('deductions.index', ['id' => $record->id])}}" class="btn btn-secondary mx-1">
-                                    <i class="fa-solid fa-plus text-white"></i>
+                            <td>
+                                @if(($record->computation_mode ?? 'manual') === 'automatic')
+                                    <span class="badge bg-success">Automatic</span>
+                                @else
+                                    <span class="badge bg-secondary">Manual</span>
+                                @endif
+                            </td>
+                            <td class="d-flex justify-content-start gap-2">
+                               <a href="{{route('other-deductions.show', ['other_deduction' => $record->id])}}" class="btn btn-info mx-1" title="Manage Employees - Add/Edit Deductions">
+                                    <i class="fa-solid fa-users text-white me-1"></i>
+                                    <span class="d-none d-md-inline">Manage</span>
                                 </a>
-                                <a href="{{route('other-deductions.edit', ['other_deduction' => $record->id])}}" class="btn btn-primary mx-1">
+                                <a href="{{route('other-deductions.edit', ['other_deduction' => $record->id])}}" class="btn btn-primary mx-1" title="Edit Deduction Type">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </a>
-                                <button wire:click="remove(true, {{$record->id}})" class="btn btn-danger mx-1">
+                                <button wire:click="remove(true, {{$record->id}})" class="btn btn-danger mx-1" title="Delete Deduction Type">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="12" class="text-center fw-bold py-3">No data was found</td>
+                            <td colspan="4" class="text-center fw-bold py-3">No data was found</td>
                         </tr>
                     @endforelse
                 </tbody>

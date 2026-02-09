@@ -92,6 +92,15 @@
                                         <div style="white-space: normal !important;" class="py-2">
                                             @if($has_leave_card[$record->employee_no])
                                                 <div class="d-flex justify-content-center align-items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-success"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#manualAddModal"
+                                                        wire:click="openManualAdd('{{ $record->employee_no }}')"
+                                                        title="Manual add credits">
+                                                        <i class="fa-solid fa-plus"></i>
+                                                    </button>
                                                     <div class="btn btn-danger" wire:click="resetCredits(true, '{{ $record->employee_no }}')">
                                                         <i class="fa-solid fa-rotate"></i>
                                                     </div>
@@ -218,6 +227,75 @@
                         </div>
                     </div>
                 @endif
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="manualAddModal" wire:ignore.self data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-uppercase fw-bold">Manual Add Leave Credits</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info text-uppercase fw-bold">
+                        <small>
+                            This will add to the selected month’s earned credits and recompute balances forward.
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Employee No</label>
+                        <input type="text" class="form-control" wire:model.defer="manual_employee_no" readonly>
+                        @error('manual_employee_no') <span class="text-danger">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Year</label>
+                            <input type="number" class="form-control" wire:model.defer="manual_year" min="2000" max="2100">
+                            @error('manual_year') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Month</label>
+                            <select class="form-select" wire:model.defer="manual_period">
+                                @foreach($months as $m)
+                                    <option value="{{ $m }}">{{ $m }}</option>
+                                @endforeach
+                            </select>
+                            @error('manual_period') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label class="form-label">VL to add</label>
+                            <input type="number" step="0.001" class="form-control" wire:model.defer="manual_vl_add" min="0">
+                            @error('manual_vl_add') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">SL to add</label>
+                            <input type="number" step="0.001" class="form-control" wire:model.defer="manual_sl_add" min="0">
+                            @error('manual_sl_add') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label">Note (optional)</label>
+                        <input type="text" class="form-control" wire:model.defer="manual_note" maxlength="255" placeholder="e.g., Correction / Bonus credits">
+                        @error('manual_note') <span class="text-danger">{{ $message }}</span> @enderror
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary text-uppercase fw-bold px-4"
+                            wire:click="applyManualAdd"
+                            wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="applyManualAdd">Apply</span>
+                        <span wire:loading wire:target="applyManualAdd">Saving <i class="fa-solid fa-spinner fa-spin ms-2"></i></span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

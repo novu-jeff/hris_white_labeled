@@ -3,6 +3,7 @@
 namespace App\Livewire\Employee\TimeAdjustments;
 
 use App\Models\EmployeeAccount;
+use App\Models\EmployeePersonal;
 use App\Models\EmployeeTimeAdjustments;
 use App\Models\EmployeeTimeAdjustmentsAttachments;
 use App\Notifications\Notifications;
@@ -23,15 +24,9 @@ class Apply extends Component
     public $date;
     public $clock_in;
     public $clock_out;
-    public $break_in;
-    public $break_out;
     public $reason;
     public $attachments = [];
     public $preview_attachments = [];
-    protected $rules = [
-        'attachments' => 'required|array|min:1',
-        'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf|max:5120',
-    ];
 
 
     protected $listeners = ['save'];
@@ -59,18 +54,14 @@ class Apply extends Component
                     ->route('employee.request-timelog');
             }
 
-            $clock_in = Carbon::createFromFormat('h:i A', $records->clock_in)->format('H:i:s');
-            $break_in = Carbon::createFromFormat('h:i A', $records->break_in)->format('H:i:s');
-            $break_out = Carbon::createFromFormat('h:i A', $records->break_out)->format('H:i:s');
-            $clock_out = Carbon::createFromFormat('h:i A', $records->clock_out)->format('H:i:s');
+            $clock_in = $records->clock_in ? (str_contains($records->clock_in, 'M') ? Carbon::createFromFormat('h:i A', $records->clock_in)->format('H:i:s') : $records->clock_in) : null;
+            $clock_out = $records->clock_out ? (str_contains($records->clock_out, 'M') ? Carbon::createFromFormat('h:i A', $records->clock_out)->format('H:i:s') : $records->clock_out) : null;
 
             $this->date = $records->date;
             $this->clock_in = $clock_in;
             $this->clock_out = $clock_out;
-            $this->break_in = $break_in;
-            $this->break_out = $break_out;
             $this->reason = $records->reason;
-            $this->preview_attachments = $records->attachments->toArray() ?? [];
+            $this->preview_attachments = $records->attachments ? $records->attachments->toArray() : [];
         }
 
     }
@@ -80,12 +71,10 @@ class Apply extends Component
         return [
             'date' => 'required|date',
             'clock_in' => 'required',
-            'break_out' => 'required',
-            'break_in' => 'required',
             'clock_out' => 'required',
             'reason' => 'required|string',
-            'attachments' => 'required|array',
-            'attachments.*' => 'file|mimes:jpg,jpeg,png,gif,pdf',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'file|mimes:jpg,jpeg,png,gif,pdf|max:5120',
         ];
     }
 
@@ -94,7 +83,8 @@ class Apply extends Component
         $record = EmployeeTimeAdjustmentsAttachments::find($id);
 
         if ($record) {
-            Storage::disk('public')->delete($record->attachment);
+            $disk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
+            Storage::disk($disk)->delete($record->attachment);
             $record->delete();
 
             $this->preview_attachments = array_values(
@@ -127,28 +117,30 @@ class Apply extends Component
                     'employee_no' => $this->employee_no,
                     'date' => $this->date,
                     'clock_in' => $this->clock_in,
-                    'break_out' => $this->break_out,
-                    'break_in' => $this->break_in,
+                    'break_out' => null,
+                    'break_in' => null,
                     'clock_out' => $this->clock_out,
                     'reason' => $this->reason,
                 ]);
 
-                foreach ($this->attachments as $attachment) {
+                if (!empty($this->attachments)) {
+                    foreach ($this->attachments as $attachment) {
+                        $filename = strtolower(
+                            time() . '_' . str_replace(' ', '_', $attachment->getClientOriginalName())
+                        );
 
-                    $filename = strtolower(
-                        time() . '_' . str_replace(' ', '_', $attachment->getClientOriginalName())
-                    );
-
+                    $disk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
                     $path = $attachment->storeAs(
                         'time-adjustments',
                         $filename,
-                        'public'
+                        $disk
                     );
 
-                    EmployeeTimeAdjustmentsAttachments::create([
-                        'employee_requests_id' => $model->id,
-                        'attachment' => $path,
-                    ]);
+                        EmployeeTimeAdjustmentsAttachments::create([
+                            'employee_requests_id' => $model->id,
+                            'attachment' => $path,
+                        ]);
+                    }
                 }
 
 
@@ -162,7 +154,10 @@ class Apply extends Component
                     ]);
     
                     $user = EmployeeAccount::find($this->employee_id);
-                    $message = 'Employee <strong>' . $this->employee_no . '</strong> has submitted an application for <strong>request timelog</strong>.';
+                    $personal = $user->personal ?? EmployeePersonal::where('employee_no', $this->employee_no)->first();
+                    $name = $personal ? trim($personal->firstname . ' ' . $personal->lastname) : '';
+                    $display = $name !== '' ? e($name) . ' (' . e($this->employee_no) . ')' : e($this->employee_no);
+                    $message = 'Employee <strong>' . $display . '</strong> has submitted an application for <strong>request timelog</strong>.';
                     $redirect = route('ess.time-adjustments');
 
                     $user->notify(new Notifications('info', $message, $redirect, 'admin'));
@@ -172,8 +167,6 @@ class Apply extends Component
                     $this->reset([
                     'date',
                     'clock_in',
-                    'break_out',
-                    'break_in',
                     'clock_out',
                     'reason',
                     'attachments',

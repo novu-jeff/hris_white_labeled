@@ -97,7 +97,7 @@ class Announcements extends Component
             ];
             } else {
             $seenBy[] = [
-                'name' => strtolower($record->personal->firstname . ' ' . $record->personal->lastname),
+                'name' => strtolower(trim((string) optional($record->personal)->firstname . ' ' . (string) optional($record->personal)->lastname)) ?: 'unknown',
                 'timestamp' => $record->created_at
             ];
             }

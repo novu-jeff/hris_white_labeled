@@ -4,9 +4,11 @@ namespace App\Livewire\Admin\Hris\Profile;
 
 use App\Http\Controllers\Admin\Services\HRISProcessingService;
 use App\Models\EmployeeAccount;
+use App\Notifications\Notifications;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use App\Models\EmployeeInformation;
 use Livewire\Component;
 
@@ -18,7 +20,7 @@ class Account extends Component
     public $originalData;
     public $records;
 
-    protected $listeners = ['save'];
+    protected $listeners = ['save', 'resetPasswordToDefault'];
 
     public function mount() {
         $this->loadRecords();
@@ -180,6 +182,63 @@ class Account extends Component
                 'message' => 'Error: ' . $e->getMessage()
             ]);
         }
+    }
+
+    public function resetPasswordToDefault(bool $isNotify = true)
+    {
+        if (Gate::denies('write hris')) {
+            $this->dispatch('alert', [
+                'status' => 'error',
+                'title' => 'Access Denied!',
+                'showAlert' => true,
+                'message' => 'You do not have permission to perform this action.',
+            ]);
+            return;
+        }
+
+        if ($isNotify) {
+            $this->dispatch('showConfirmation', [
+                'title' => 'Reset employee password?',
+                'message' => 'This will reset the password to the default and force the employee to change it on next login.',
+                'action' => 'resetPasswordToDefault',
+            ]);
+            return;
+        }
+
+        $account = EmployeeAccount::where('employee_no', $this->employee_no)->first();
+
+        if (!$account) {
+            $this->dispatch('alert', [
+                'status' => 'error',
+                'title' => 'Oops!',
+                'showAlert' => true,
+                'message' => 'Employee account not found.',
+            ]);
+            return;
+        }
+
+        // Reset to default password and force "first time login" flow
+        $account->password = Hash::make('password');
+        $account->isNew = true;
+        $account->isToUpdatePassword = false;
+        $account->last_password_updated = null;
+        $account->save();
+
+        // Notify employee (in-app + optional email based on employee preference)
+        try {
+            $message = 'Your password was reset by HR. Please log in and set a new password.';
+            $redirect = route('employee.dashboard');
+            $account->notify(new Notifications('info', $message, $redirect, 'employee'));
+        } catch (\Exception $e) {
+            // ignore notification failures, but keep reset successful
+        }
+
+        $this->dispatch('alert', [
+            'status' => 'success',
+            'title' => 'Success!',
+            'message' => 'Employee password was reset to default and the account was set to first-time login state.',
+            'redirect' => '_stay',
+        ]);
     }
 
     public function render()
