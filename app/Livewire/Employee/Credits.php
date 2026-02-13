@@ -4,6 +4,7 @@ namespace App\Livewire\Employee;
 
 use App\Models\EmployeeLeaveCard;
 use App\Models\LeaveCredits;
+use App\Models\OffsetCredits;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -52,6 +53,15 @@ class Credits extends Component
             }
         }
 
+
+        $offsetCredits = OffsetCredits::where('employee_no', $employee_no)->value('credits');
+        if (!is_null($offsetCredits)) {
+            $remaingCredits[] = [
+                'name' => 'Offset Credits',
+                'code' => 'OFFSET',
+                'credits' => (float) $offsetCredits,
+            ];
+        }
 
         return $this->records = $remaingCredits;
 

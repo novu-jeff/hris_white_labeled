@@ -249,6 +249,44 @@
     top: -9999px;
     left: -9999px;
 }
+
+/* Dashboard card reordering */
+.dashboard-card-column .dashboard-card-item {
+    margin-bottom: 1rem;
+}
+
+.dashboard-sortable .card {
+    position: relative;
+}
+
+.card-drag-handle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #d8dee6;
+    background: #fff;
+    color: #6c757d;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+}
+
+.card-drag-handle:active {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    opacity: 0.5;
+}
+
+.sortable-chosen {
+    transform: scale(0.995);
+}
 @media print {
     body * {
         visibility: hidden !important;
@@ -303,12 +341,16 @@
     <div class="row mb-5">
 
     <!-- LEFT SIDE: Announcement + Payslip -->
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-lg-6 dashboard-card-column dashboard-sortable" id="dashboard-left-column">
 
 
           <!-- Latest Announcement Card -->
+    <div class="dashboard-card-item" data-card-id="latest-announcement">
     <div class="card shadow mb-3">
     <div class="card-body">
+            <button type="button" class="card-drag-handle" title="Drag to reorder">
+                <i class="fa-solid fa-grip-vertical"></i>
+            </button>
             <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">Latest Announcement</h4>
 
             @if($announcements->count())
@@ -330,9 +372,14 @@
             @endif
         </div>
     </div>
+    </div>
 
+        <div class="dashboard-card-item" data-card-id="employment-details">
         <div class="card shadow mb-3">
         <div class="card-body">
+            <button type="button" class="card-drag-handle" title="Drag to reorder">
+                <i class="fa-solid fa-grip-vertical"></i>
+            </button>
 
             <h5 class="fw-bold mb-3 bg-primary text-white p-2 rounded">Employment Details</h5>
 
@@ -368,13 +415,18 @@
 
         </div>
     </div>
+    </div>
 
     
 
         <!-- Latest Payslip Card -->
         @if($latestPayslip)
+        <div class="dashboard-card-item" data-card-id="latest-payslip">
         <div class="card shadow mb-4">
             <div class="card-body">
+                <button type="button" class="card-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </button>
 
                {{-- <h4 class="fw-bold mb-3">Latest Payslip</h4> --}}
                 <!-- Header + Toggle Button -->
@@ -425,10 +477,11 @@
                 </div>
             </div>
 
-                <a href="{{ route('employee.payslip') }}" class="btn bg-success w-100 text-uppercase fw-bold">
+                <a href="{{ route('employee.payslip') }}" class="btn bg-success text-white w-100 text-uppercase fw-bold">
                     View Full Payslip
                 </a>
             </div>
+        </div>
         </div>
         @endif
 
@@ -437,10 +490,14 @@
     </div>
 
     <!-- RIGHT SIDE: Leave Credits -->
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-lg-6 dashboard-card-column dashboard-sortable" id="dashboard-right-column">
 
+        <div class="dashboard-card-item" data-card-id="leave-credits">
         <div class="card shadow mb-4">
             <div class="card-body">
+                <button type="button" class="card-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </button>
                 <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">
                     Leave Credits — {{ $currentMonth }} {{ now()->year }}
                 </h4>
@@ -458,8 +515,53 @@
 
             </div>
         </div>
+        </div>
+        <div class="dashboard-card-item" data-card-id="upcoming-events">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <button type="button" class="card-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </button>
+                <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">
+                    Upcoming Holidays & Special Events
+                </h4>
+
+                @if(!empty($upcomingEvents) && count($upcomingEvents) > 0)
+                    <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
+                        @foreach($upcomingEvents as $event)
+                            <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <span>
+                                    {{ strtoupper($event['name']) }}
+                                    <span class="badge {{ $event['is_special_event'] ? 'bg-warning text-dark' : 'bg-danger' }} ms-1">
+                                        {{ $event['is_special_event'] ? 'Special Event' : 'Holiday' }}
+                                    </span>
+                                    <small class="text-muted fw-normal d-block">{{ strtoupper($event['type']) }}</small>
+                                </span>
+                                <span class="text-muted small text-end">
+                                    {{ $event['date_label'] }}<br>
+                                    @if($event['days_away'] === 0)
+                                        <strong>Today</strong>
+                                    @elseif($event['days_away'] === 1)
+                                        In 1 day
+                                    @else
+                                        In {{ $event['days_away'] }} days
+                                    @endif
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="text-muted mb-0 small">No upcoming holidays or events.</p>
+                @endif
+            </div>
+        </div>
+        </div>
+       <div class="dashboard-card-item" data-card-id="today-timelogs">
        <div class="card shadow mb-4">
             <div class="card-body">
+                <button type="button" class="card-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </button>
                 <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">
                     TimeLogs for {{ now()->format('F d, Y') }}
                 </h4>
@@ -468,18 +570,18 @@
                     $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
                 @endphp
                 <div class="row">
-                    <!-- AM Column -->
+                    <!-- First Half -->
                     <div class="col-md-6">
-                        <h6 class="fw-bold">AM</h6>
+                        <h6 class="fw-bold">First Half</h6>
                         <p>Clock-in: {{ $latestLogs['clock_in']->formatted_time ?? 'N/A' }}</p>
                         @if($showLunch)
                             <p>Lunch-out: {{ $latestLogs['break_out']->formatted_time ?? 'N/A' }}</p>
                         @endif
                     </div>
 
-                    <!-- PM Column -->
+                    <!-- Second Half -->
                     <div class="col-md-6">
-                        <h6 class="fw-bold">PM</h6>
+                        <h6 class="fw-bold">Second Half</h6>
                         @if($showLunch)
                             <p>Lunch-in: {{ $latestLogs['break_in']->formatted_time ?? 'N/A' }}</p>
                         @endif
@@ -488,9 +590,14 @@
                 </div>
             </div>
         </div>
+        </div>
 
+        <div class="dashboard-card-item" data-card-id="daily-time-record">
         <div class="card shadow mb-4">
     <div class="card-body">
+        <button type="button" class="card-drag-handle" title="Drag to reorder">
+            <i class="fa-solid fa-grip-vertical"></i>
+        </button>
         <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">
             Daily Time Record
         </h4>
@@ -523,10 +630,10 @@
                 <thead>
                     <tr>
                         <th>Days</th>
-                        <th colspan="{{ $showLunch ? '2' : '1' }}">AM</th>
-                        <th colspan="{{ $showLunch ? '2' : '1' }}">PM</th>
+                        <th colspan="{{ $showLunch ? '2' : '1' }}">First Half</th>
+                        <th colspan="{{ $showLunch ? '2' : '1' }}">Second Half</th>
                         <th colspan="2">OVERTIME</th>
-                        <th colspan="2">AUT</th>
+                        <th colspan="2">Undertime</th>
                         <th>Remark</th>
                     </tr>
                     <tr>
@@ -551,13 +658,13 @@
                         <tr>
                             <td>{{ \Carbon\Carbon::parse($key)->format('d D') }}</td>
 
-                            <!-- AM -->
+                            <!-- First Half -->
                             <td>{{ isset($day['clock_in']) ? \Carbon\Carbon::parse($day['clock_in'])->format('g:i A') : ' ' }}</td>
                             @if($showLunch)
                                 <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
                             @endif
 
-                            <!-- PM -->
+                            <!-- Second Half -->
                             @if($showLunch)
                                 <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
                             @endif
@@ -583,6 +690,7 @@
         </div>
     </div>
 </div>
+        </div>
 
         {{-- Work anniversaries & birthdays this month --}}
         <div class="row">
@@ -638,3 +746,60 @@
     </div>
 
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+function initEmployeeDashboardCardSort() {
+    const leftColumn = document.getElementById('dashboard-left-column');
+    const rightColumn = document.getElementById('dashboard-right-column');
+    if (!leftColumn || !rightColumn || typeof Sortable === 'undefined') return;
+    if (leftColumn.dataset.sortableReady === '1' && rightColumn.dataset.sortableReady === '1') return;
+
+    const storageKey = 'employeeDashboardCardOrderV1';
+
+    function applyOrder(container, order) {
+        if (!Array.isArray(order)) return;
+        const map = {};
+        container.querySelectorAll('.dashboard-card-item').forEach((item) => {
+            map[item.dataset.cardId] = item;
+        });
+        order.forEach((id) => {
+            const item = map[id];
+            if (item) container.appendChild(item);
+        });
+    }
+
+    function saveOrder() {
+        const left = Array.from(leftColumn.querySelectorAll('.dashboard-card-item')).map((el) => el.dataset.cardId);
+        const right = Array.from(rightColumn.querySelectorAll('.dashboard-card-item')).map((el) => el.dataset.cardId);
+        localStorage.setItem(storageKey, JSON.stringify({ left, right }));
+    }
+
+    try {
+        const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        applyOrder(leftColumn, stored.left);
+        applyOrder(rightColumn, stored.right);
+    } catch (e) {
+        // Ignore invalid local storage content.
+    }
+
+    const sortableOptions = {
+        group: 'employee-dashboard-cards',
+        animation: 150,
+        handle: '.card-drag-handle',
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        forceFallback: false,
+        fallbackOnBody: true,
+        onEnd: saveOrder,
+    };
+
+    new Sortable(leftColumn, sortableOptions);
+    new Sortable(rightColumn, sortableOptions);
+    leftColumn.dataset.sortableReady = '1';
+    rightColumn.dataset.sortableReady = '1';
+}
+
+document.addEventListener('DOMContentLoaded', initEmployeeDashboardCardSort);
+document.addEventListener('livewire:navigated', initEmployeeDashboardCardSort);
+</script>

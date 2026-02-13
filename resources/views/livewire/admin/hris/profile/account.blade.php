@@ -2,15 +2,16 @@
     <form wire:submit.prevent="save">
         <div class="card mb-4 border-0">
             <div class="card-body px-4">
-                @if(is_null($records['employee_account']['email_id']))
+                @if(empty($records['employee_account']['email_id']) && empty($records['employee_account']['company_email']) && empty($records['employee_account']['personal_email']))
                     <div class="alert alert-primary text-center text-uppercase fw-bold">Please complete the required personal information before proceeding with account setup.</div>
                 @else
                     <div class="row">
                         <div class="col-12 col-md-12 mb-3">
-                            <label class="mb-2" for="records.employee_account.email_id">Email ID</label>
-                            <input type="email" class="form-control restricted" wire:model="records.employee_account.email_id" placeholder="System Generated" readonly>
+                            <label class="mb-2" for="records.employee_account.company_email">Company Email</label>
+                            <input type="email" class="form-control text-lowercase" wire:model="records.employee_account.company_email" placeholder="Optional — if empty, personal email is used for login and notifications">
+                            <small class="text-muted">Used for login and system notifications. Leave empty to use personal email.</small>
                             <div class="error-field">
-                                @error('records.employee_account.email_id') <span class="text-danger">{{ $message }}</span> @enderror
+                                @error('records.employee_account.company_email') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>
                         </div>
                         <div class="col-12 col-md-12 mb-3">
@@ -48,7 +49,7 @@
                 @endif
             </div>
         </div>
-        @if (!empty($records) && !is_null($records['employee_account']['email_id']))
+        @if (!empty($records) && (filled($records['employee_account']['email_id']) || filled($records['employee_account']['company_email']) || filled($records['employee_account']['personal_email'])))
             <hr class="mb-4">
             <div class="card-footer d-flex justify-content-end bg-transparent border-0">
                 <div class="text-end">

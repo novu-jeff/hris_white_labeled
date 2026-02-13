@@ -21,9 +21,11 @@ return [
     'product' => env('APP_PRODUCT'),
     'external_timelogs' => env('TIMELOGS_EXTERNAL'),
     'allow_upload_timelogs' => env('ALLOW_UPLOAD_TIMELOGS'),
+    'timelog_mirror_to_s3' => env('TIMELOG_MIRROR_TO_S3', false),
     'bsd_emp_identical' => env('BSD_EMP_IDENTICAL'),
     'lunch_tracking' => env('LUNCH_TRACKING', true),
     'earliest_clock_in_allowed' => env('EARLIEST_CLOCK_IN_ALLOWED', '07:00'),
+    'support_shift_schedule_id' => env('SUPPORT_SHIFT_SCHEDULE_ID', 4),
 
     /*
     |--------------------------------------------------------------------------

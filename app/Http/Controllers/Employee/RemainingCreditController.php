@@ -16,7 +16,7 @@ class RemainingCreditController extends Controller
         return view('employee.credit', [
             'title' => 'ESS | My Credits',
             'header' => 'Remaining Credits',
-            'sub' => 'All leave credits',
+            'sub' => 'All leave and offset credits',
             'action' => 'index'
         ]);  
     }

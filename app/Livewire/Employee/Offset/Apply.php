@@ -5,6 +5,7 @@ namespace App\Livewire\Employee\Offset;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeOffsetApplication;
 use App\Models\EmployeePersonal;
+use App\Models\OffsetCredits;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +25,7 @@ class Apply extends Component
     $approved_by_id;
 
     public $record_id;
+    public $remaining_offset_credits = 0;
 
     protected $listeners = ['save'];
 
@@ -39,6 +41,7 @@ class Apply extends Component
 
         $this->employee_no = $employee_no;
         $this->employee_id = $employee_id;
+        $this->remaining_offset_credits = (float) (OffsetCredits::where('employee_no', $employee_no)->value('credits') ?? 0);
         
         $employee = DB::table('employee_account')
             ->leftJoin('employee_personal', 'employee_account.employee_no', '=', 'employee_personal.employee_no')
@@ -207,6 +210,15 @@ class Apply extends Component
 
     public function save(bool $isNotify = true) {
         $this->validate($this->rules(), $this->messages());
+
+        if (is_null($this->record_id) && $this->remaining_offset_credits <= 0) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'No Offset Credits',
+                'message' => 'You do not have available offset credits. Please contact HR/Admin.',
+            ]);
+        }
 
         if($isNotify) {
             $title = 'Are you sure to continue?';

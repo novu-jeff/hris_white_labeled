@@ -25,6 +25,7 @@ class Create extends Component
     public $end_shift = '16:00';
     public $work_setup;
     public $isFlexible = false;
+    public $isSupport = false;
     public $isHybrid = false;
     public $min_ot_mins = '120';
     public $max_ot_time = '22:00';
@@ -39,6 +40,7 @@ class Create extends Component
     {
         if ($property === 'shift_duration') {
             $this->isFlexible = ($this->shift_duration === 'flexible');
+            $this->isSupport = ($this->shift_duration === 'support');
         }
     }
 
@@ -58,7 +60,7 @@ class Create extends Component
         $rules = [
             'name' => 'required|string',
             'description' => 'required|string',
-            'shift_duration' => 'required|in:flexible,standard,extended,full-day,compressed,part-time',
+            'shift_duration' => 'required|in:flexible,standard,extended,full-day,compressed,support,part-time',
             'work_setup' => 'required|in:onsite,hybrid',
             'is_breaktime_required' => 'required|boolean',
             'allow_anytime_clockin' => 'nullable|boolean',
@@ -72,12 +74,12 @@ class Create extends Component
             ]);
         }
     
-        if (!$this->isFlexible) {
+        if (!$this->isFlexible && !$this->isSupport) {
             $rules = array_merge($rules, [
                 'start_shift' => 'required|date_format:H:i',
                 'end_shift' => 'required|date_format:H:i|after:start_shift', // Ensure end shift is after start shift
             ]);
-        } else {
+        } elseif ($this->isFlexible) {
             // Add specific rules for flexible shifts
             $rules = array_merge($rules, [
                 'earliest_in' => 'required|date_format:H:i',
@@ -87,7 +89,7 @@ class Create extends Component
     
         // Custom validator to handle shift duration and break times
         $this->withValidator(function ($validator) {
-            if (!$this->isFlexible) {
+            if (!$this->isFlexible && !$this->isSupport) {
                 $validator->after(function ($validator) {
                     // Validate presence of start and end shift times
                     if (!$this->start_shift || !$this->end_shift) {
@@ -112,11 +114,12 @@ class Create extends Component
                         'extended' => 13,
                         'full-day' => 25,
                         'compressed' => 11,
+                        'support' => 8,
                         'part-time' => 0,
                         default => null,
                     };
 
-                    if ($expectedHours !== null && !$this->is_breaktime_required && $expectedHours > 0) {
+                    if ($expectedHours !== null && !$this->is_breaktime_required && $expectedHours > 0 && $this->shift_duration !== 'support') {
                         $expectedHours -= 1;
                     }
     
@@ -223,8 +226,17 @@ class Create extends Component
                 if ($this->isFlexible) {
                     $data['earliest_in'] = $this->earliest_in;
                     $data['latest_in'] = $this->latest_in;
+                    $data['start_shift'] = null;
+                    $data['end_shift'] = null;
+                } elseif ($this->isSupport) {
+                    $data['earliest_in'] = null;
+                    $data['latest_in'] = null;
+                    $data['start_shift'] = null;
+                    $data['end_shift'] = null;
                 } else {
                     $data = array_merge($data, [
+                        'earliest_in' => null,
+                        'latest_in' => null,
                         'start_shift' => $this->start_shift,
                         'end_shift' => $this->end_shift,
                     ]);

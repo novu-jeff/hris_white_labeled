@@ -37,16 +37,19 @@ class Notifications extends Notification
         $channels = ['database'];
 
         // Send email only for employees who enabled it in profile settings
+        $effectiveEmail = $notifiable instanceof EmployeeAccount
+            ? ($notifiable->company_email ?: $notifiable->email)
+            : $notifiable->email;
         if (
             $this->audience === 'employee'
             && $notifiable instanceof EmployeeAccount
             && (bool) ($notifiable->email_notifications_enabled ?? false)
-            && !empty($notifiable->email)
+            && !empty($effectiveEmail)
         ) {
             $allowedDomains = (array) config('notifications.email_allowed_domains', []);
 
             // If allowlist is set, only send to allowed domains (e.g., @novulutions.com)
-            if (empty($allowedDomains) || $this->isEmailAllowed((string) $notifiable->email, $allowedDomains)) {
+            if (empty($allowedDomains) || $this->isEmailAllowed((string) $effectiveEmail, $allowedDomains)) {
                 $channels[] = 'mail';
             }
         }

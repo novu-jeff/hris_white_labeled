@@ -171,7 +171,7 @@
             'read company-information', 'read scheduler', 'read tranches', 'read holidays',
             'read branches', 'read departments', 'read sections', 'read assessments', 'read requirements',
             'read users', 'read roles', 'read bank-information', 'read employment-type', 'read positions',
-            'read violations', 'read leave-types', 'read gsis-billing', 'read other-earnings', 'read other-deductions'
+            'read violations', 'read leave-types', 'read offset-credits', 'read gsis-billing', 'read other-earnings', 'read other-deductions'
         ])
         <!-- Settings -->
         <div class="menu-group">
@@ -243,7 +243,7 @@
                 <!-- HRIS -->
                 @canany([
                     'read bank-information', 'read employment-type', 'read positions',
-                    'read violations', 'read leave-types', 'read gsis-billing',
+                    'read violations', 'read leave-types', 'read offset-credits', 'read gsis-billing',
                     'read other-earnings', 'read other-deductions'
                 ])
                 <div class="submenu-subgroup">
@@ -271,6 +271,10 @@
                     @can('read leave-types')
                     <a href="{{ route('leave.index') }}" class="submenu-item">
                         <i class="fa-solid fa-calendar-check"></i>  Leaves</a>
+                    @endcan
+                    @can('read offset-credits')
+                    <a href="{{ route('offset-credits.index') }}" class="submenu-item">
+                        <i class="fa-solid fa-repeat"></i>  Offset Credits</a>
                     @endcan
                     
                     @can('read other-earnings')

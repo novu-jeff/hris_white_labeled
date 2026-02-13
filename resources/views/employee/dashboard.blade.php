@@ -4,7 +4,7 @@
 
 @section('content')
 
-<div class="container pb-5">
+<div class="pb-5">
     @livewire('employee.dashboard')
 </div>
 

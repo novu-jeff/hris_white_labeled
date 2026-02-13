@@ -8,7 +8,9 @@ use App\Models\EmployeeAtro;
 use App\Models\EmployeeBusinessSlip;
 use App\Models\EmployeeLeave;
 use App\Models\EmployeeLeaveCard;
+use App\Models\OffsetCredits;
 use App\Models\EmployeeTimeAdjustments;
+use App\Models\Holiday;
 use App\Models\SalaryItemsPayroll;
 use App\Models\LeaveType;
 use Illuminate\Support\Facades\Auth;
@@ -46,6 +48,7 @@ class Dashboard extends Component
 
     public $workAnniversariesThisMonth = [];
     public $birthdaysThisMonth = [];
+    public $upcomingEvents = [];
 
     public $showSalary = false;
 
@@ -131,7 +134,14 @@ class Dashboard extends Component
                 'name'    => $type->name,
                 'balance' => $balance,
             ];
-        });
+        })->values();
+
+        $offsetCredits = (float) (OffsetCredits::where('employee_no', $employee_no)->value('credits') ?? 0);
+        $this->leaveBalances->push([
+            'code' => 'OFFSET',
+            'name' => 'Offset Credits',
+            'balance' => $offsetCredits,
+        ]);
 
         $employee = Auth::user()->information;
 
@@ -194,9 +204,53 @@ class Dashboard extends Component
             ? Carbon::parse($shift->break_out)->format('h:i A') . ' - ' . Carbon::parse($shift->break_in)->format('h:i A')
             : 'No Breaktime Assigned';
 
+        $this->loadUpcomingEvents();
         $this->getDTR();
 
        
+    }
+
+    private function loadUpcomingEvents(): void
+    {
+        $today = Carbon::today();
+
+        $events = Holiday::where('isDeleted', false)
+            ->get()
+            ->map(function ($holiday) use ($today) {
+                $rawDate = trim((string) ($holiday->date ?? ''));
+
+                if (preg_match('/^\d{2}-\d{2}$/', $rawDate)) {
+                    $eventDate = Carbon::createFromFormat('Y-m-d', $today->year . '-' . $rawDate);
+                    if ($eventDate->lt($today)) {
+                        $eventDate->addYear();
+                    }
+                } else {
+                    try {
+                        $eventDate = Carbon::parse($rawDate);
+                    } catch (\Throwable $e) {
+                        return null;
+                    }
+                }
+
+                $type = strtolower((string) $holiday->type);
+                $isSpecial = in_array($type, ['special-non-working', 'special-working', 'company'], true);
+
+                return [
+                    'name' => $holiday->name,
+                    'type' => $holiday->type,
+                    'is_special_event' => $isSpecial,
+                    'event_date' => $eventDate->toDateString(),
+                    'date_label' => $eventDate->format('M d, Y'),
+                    'days_away' => $today->diffInDays($eventDate),
+                ];
+            })
+            ->filter()
+            ->sortBy('event_date')
+            ->take(8)
+            ->values()
+            ->all();
+
+        $this->upcomingEvents = $events;
     }
 
     public function checkAllowed() {

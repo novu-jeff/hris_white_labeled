@@ -195,7 +195,7 @@
           <!-- ================= SIDEBAR ================= -->
         @include('components.employee.sidebar') <!-- create a separate sidebar Blade -->
         <main>
-            <div class="container">
+            <div class="container-fluid px-3 px-lg-4">
                 <div class="content">
                     @yield('content')
 

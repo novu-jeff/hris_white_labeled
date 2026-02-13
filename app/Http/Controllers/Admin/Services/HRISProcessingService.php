@@ -193,6 +193,9 @@ class HRISProcessingService extends Controller
         $record = EmployeeAccount::with('personal')->where('employee_no', $employee_no)->first();
 
         if ($record) {
+            if (array_key_exists('company_email', $data)) {
+                $record->company_email = $data['company_email'] ?: null;
+            }
             if (!empty($data['personal_email'])) {
                 $record->email = $data['personal_email'];
             }
@@ -219,7 +222,7 @@ class HRISProcessingService extends Controller
                 $lastname  = $record->personal->lastname ?? '';
                 $fullname  = trim("$firstname $lastname");
 
-                $data['email']        = $record->email;
+                $data['email']        = $record->company_email ?: $record->email;
                 $data['email_id']     = $record->email_id;
                 $data['firstname']    = $firstname;
                 $data['fullname']     = $fullname !== '' ? $fullname : 'Employee ' . $record->employee_no;

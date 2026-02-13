@@ -29,10 +29,10 @@
         <thead>
             <tr>
                 <th>Days</th>
-                <th colspan="{{ $showLunch ? '2' : '1' }}">AM</th>
-                <th colspan="{{ $showLunch ? '2' : '1' }}">PM</th>
+                <th colspan="{{ $showLunch ? '2' : '1' }}">First Half</th>
+                <th colspan="{{ $showLunch ? '2' : '1' }}">Second Half</th>
                 <th colspan="2">OVERTIME</th>
-                <th colspan="2">AUT</th>
+                <th colspan="2">Undertime</th>
                 <th>Remark</th>
             </tr>
             <tr>
@@ -61,7 +61,7 @@
                             <div class="shaded-box">|</div>
                         @endif
                     </td>
-                    <!-- AM -->
+                    <!-- First Half -->
                     <td>
                         @isset($day['clock_in'])
                             {{ \Carbon\Carbon::parse($day['clock_in'])->format('g:i A') }}
@@ -73,7 +73,7 @@
                         <td>{{ isset($day['lunch_in']) ? \Carbon\Carbon::parse($day['lunch_in'])->format('g:i A') : ' ' }}</td>
                     @endif
 
-                    <!-- PM -->
+                    <!-- Second Half -->
                     @if($showLunch)
                         <td>{{ isset($day['lunch_out']) ? \Carbon\Carbon::parse($day['lunch_out'])->format('g:i A') : ' ' }}</td>
                     @endif
@@ -114,18 +114,10 @@
                         $otHour = floor($overtimeMinutes / 60);
                         $otMins = $overtimeMinutes % 60;
                         
-                        // total AUT
-                        $tardinessMinutes = $day['aut']['tardiness']['minutes'] ?? 0;
-                        $tarHours = floor($tardinessMinutes / 60);
-                        $tarMins = $tardinessMinutes % 60;
-
-                        // total AUT
+                        // undertime only (separate from tardiness)
                         $undertimeMinutes = $day['aut']['undertime']['minutes'] ?? 0;
                         $underHours = floor($undertimeMinutes / 60);
                         $underMins = $undertimeMinutes % 60;
-
-                        $autHours = $tarHours + $underHours;
-                        $autMins = $tarMins + $underMins;
                     @endphp
                 
                     
@@ -147,20 +139,20 @@
                         @endif
                     </td>
                     
-                    <!-- Total AUT Hours -->
+                    <!-- Undertime Hours -->
                     <td>
                         @if(!$isFuture)
                             @if(!$isEmpty)
-                                {{ $autHours }}
+                                {{ $underHours }}
                             @endif
                         @endif
                     </td>
                     
-                    <!-- Remaining Minutes -->
+                    <!-- Undertime Minutes -->
                     <td>
                         @if(!$isFuture)
                             @if(!$isEmpty)
-                                {{ $autMins  }}
+                                {{ $underMins  }}
                             @endif
                         @endif
                     </td>

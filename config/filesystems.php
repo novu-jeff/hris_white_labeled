@@ -1,5 +1,9 @@
 <?php
 
+$awsCaBundle = env('AWS_CA_BUNDLE');
+$awsVerifySsl = $awsCaBundle ?: filter_var(env('AWS_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN);
+$awsUsePathStyle = filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN);
+
 return [
 
     /*
@@ -52,7 +56,10 @@ return [
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'use_path_style_endpoint' => $awsUsePathStyle,
+            'http' => [
+                'verify' => $awsVerifySsl,
+            ],
             'throw' => false,
         ],
 

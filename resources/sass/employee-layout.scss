@@ -770,6 +770,7 @@ table {
   width: 100%;
 }
 
+/* Mobile: main always full width (sidebar overlays); prevent narrow 242px content */
 @media (max-width: 992px) {
   .employee-sidebar {
     top: 63px;
@@ -777,12 +778,20 @@ table {
 
   #app.sidebar-open main,
   #app:not(.sidebar-open) main {
-    margin-left: 0;
+    margin-left: 0 !important;
     margin-top: 96px;
     min-height: calc(100vh - 96px);
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
     padding-left: 0.75rem;
     padding-right: 0.75rem;
+  }
+
+  /* Ensure inner containers use full available width on mobile */
+  #app main .container {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }
 

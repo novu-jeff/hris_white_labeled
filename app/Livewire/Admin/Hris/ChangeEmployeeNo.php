@@ -133,6 +133,7 @@ class ChangeEmployeeNo extends Component
                 \App\Models\EmployeeOtherWorks::class => 'employee_no',
                 \App\Models\EmployeeSkillsHobbies::class => 'employee_no',
                 \App\Models\LeaveCredits::class => 'employee_no',
+                \App\Models\OffsetCredits::class => 'employee_no',
                 \App\Models\EmployeeLeave::class => 'employee_no',
                 \App\Models\EmployeeLeaveDates::class => 'employee_no',
                 \App\Models\EmployeeBusinessSlip::class => 'employee_no',

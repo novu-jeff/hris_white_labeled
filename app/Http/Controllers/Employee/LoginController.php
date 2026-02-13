@@ -27,7 +27,7 @@ class LoginController extends Controller
             return redirect()->back()->withInput()->withErrors($validator);
         }
 
-        // Allow login by email address, email_id (E-ID), or employee_no (E-No.)
+        // Allow login by company email, personal email, email_id (E-ID), or employee_no (E-No.)
         $input = $request->email;
         $isEmailFormat = filter_var($input, FILTER_VALIDATE_EMAIL);
 
@@ -36,8 +36,13 @@ class LoginController extends Controller
             if ($employeeAccount) {
                 $identifier = 'email';
             } else {
-                $employeeAccount = EmployeeAccount::where('email_id', $input)->first();
-                $identifier = 'email_id';
+                $employeeAccount = EmployeeAccount::where('company_email', $input)->first();
+                if ($employeeAccount) {
+                    $identifier = 'company_email';
+                } else {
+                    $employeeAccount = EmployeeAccount::where('email_id', $input)->first();
+                    $identifier = $employeeAccount ? 'email_id' : null;
+                }
             }
         } else {
             $identifier = 'employee_no';

@@ -290,8 +290,8 @@ class ClockInOutService
 
     /**
      * Store the captured image in the final timelogs location only (never in livewire-tmp or temporary paths).
-     * Saves to: public disk "timelogs/{employee_no}_{timestamp}.png" (e.g. ni-075_1770116220.png)
-     * or S3 "timelogs/{filename}" when USE_S3_STORAGE is true. URL: APP_URL/storage/timelogs/filename.
+     * Primary save follows USE_S3_STORAGE (s3/public). For testing, set TIMELOG_MIRROR_TO_S3=true
+     * to keep the local/public copy and also write a second copy to S3.
      * Also builds a visual overlay: clock label, time & date, optional location + mini-map.
      */
     private function insertImage(
@@ -320,13 +320,80 @@ class ClockInOutService
         // Try to build an overlayed image; if anything fails, fall back to the raw capture.
         $finalImage = $this->buildOverlayedImage($decodedImage, $timestamp, $rawLocation, $entry, $employee_no);
 
+        $employeeFolder = strtolower(trim($employee_no));
         $filename = strtolower($employee_no . '_' . time() . '.png');
-        $disk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
-        $path = "timelogs/{$filename}";
-        Storage::disk($disk)->put($path, $finalImage ?? $decodedImage, ['visibility' => 'public']);
-        \Log::info('Timelog image saved to final location', ['path' => $path, 'disk' => $disk, 'employee_no' => $employee_no]);
+        $relativePath = "{$employeeFolder}/{$filename}";
+        $path = "timelogs/{$relativePath}";
+        $payload = $finalImage ?? $decodedImage;
 
-        return $filename;
+        $primaryDisk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
+        if (!$this->storeTimelogImage($primaryDisk, $path, $payload, $employee_no, 'saved to final location')) {
+            return null;
+        }
+
+        // Keep a local/public copy when primary is S3 to preserve existing APP_URL/storage access.
+        if ($primaryDisk !== 'public') {
+            $this->storeTimelogImage('public', $path, $payload, $employee_no, 'mirrored to local storage');
+        }
+
+        $mirrorToS3 = filter_var(config('app.timelog_mirror_to_s3', false), FILTER_VALIDATE_BOOLEAN);
+        if ($mirrorToS3 && $primaryDisk !== 's3') {
+            $this->storeTimelogImage('s3', $path, $payload, $employee_no, 'mirrored to s3');
+        }
+
+        return $relativePath;
+    }
+
+    private function storeTimelogImage(
+        string $disk,
+        string $path,
+        string $payload,
+        string $employeeNo,
+        string $actionLabel
+    ): bool {
+        try {
+            $stored = Storage::disk($disk)->put($path, $payload, ['visibility' => 'public']);
+
+            // Some S3-compatible providers reject ACL/visibility headers.
+            if (!$stored && $disk === 's3') {
+                $stored = Storage::disk($disk)->put($path, $payload);
+                if ($stored) {
+                    \Log::warning('Timelog image stored to s3 without visibility option', [
+                        'path' => $path,
+                        'disk' => $disk,
+                        'employee_no' => $employeeNo,
+                    ]);
+                }
+            }
+
+            if (!$stored) {
+                \Log::warning('Failed to store timelog image', [
+                    'path' => $path,
+                    'disk' => $disk,
+                    'employee_no' => $employeeNo,
+                    'action' => $actionLabel,
+                ]);
+                return false;
+            }
+
+            \Log::info("Timelog image {$actionLabel}", [
+                'path' => $path,
+                'disk' => $disk,
+                'employee_no' => $employeeNo,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to store timelog image', [
+                'path' => $path,
+                'disk' => $disk,
+                'employee_no' => $employeeNo,
+                'action' => $actionLabel,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     /**

@@ -44,6 +44,7 @@ use App\Http\Controllers\Admin\Settings\HRIS\OtherEarningsController;
 use App\Http\Controllers\Admin\Settings\HRIS\SectionController;
 use App\Http\Controllers\Admin\Settings\HRIS\LoanTypeController;
 use App\Http\Controllers\Admin\Settings\HRIS\LeaveController;
+use App\Http\Controllers\Admin\Settings\HRIS\OffsetCreditsController;
 use App\Http\Controllers\Admin\Settings\ShiftScheduleController;
 use App\Http\Controllers\Admin\Settings\CompanyInformationController;
 use App\Http\Controllers\Admin\Settings\EmployeeScheduleController;
@@ -393,6 +394,9 @@ $adminRoutes = function () {
                 
                 Route::resource('leave', LeaveController::class)
                     ->names('leave');
+
+                Route::get('offset-credits', [OffsetCreditsController::class, 'index'])
+                    ->name('offset-credits.index');
 
                 Route::resource('gsis', GSISController::class)
                     ->names('gsis');

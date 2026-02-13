@@ -174,7 +174,7 @@
 
                                 @canany([
                                     'read bank-information', 'read employment-type', 'read positions',
-                                    'read violations', 'read leave-types', 'read gsis-billing',
+                                    'read violations', 'read leave-types', 'read offset-credits', 'read gsis-billing',
                                     'read other-earnings', 'read other-deductions'
                                 ])
                                 <li class="list-item">
@@ -194,6 +194,9 @@
                                         @endcan
                                         @can('read leave-types')
                                         <li><a class="dropdown-item" href="{{ route('leave.index') }}">Leaves</a></li>
+                                        @endcan
+                                        @can('read offset-credits')
+                                        <li><a class="dropdown-item" href="{{ route('offset-credits.index') }}">Offset Credits</a></li>
                                         @endcan
                                         @can('read gsis-billing')
                                         <li><a class="dropdown-item" href="{{ route('gsis.index') }}">GSIS Billings</a></li>
