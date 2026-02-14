@@ -166,8 +166,8 @@ class Clock extends Component
         $bsd_no = $this->bsd_emp_identical ? $this->employee_no : $service->getBsdNo($this->employee_no);
 
         $model = EmployeeTimelogs::where('employee_id', $bsd_no)->where('timestamp', 'LIKE', "{$timestamp}%");
-        $clockRecords = $model->get();
-        $entry = $model->count();
+        $clockRecords = $model->orderBy('timestamp')->get();
+        $entry = $this->getEntryProgressFromRecords($clockRecords, $hasBreaktime);
 
         $allowPastMidnight = $this->shiftAllowsPastMidnightClockOut($shiftSchedule);
         if ($entry === 0 && $allowPastMidnight && now()->hour < 6) {
@@ -176,14 +176,11 @@ class Clock extends Component
                 ->where('timestamp', 'LIKE', "{$yesterday}%")
                 ->orderBy('timestamp')
                 ->get();
-            $yesterdayCount = $yesterdayLogs->count();
-            if ($hasBreaktime && $yesterdayCount === 1) {
-                $entry = 1;
-                $this->entry = 1;
-            } elseif ($hasBreaktime && $yesterdayCount === 3) {
-                $entry = 3;
-                $this->entry = 3;
-            } elseif (!$hasBreaktime && $yesterdayCount === 1) {
+            $yesterdayEntry = $this->getEntryProgressFromRecords($yesterdayLogs, $hasBreaktime);
+            if ($hasBreaktime && in_array($yesterdayEntry, [1, 3], true)) {
+                $entry = $yesterdayEntry;
+                $this->entry = $yesterdayEntry;
+            } elseif (!$hasBreaktime && $yesterdayEntry === 1) {
                 $entry = 1;
                 $this->entry = 1;
             }
@@ -191,7 +188,10 @@ class Clock extends Component
             $this->entry = $entry;
         }
 
-        $hasAccomplishment = $clockRecords->contains(fn($record) => !empty($record->accomplishment));
+        $hasAccomplishment = $clockRecords->contains(function ($record) {
+            $punchStatus = $this->getPunchStatus($record);
+            return $punchStatus === 1 && !empty($record->accomplishment);
+        });
 
         if ($hasAccomplishment) {
             $this->status = 'Done';
@@ -218,6 +218,46 @@ class Clock extends Component
         $this->dispatch('loadDefaults');
 
         $this->requires_accomplishment = $this->shouldRequireAccomplishment();
+    }
+
+    private function getEntryProgressFromRecords($records, bool $hasBreaktime): int
+    {
+        $expectedSequence = $hasBreaktime ? [0, 1, 0, 1] : [0, 1];
+        $progress = 0;
+        $lastAcceptedStatus = null;
+
+        foreach ($records as $record) {
+            $status = $this->getPunchStatus($record);
+
+            if (!in_array($status, [0, 1], true)) {
+                continue;
+            }
+
+            // Ignore duplicate consecutive punches (e.g., double clock-in).
+            if ($lastAcceptedStatus !== null && $status === $lastAcceptedStatus) {
+                continue;
+            }
+
+            if ($progress < count($expectedSequence) && $status === $expectedSequence[$progress]) {
+                $progress++;
+                $lastAcceptedStatus = $status;
+            }
+        }
+
+        return $progress;
+    }
+
+    private function getPunchStatus($record): ?int
+    {
+        if (isset($record->status) && $record->status !== null) {
+            return (int) $record->status;
+        }
+
+        if (isset($record->status1) && $record->status1 !== null) {
+            return (int) $record->status1;
+        }
+
+        return null;
     }
 
     /**

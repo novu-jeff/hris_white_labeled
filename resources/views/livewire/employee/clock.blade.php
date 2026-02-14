@@ -860,10 +860,6 @@
                 </div>
 
                 <div class="modal-footer border-0 d-flex gap-3 justify-content-center align-items-center flex-wrap px-3 pb-3">
-                    <button type="button" class="retakeButton btn btn-outline-danger py-3 px-5 text-uppercase fw-bold">
-                        Retake
-                    </button>
-
                     <button type="button"
                         class="btn btn-primary py-3 px-5 text-uppercase fw-bold d-flex align-items-center gap-2"
                         wire:click="{{ $requires_accomplishment ? 'saveAccomplishment' : 'triggerClock' }}"

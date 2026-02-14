@@ -179,12 +179,12 @@ class Apply extends Component
             'purpose' => 'required|max:255',
         ];
 
-        // Activity date must be within 30 days before or after offset date
+        // Activity date must be within 60 days before or after offset date
         if (!empty($this->offset_date_from)) {
             try {
                 $from = Carbon::parse($this->offset_date_from);
-                $minDate = $from->copy()->subDays(30)->format('Y-m-d');
-                $maxDate = $from->copy()->addDays(30)->format('Y-m-d');
+                $minDate = $from->copy()->subDays(60)->format('Y-m-d');
+                $maxDate = $from->copy()->addDays(60)->format('Y-m-d');
                 $rules['offset_date_to'] = array_merge($rules['offset_date_to'], [
                     "after_or_equal:{$minDate}",
                     "before_or_equal:{$maxDate}",
@@ -203,8 +203,8 @@ class Apply extends Component
             'offset_date_from.date' => 'The offset date from must be a valid date.',
             'offset_date_to.required' => 'The offset date to is required.',
             'offset_date_to.date' => 'The offset date to must be a valid date.',
-            'offset_date_to.after_or_equal' => 'The activity date must be within 30 days before or after the offset date.',
-            'offset_date_to.before_or_equal' => 'The activity date must be within 30 days before or after the offset date.',
+            'offset_date_to.after_or_equal' => 'The activity date must be within 60 days before or after the offset date.',
+            'offset_date_to.before_or_equal' => 'The activity date must be within 60 days before or after the offset date.',
         ];
     }
 

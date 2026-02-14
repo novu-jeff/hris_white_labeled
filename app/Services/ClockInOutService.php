@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\MirrorTimelogImageToS3;
 use App\Models\EmployeeTimelogs;
 use App\Models\EmployeeInformation;
 use App\Services\DailyTimeRecordService;
@@ -179,7 +180,17 @@ class ClockInOutService
     public function insertLog(int $entry, array $toProcess, string $employee_no): array
     {
         $employeeId = $this->getEmployeeID($employee_no);
+        $shift = app(DailyTimeRecordService::class)->getShiftSchedule($employee_no);
+        $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+        $hasBreakTime = $lunchTracking && ($shift->is_breaktime_required ?? false);
+
         $date = Carbon::parse($toProcess['timestamp'])->toDateString();
+        $todayRecords = EmployeeTimelogs::where('employee_id', $employeeId)
+            ->whereDate('timestamp', $date)
+            ->orderBy('timestamp')
+            ->get();
+        $currentProgress = $this->getEntryProgressFromRecords($todayRecords, $hasBreakTime);
+
         $currentCount = EmployeeTimelogs::where('employee_id', $employeeId)
             ->whereDate('timestamp', $date)
             ->count();
@@ -187,13 +198,19 @@ class ClockInOutService
         $isPastMidnightClockOut = false;
         if (($entry === 1 || $entry === 3) && $currentCount === 0) {
             try {
-                $shift = app(DailyTimeRecordService::class)->getShiftSchedule($employee_no);
                 $isPastMidnightClockOut = $this->shiftAllowsPastMidnightClockOut($shift);
             } catch (\Throwable $e) {
                 $isPastMidnightClockOut = false;
             }
         }
-        if (!$isPastMidnightClockOut && $currentCount !== $entry) {
+
+        $isAllowedForcedOutFromLunchOut = $hasBreakTime && $entry === 3 && $currentProgress === 1;
+
+        if (
+            !$isPastMidnightClockOut &&
+            !$isAllowedForcedOutFromLunchOut &&
+            $currentProgress !== $entry
+        ) {
             return [
                 'status' => false,
                 'alert' => 'error',
@@ -246,6 +263,46 @@ class ClockInOutService
             'title' => 'Recorded!',
             'message' => ''
         ];
+    }
+
+    private function getEntryProgressFromRecords($records, bool $hasBreaktime): int
+    {
+        $expectedSequence = $hasBreaktime ? [0, 1, 0, 1] : [0, 1];
+        $progress = 0;
+        $lastAcceptedStatus = null;
+
+        foreach ($records as $record) {
+            $status = $this->getPunchStatus($record);
+
+            if (!in_array($status, [0, 1], true)) {
+                continue;
+            }
+
+            // Ignore duplicate consecutive punches (e.g., double clock-in).
+            if ($lastAcceptedStatus !== null && $status === $lastAcceptedStatus) {
+                continue;
+            }
+
+            if ($progress < count($expectedSequence) && $status === $expectedSequence[$progress]) {
+                $progress++;
+                $lastAcceptedStatus = $status;
+            }
+        }
+
+        return $progress;
+    }
+
+    private function getPunchStatus($record): ?int
+    {
+        if (isset($record->status) && $record->status !== null) {
+            return (int) $record->status;
+        }
+
+        if (isset($record->status1) && $record->status1 !== null) {
+            return (int) $record->status1;
+        }
+
+        return null;
     }
 
     private function formatCapturedLocation(mixed $capturedLocation): ?string
@@ -338,7 +395,8 @@ class ClockInOutService
 
         $mirrorToS3 = filter_var(config('app.timelog_mirror_to_s3', false), FILTER_VALIDATE_BOOLEAN);
         if ($mirrorToS3 && $primaryDisk !== 's3') {
-            $this->storeTimelogImage('s3', $path, $payload, $employee_no, 'mirrored to s3');
+            // Queue mirror to avoid blocking clock-in/out response.
+            MirrorTimelogImageToS3::dispatch($path, $employee_no);
         }
 
         return $relativePath;

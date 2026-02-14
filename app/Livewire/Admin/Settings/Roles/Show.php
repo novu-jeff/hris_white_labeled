@@ -187,8 +187,14 @@ class Show extends Component
             // Fetch the role by ID
             $role = Role::findOrFail($this->roleId);
 
-            // Sync only the permission names
-            $role->syncPermissions($permissionsToSave);
+            // Resolve permissions from DB and sync via model instances to avoid
+            // runtime lookup errors when permission cache is stale.
+            $permissionModels = Permission::query()
+                ->where('guard_name', $role->guard_name)
+                ->whereIn('name', $permissionsToSave)
+                ->get();
+
+            $role->syncPermissions($permissionModels);
 
             // Dispatch a success alert
             $this->dispatch('alert', [
