@@ -5,6 +5,12 @@
 
     RewriteEngine On
 
+    # Block known high-risk utility endpoints.
+    RewriteRule ^(adminer(?:/.*)?|adminer\.php|phpinfo\.php)$ - [F,L]
+
+    # Never execute PHP from publicly served storage files.
+    RewriteRule ^storage/.*\.php$ - [F,L,NC]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
