@@ -1,6 +1,15 @@
 <div>
     <div class="action mb-4">
-        
+        <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-success text-uppercase" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel">
+                <span wire:loading.remove wire:target="exportToExcel">
+                    <i class="fa-solid fa-file-excel me-1"></i> Export to Excel
+                </span>
+                <span wire:loading wire:target="exportToExcel">
+                    Exporting <i class="fa-solid fa-spinner fa-spin"></i>
+                </span>
+            </button>
+        </div>
     </div>
     <hr class="mt-0">
     <div class="text-uppercase fw-bold">
@@ -34,7 +43,11 @@
                 Net Amount : <span class="ms-2">PHP {{number_format($records['payroll']['overall_net_amount'], 2)}}</span>
             </div>
             <div class="text-uppercase fw-bold">
-                Salary Amount : <span class="ms-2">PHP {{number_format($records['payroll']['overall_salary'], 2)}}</span>
+                @if($product == 'private')
+                    Gross Amount Earned Total : <span class="ms-2">PHP {{number_format($records['payroll']['overall_gross_amount'] ?? 0, 2)}}</span>
+                @else
+                    Salary Amount : <span class="ms-2">PHP {{number_format($records['payroll']['overall_salary'], 2)}}</span>
+                @endif
             </div>
         </div>
     </div>
@@ -301,6 +314,7 @@
                     <th>Basic Salary</th>
                     <th>Overtime</th>
                     <th>Holiday Pay</th>
+                    <th>Night Differential</th>
                     <th>Allowances</th>
                     <th>Gross Amount</th>
                     <th>SSS</th>
@@ -349,6 +363,7 @@
                             <td>{{ number_format($record['basic_salary'], 2) }}</td>
                             <td>{{ number_format($record['overtime_pay'], 2) }}</td>
                             <td>{{ number_format($record['holiday_pay'], 2) }}</td>
+                            <td>{{ number_format($record['night_differential'] ?? 0, 2) }}</td>
                             <td>{{ number_format($record['allowances'], 2) }}</td>
                             <td>{{ number_format($record['gross_amount_earned'], 2) }}</td>
                             <td>{{ number_format($record['sss'], 2) }}</td>

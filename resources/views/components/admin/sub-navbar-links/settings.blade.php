@@ -15,8 +15,8 @@
         @endcan
         @can('read holidays')
             <li><a class="dropdown-item" href="{{route('holiday.index')}}">Holiday</a></li>
-            <li><a class="dropdown-item" href="{{route('payroll.settings')}}">Payroll Settings</a></li>
         @endcan
+        <li><a class="dropdown-item" href="{{ route('payroll.settings') }}">Payroll Settings</a></li>
         @canany([
             'read departments',
             'read sections'

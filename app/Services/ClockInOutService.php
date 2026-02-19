@@ -223,13 +223,14 @@ class ClockInOutService
         $rawLocation = $toProcess['captured_location'] ?? null;
         $captured_location = $this->formatCapturedLocation($rawLocation);
 
-        $captured_image = $this->insertImage(
+        $capturedImageMeta = $this->insertImage(
             $employee_no,
             $toProcess['captured_image'],
             $timestamp,
             $rawLocation,
             $entry
         );
+        $captured_image = $capturedImageMeta['path'] ?? null;
         $accomplishment = $toProcess['accomplishment'] ?? null;
 
         $formattedTimestamp = Carbon::now()->format('Y-m-d') . ' ' . Carbon::parse($timestamp)->format('H:i');
@@ -256,6 +257,15 @@ class ClockInOutService
         }
 
         EmployeeTimelogs::create($data);
+
+        \Log::info('Timelog captured_image storage', [
+            'employee_no' => $employee_no,
+            'timestamp' => $formattedTimestamp,
+            'captured_image' => $captured_image,
+            'saved_to' => $capturedImageMeta['saved_to'] ?? null, // s3 | local/public | null
+            'mirror_to' => $capturedImageMeta['mirror_to'] ?? null,
+            'used_local_fallback' => $capturedImageMeta['used_local_fallback'] ?? false,
+        ]);
 
         return [
             'status' => true,
@@ -357,13 +367,18 @@ class ClockInOutService
         string $timestamp,
         mixed $rawLocation,
         int $entry
-    ): ?string
+    ): array
     {
         if (empty($imageData) || !str_contains($imageData, 'base64,')) {
             if (!empty($imageData)) {
                 \Log::error('Invalid image data format.', compact('employee_no'));
             }
-            return null;
+            return [
+                'path' => null,
+                'saved_to' => null,
+                'mirror_to' => null,
+                'used_local_fallback' => false,
+            ];
         }
 
         [$header, $base64Data] = explode('base64,', $imageData);
@@ -371,7 +386,12 @@ class ClockInOutService
 
         if ($decodedImage === false) {
             \Log::error('Failed to decode base64 image.', compact('employee_no'));
-            return null;
+            return [
+                'path' => null,
+                'saved_to' => null,
+                'mirror_to' => null,
+                'used_local_fallback' => false,
+            ];
         }
 
         // Try to build an overlayed image; if anything fails, fall back to the raw capture.
@@ -384,22 +404,45 @@ class ClockInOutService
         $payload = $finalImage ?? $decodedImage;
 
         $primaryDisk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
-        if (!$this->storeTimelogImage($primaryDisk, $path, $payload, $employee_no, 'saved to final location')) {
-            return null;
+        $primaryStored = $this->storeTimelogImage($primaryDisk, $path, $payload, $employee_no, 'saved to final location');
+
+        // Fallback: S3 primary → local fallback when S3 fails.
+        $usedLocalFallback = false;
+        if (!$primaryStored && $primaryDisk === 's3') {
+            $primaryStored = $this->storeTimelogImage('public', $path, $payload, $employee_no, 'fallback to local (S3 failed)');
+            $usedLocalFallback = true;
+        }
+        if (!$primaryStored) {
+            return [
+                'path' => null,
+                'saved_to' => null,
+                'mirror_to' => null,
+                'used_local_fallback' => $usedLocalFallback,
+            ];
         }
 
-        // Keep a local/public copy when primary is S3 to preserve existing APP_URL/storage access.
-        if ($primaryDisk !== 'public') {
-            $this->storeTimelogImage('public', $path, $payload, $employee_no, 'mirrored to local storage');
+        // Keep a local/public copy when primary is S3 (skip if we already fell back to local).
+        $mirrorTo = null;
+        if ($primaryDisk !== 'public' && !$usedLocalFallback) {
+            $mirrored = $this->storeTimelogImage('public', $path, $payload, $employee_no, 'mirrored to local storage');
+            if ($mirrored) {
+                $mirrorTo = 'local/public';
+            }
         }
 
         $mirrorToS3 = filter_var(config('app.timelog_mirror_to_s3', false), FILTER_VALIDATE_BOOLEAN);
         if ($mirrorToS3 && $primaryDisk !== 's3') {
             // Queue mirror to avoid blocking clock-in/out response.
             MirrorTimelogImageToS3::dispatch($path, $employee_no);
+            $mirrorTo = 's3 (queued)';
         }
 
-        return $relativePath;
+        return [
+            'path' => $relativePath,
+            'saved_to' => $primaryDisk === 'public' ? 'local/public' : 's3',
+            'mirror_to' => $mirrorTo,
+            'used_local_fallback' => $usedLocalFallback,
+        ];
     }
 
     private function storeTimelogImage(

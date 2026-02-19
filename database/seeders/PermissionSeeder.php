@@ -67,6 +67,8 @@ class PermissionSeeder extends Seeder
                 'shift-schedule',
                 'employee-schedule',
                 'holidays',
+                'payroll-period',
+                'payroll-configuration',
             ],
             'employee' => [
                 'apply-leave',

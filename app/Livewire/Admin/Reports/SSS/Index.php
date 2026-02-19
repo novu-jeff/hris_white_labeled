@@ -88,9 +88,9 @@ class Index extends Component
 
                 $record->employee_share = $contribution['employee_share'];
                 $record->employer_share = $contribution['employer_share'];
-                $record->ec = $contribution['ec'];
+                $record->ec = $contribution['ec'] ?? 0;
                 $record->total = $contribution['total'];
-                $record->msc = $contribution['msc'];
+                $record->msc = $contribution['msc'] ?? 0;
 
                 $this->total_employee_share += $record->employee_share;
                 $this->total_employer_share += $record->employer_share;

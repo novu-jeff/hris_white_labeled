@@ -73,6 +73,7 @@ class Index extends Component
         $deductions = OtherDeductions::all();
 
         // Work anniversaries, new hires & interns this month (date_hired month = current month)
+        // "New hire" / "Intern" only when hired in current calendar year (first month at company)
         $workAnniversariesThisMonth = EmployeeInformation::with(['personal', 'positions', 'employment_type'])
             ->whereNotNull('date_hired')
             ->whereMonth('date_hired', $this->now->month)
@@ -81,16 +82,20 @@ class Index extends Component
                 $name = $emp->personal
                     ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
                     : $emp->employee_no;
-                $years = $emp->date_hired ? $this->now->diffInYears(Carbon::parse($emp->date_hired)) : 0;
+                $hireDate = $emp->date_hired ? Carbon::parse($emp->date_hired) : null;
+                // Anniversary month uses year delta (not exact day) so Feb 28 still counts in Feb.
+                $years = $hireDate ? max(0, ((int) $this->now->year - (int) $hireDate->year)) : 0;
+                $hireYear = $hireDate ? (int) $hireDate->format('Y') : 0;
+                $isFirstMonth = $hireYear === (int) $this->now->year;
                 $typeName = $emp->employment_type->name ?? null;
                 $isIntern = $typeName && stripos($typeName, 'intern') !== false;
                 return [
                     'name'       => $name,
                     'position'   => $emp->positions->name ?? '—',
-                    'date'       => Carbon::parse($emp->date_hired)->format('M d'),
+                    'date'       => $hireDate ? $hireDate->format('M d') : '—',
                     'years'      => $years,
-                    'is_new'     => $years === 0,
-                    'type_label' => $years === 0 ? ($isIntern ? 'Intern' : 'New hire') : null,
+                    'is_new'     => $isFirstMonth,
+                    'type_label' => $isFirstMonth ? ($isIntern ? 'Intern' : 'New hire') : null,
                 ];
             });
 

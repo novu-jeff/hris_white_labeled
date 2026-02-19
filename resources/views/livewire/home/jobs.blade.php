@@ -55,29 +55,30 @@
                 <div class="col-12 col-md-12 {{$records->count() > 0 ? 'col-lg-5 col-xl-5' : ''}} mb-4">
                     <div class="row">
                         @forelse ($records as $record)
+                            @php $recordId = data_get($record, 'id'); $recordSlug = data_get($record, 'slug'); @endphp
                             <div class="col-12 mb-4">
-                                <div class="card shadow px-2 {{$record_info != null && $record_info->id === $record->id ? 'active' : ''}}" wire:click="show_more({{$record->id}})">
+                                <div class="card shadow px-2 {{ $record_info != null && data_get($record_info, 'id') === $recordId ? 'active' : '' }}" wire:click="show_more({{ (int) $recordId }})">
                                     <div class="card-header border-0 bg-transparent">
                                         <div class="position-title">
-                                            <h4 class="m-0 text-uppercase">{{$record->position}}</h4>
+                                            <h4 class="m-0 text-uppercase">{{ e(data_get($record, 'position')) }}</h4>
                                         </div>
                                         <div class="company-info">
-                                            <p class="m-0 text-uppercase">{{$record->company_name}}</p>
-                                            <p class="m-0 text-uppercase">{{$record->location}}</p>
+                                            <p class="m-0 text-uppercase">{{ e(data_get($record, 'company_name')) }}</p>
+                                            <p class="m-0 text-uppercase">{{ e(data_get($record, 'location')) }}</p>
                                         </div>
                                         <div class="date-posted">
                                             <p class="m-0">
-                                                Posted {{relative_time($record->created_at, 'hours ago')}}
+                                                Posted {{ relative_time(data_get($record, 'created_at'), 'hours ago') }}
                                             </p>
                                         </div>
                                         <div class="actions" wire:ignore>
                                             <div class="dropdown">
-                                                <button class="btn btn-transparent btn-dropdown d-flex align-items-start justify-content-center" type="button" id="menu-{{$record->id}}" data-bs-toggle="dropdown" aria-expanded="true">
+                                                <button class="btn btn-transparent btn-dropdown d-flex align-items-start justify-content-center" type="button" id="menu-{{ $recordId }}" data-bs-toggle="dropdown" aria-expanded="true">
                                                     <i class="fa-solid fa-ellipsis-vertical"></i>
                                                 </button>
                                                 <ul class="dropdown-menu">
                                                     <li>
-                                                        <a class="dropdown-item d-flex align-items-center gap-2" wire:navigate href="{{route('home.view-job', ['slug' => $record->slug])}}">
+                                                        <a class="dropdown-item d-flex align-items-center gap-2" wire:navigate href="{{ route('home.view-job', ['slug' => $recordSlug]) }}">
                                                             <i class="fa-solid fa-eye"></i>
                                                             <span>
                                                                 View Info 
@@ -85,7 +86,7 @@
                                                         </a>
                                                     </li>
                                                     <li>
-                                                        <a class="dropdown-item d-flex align-items-center gap-2 copy-link" href="javascript:void(0)" data-target="{{route('home.view-job', ['slug' => $record->slug])}}">
+                                                        <a class="dropdown-item d-flex align-items-center gap-2 copy-link" href="javascript:void(0)" data-target="{{ route('home.view-job', ['slug' => $recordSlug]) }}">
                                                             <i class="fa-solid fa-link"></i>
                                                             <span>
                                                                 Copy Link 
@@ -99,17 +100,17 @@
                                     <hr class="mx-3">
                                     <div class="card-body pt-1 pb-5">
                                         <div class="perks">
-                                            <div>{{money_format($record->min_salary) . ' - ' . money_format($record->max_salary)}} per month</div>
-                                            @if(!is_null($record->employment_type_id))
-                                                <div>{{$record->employment_type->name}}</div>
+                                            <div>{{ money_format(data_get($record, 'min_salary')) . ' - ' . money_format(data_get($record, 'max_salary')) }} per month</div>
+                                            @if(!is_null(data_get($record, 'employment_type_id')))
+                                                <div>{{ e(data_get($record, 'employment_type.name')) }}</div>
                                             @endif
-                                            <div>{{$record->setup}}</div>
-                                            <div>{{$record->slots . ' slots'}}</div>
+                                            <div>{{ e(data_get($record, 'setup')) }}</div>
+                                            <div>{{ e(data_get($record, 'slots')) . ' slots' }}</div>
                                         </div>
                                         <div class="description">
                                             <small class="text-muted fst-italic fw-bold text-uppercase text-decoration-underline" style="text-underline-offset: 4px">Description</small>
                                             <div class="description-content mt-2">
-                                                {!!see_more(strip_tags($record->description), 400)!!}
+                                                {!! see_more(strip_tags(data_get($record, 'description') ?? ''), 400) !!}
                                             </div>
                                         </div>
                                     </div>
@@ -156,41 +157,42 @@
                     <div class="col-12 col-md-12 col-lg-7 col-xl-7 mb-4 d-none d-lg-block">
                         <div class="job-info">
                             @if ($record_info)
-                                <div class="card px-2" wire:click="show_more({{$record_info->id}})">
+                                @php $recordInfoId = data_get($record_info, 'id'); @endphp
+                                <div class="card px-2" wire:click="show_more({{ (int) $recordInfoId }})">
                                     <div class="card-header border-0 bg-transparent">
                                         <div class="position-title">
-                                            <h4 class="m-0 text-uppercase">{{$record_info->position}}</h4>
+                                            <h4 class="m-0 text-uppercase">{{ e(data_get($record_info, 'position')) }}</h4>
                                         </div>
                                         <div class="company-info">
-                                            <p class="m-0 text-uppercase">{{$record_info->company_name}}</p>
-                                            <p class="m-0 text-uppercase">{{$record_info->location . ' • ' . str_replace('-', ' ', $record_info->setup) . ' • ' . str_replace('-', ' ', $record_info->type)}}</p>
+                                            <p class="m-0 text-uppercase">{{ e(data_get($record_info, 'company_name')) }}</p>
+                                            <p class="m-0 text-uppercase">{{ e(data_get($record_info, 'location') . ' • ' . str_replace('-', ' ', data_get($record_info, 'setup') ?? '') . ' • ' . str_replace('-', ' ', data_get($record_info, 'type') ?? '')) }}</p>
                                         </div>
                                         <div class="salary">
-                                            <p class="m-0 text-uppercase">{{money_format($record_info->min_salary) . ' - ' . money_format($record_info->max_salary)}} per month</p>
+                                            <p class="m-0 text-uppercase">{{ money_format(data_get($record_info, 'min_salary')) . ' - ' . money_format(data_get($record_info, 'max_salary')) }} per month</p>
                                         </div>
                                         <div class="date-posted">
                                             <p class="m-0">
-                                                Posted {{relative_time($record_info->created_at, 'hours ago')}}
+                                                Posted {{ relative_time(data_get($record_info, 'created_at'), 'hours ago') }}
                                             </p>
                                         </div>
                                         <div class="actions d-flex gap-3 justify-content-start">
-                                            @if (!in_array($record_info->id, $applied_job_ids))
-                                                @if (!in_array($record_info->id, $saved_job_ids))
-                                                    <button class="btn text-light btn-primary d-flex align-items-center gap-2" wire:click='save_job({{$record_info->id}})' href="javascript:void(0)">
+                                            @if (!in_array($recordInfoId, $applied_job_ids ?? []))
+                                                @if (!in_array($recordInfoId, $saved_job_ids ?? []))
+                                                    <button class="btn text-light btn-primary d-flex align-items-center gap-2" wire:click='save_job({{ (int) $recordInfoId }})' href="javascript:void(0)">
                                                         <i class="fa-solid fa-thumbtack"></i>
                                                         <span>
                                                             Save Job
                                                         </span>
                                                     </button>
                                                 @else
-                                                    <button class="btn text-light btn-primary d-flex align-items-center gap-2" wire:click='save_job({{$record_info->id}})' href="javascript:void(0)">
+                                                    <button class="btn text-light btn-primary d-flex align-items-center gap-2" wire:click='save_job({{ (int) $recordInfoId }})' href="javascript:void(0)">
                                                         <i class="fa-solid fa-xmark"></i>
                                                         <span>
                                                             Unsave Job
                                                         </span>
                                                     </button>
                                                 @endif
-                                                <button class="btn btn-outline-primary" wire:click='apply({{$record_info->id}})'>Apply Now</button>
+                                                <button class="btn btn-outline-primary" wire:click='apply({{ (int) $recordInfoId }})'>Apply Now</button>
                                             @else
                                                 <button class="btn btn-primary">Applied Already</button>
                                             @endif
@@ -201,7 +203,7 @@
                                         <div class="description">
                                             <small class="text-muted fst-italic fw-bold text-uppercase text-decoration-underline" style="text-underline-offset: 4px">Description</small>
                                             <div class="description-content mt-2">
-                                                {!!see_more($record_info->description)!!}
+                                                {!! see_more(data_get($record_info, 'description') ?? '', 400) !!}
                                             </div>
                                         </div>
                                     </div>

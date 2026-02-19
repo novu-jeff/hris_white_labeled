@@ -549,12 +549,16 @@
                                                             <div class="time-log-image">
                                                                 @php
                                                                     if (env('USE_S3_STORAGE', false)) {
-                                                                        $clockInUrl = Storage::disk('s3')->temporaryUrl(
-                                                                            'timelogs/' . $logList[0]['captured_image'],
-                                                                            now()->addMinutes(60)
-                                                                        );
+                                                                        try {
+                                                                            $clockInUrl = Storage::disk('s3')->temporaryUrl(
+                                                                                'timelogs/' . $logList[0]['captured_image'],
+                                                                                now()->addMinutes(60)
+                                                                            );
+                                                                        } catch (\Throwable $e) {
+                                                                            $clockInUrl = route('admin.timelog-image', ['path' => $logList[0]['captured_image']]);
+                                                                        }
                                                                     } else {
-                                                                        $clockInUrl = Storage::url('timelogs/' . $logList[0]['captured_image']);
+                                                                        $clockInUrl = Storage::disk('public')->url('timelogs/' . $logList[0]['captured_image']);
                                                                     }
                                                                 @endphp
                                                                 <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $clockInUrl }}" class="image-link">
@@ -592,8 +596,19 @@
                                                             </div>
                                                             @if (!empty($logList[1]['captured_image']))
                                                                 <div class="time-log-image">
-                                                                    <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ Storage::url('timelogs/' . $logList[1]['captured_image']) }}" class="image-link">
-                                                                        <img src="{{ Storage::url('timelogs/' . $logList[1]['captured_image']) }}" alt="Lunch Out" class="log-image">
+                                                                    @php
+                                                                        if (env('USE_S3_STORAGE', false)) {
+                                                                            try {
+                                                                                $lunchOutUrl = Storage::disk('s3')->temporaryUrl('timelogs/' . $logList[1]['captured_image'], now()->addMinutes(60));
+                                                                            } catch (\Throwable $e) {
+                                                                                $lunchOutUrl = route('admin.timelog-image', ['path' => $logList[1]['captured_image']]);
+                                                                            }
+                                                                        } else {
+                                                                            $lunchOutUrl = Storage::disk('public')->url('timelogs/' . $logList[1]['captured_image']);
+                                                                        }
+                                                                    @endphp
+                                                                    <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $lunchOutUrl }}" class="image-link">
+                                                                        <img src="{{ $lunchOutUrl }}" alt="Lunch Out" class="log-image">
                                                                         <div class="image-overlay">
                                                                             <i class="fa-solid fa-expand"></i>
                                                                         </div>
@@ -626,8 +641,19 @@
                                                             </div>
                                                             @if (!empty($logList[2]['captured_image']))
                                                                 <div class="time-log-image">
-                                                                    <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ Storage::url('timelogs/' . $logList[2]['captured_image']) }}" class="image-link">
-                                                                        <img src="{{ Storage::url('timelogs/' . $logList[2]['captured_image']) }}" alt="Lunch In" class="log-image">
+                                                                    @php
+                                                                        if (env('USE_S3_STORAGE', false)) {
+                                                                            try {
+                                                                                $lunchInUrl = Storage::disk('s3')->temporaryUrl('timelogs/' . $logList[2]['captured_image'], now()->addMinutes(60));
+                                                                            } catch (\Throwable $e) {
+                                                                                $lunchInUrl = route('admin.timelog-image', ['path' => $logList[2]['captured_image']]);
+                                                                            }
+                                                                        } else {
+                                                                            $lunchInUrl = Storage::disk('public')->url('timelogs/' . $logList[2]['captured_image']);
+                                                                        }
+                                                                    @endphp
+                                                                    <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $lunchInUrl }}" class="image-link">
+                                                                        <img src="{{ $lunchInUrl }}" alt="Lunch In" class="log-image">
                                                                         <div class="image-overlay">
                                                                             <i class="fa-solid fa-expand"></i>
                                                                         </div>
@@ -661,8 +687,19 @@
                                                         </div>
                                                         @if ($outIndex !== null && !empty($logList[$outIndex]['captured_image']))
                                                             <div class="time-log-image">
-                                                                <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ Storage::url('timelogs/' . $logList[$outIndex]['captured_image']) }}" class="image-link">
-                                                                    <img src="{{ Storage::url('timelogs/' . $logList[$outIndex]['captured_image']) }}" alt="Clock Out" class="log-image">
+                                                                @php
+                                                                    if (env('USE_S3_STORAGE', false)) {
+                                                                        try {
+                                                                            $clockOutUrl = Storage::disk('s3')->temporaryUrl('timelogs/' . $logList[$outIndex]['captured_image'], now()->addMinutes(60));
+                                                                        } catch (\Throwable $e) {
+                                                                            $clockOutUrl = route('admin.timelog-image', ['path' => $logList[$outIndex]['captured_image']]);
+                                                                        }
+                                                                    } else {
+                                                                        $clockOutUrl = Storage::disk('public')->url('timelogs/' . $logList[$outIndex]['captured_image']);
+                                                                    }
+                                                                @endphp
+                                                                <a data-fancybox="gallery-{{ $dateKey }}" data-src="{{ $clockOutUrl }}" class="image-link">
+                                                                    <img src="{{ $clockOutUrl }}" alt="Clock Out" class="log-image">
                                                                     <div class="image-overlay">
                                                                         <i class="fa-solid fa-expand"></i>
                                                                     </div>

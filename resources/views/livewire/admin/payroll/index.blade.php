@@ -313,8 +313,15 @@
                 });
 
                 $('.range').on('apply.daterangepicker', function(ev, picker) {
-                    @this.set('cut_off_period', picker.startDate.format('YYYY-MM-DD') + ' to ' + picker.endDate.format('YYYY-MM-DD'));
-                    @this.set('ot_period', picker.startDate.format('YYYY-MM-DD') + ' to ' + picker.endDate.format('YYYY-MM-DD'));
+                    var rangeStr = picker.startDate.format('YYYY-MM-DD') + ' to ' + picker.endDate.format('YYYY-MM-DD');
+                    @this.set('cut_off_period', rangeStr);
+                    @this.set('ot_period', rangeStr);
+                    // Policy: payroll for cut-off 1-15 runs on the 17th (employees have full day of 16th for time adjustments)
+                    if (picker.endDate.date() === 15) {
+                        var payrollDate17 = picker.endDate.format('YYYY-MM') + '-17';
+                        @this.set('payroll_date', payrollDate17);
+                        $('.datepicker-single').val(payrollDate17);
+                    }
                 });
 
                 // Single-date picker for Payroll Date (appears above modal via .daterangepicker z-index)

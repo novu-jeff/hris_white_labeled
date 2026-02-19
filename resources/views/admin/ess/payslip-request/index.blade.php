@@ -1,5 +1,5 @@
 @extends('layouts.admin', [
-    'title' => 'HRIS | ESS Leave Application'
+    'title' => 'HRIS | ESS Payslip Request'
 ])
 
 @section('content')

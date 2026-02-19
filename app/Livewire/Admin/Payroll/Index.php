@@ -110,7 +110,9 @@ class Index extends Component
 
             $settings = $item->setting ?? [];
 
-            if ($settings['is_salary']) {
+            $isInternType = str_contains(strtolower((string) $item->name), 'intern');
+
+            if (($settings['is_salary'] ?? false) || $isInternType) {
                 $subs['salary'] = [
                     'name' => 'Salary',
                     'page' => 'salary',
@@ -580,6 +582,7 @@ class Index extends Component
             $payroll = $process['payroll'];
 
             $batch = Bus::batch($jobs)
+                ->onQueue('payroll')
                 ->withOption('actionBy', [
                     'id' => $this->actionBy->id,
                     'name' => $this->actionBy->name

@@ -216,6 +216,27 @@
                             @error('records.employee_information.payroll_account_number') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                     </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="mb-2" for="payroll_bank">Payroll Bank</label>
+                        <select wire:model.live="records.employee_information.payroll_bank" id="records.employee_information.payroll_bank" class="form-select">
+                            <option value=""> - CHOOSE - </option>
+                            @foreach($payrollBankOptions as $option)
+                                <option value="{{ $option }}">{{ $option }}</option>
+                            @endforeach
+                        </select>
+                        <div class="error-field">
+                            @error('records.employee_information.payroll_bank') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    @if(($records['employee_information']['payroll_bank'] ?? '') === 'Other')
+                        <div class="col-md-3 mb-3">
+                            <label class="mb-2" for="payroll_bank_other">Specify bank name</label>
+                            <input type="text" wire:model="records.employee_information.payroll_bank_other" id="records.employee_information.payroll_bank_other" class="form-control" placeholder="Type bank name">
+                            <div class="error-field">
+                                @error('records.employee_information.payroll_bank_other') <span class="text-danger">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

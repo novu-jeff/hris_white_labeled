@@ -8,6 +8,7 @@ use App\Services\ContributionsService;
 use App\Models\Branches;
 use App\Models\EmployeeInformation;
 use App\Models\EmployeeSchedule;
+use App\Models\Setting;
 use App\Models\EmployementTypes;
 use App\Models\Positions;
 use App\Models\Sections;
@@ -36,6 +37,9 @@ class Information extends Component
     public $selectedBranchId = null;
     public array $deductions = [];
     public ?int $internTypeId = null;
+
+    /** @var array<int, string> Payroll bank options from settings (includes "Other") */
+    public array $payrollBankOptions = [];
 
     protected $listeners = ['save'];
 
@@ -90,6 +94,8 @@ class Information extends Component
                     'dispatch' => 'isTransfering'
                 ]);
         }
+
+        $this->payrollBankOptions = $this->getPayrollBankOptions();
 
         $this->records = [
             'employee_information' => $this->formatInformation($data),
@@ -286,9 +292,38 @@ class Information extends Component
             'salary_method' => $data->salary_method,
             'salary' => $data->salary,
             'has_salary' => (bool) ($data->has_salary ?? false),
+            'is_timelog_exempted' => (bool) ($data->is_timelog_exempted ?? false),
             'allowance' => $data->allowance ?? null,
             'payroll_account_number' => $data->payroll_account_number,
+            'payroll_bank' => $this->resolveDefaultPayrollBank($data->payroll_bank ?? null, $this->getPayrollBankOptions()),
+            'payroll_bank_other' => $data->payroll_bank_other ?? null,
         ];
+    }
+
+    protected function getPayrollBankOptions(): array
+    {
+        $options = Setting::get('payroll_bank_options', 'BDO,BPI,Metro Bank,Landbank,Unionbank,Other');
+        $list = array_map('trim', explode(',', $options));
+        return array_values(array_filter($list));
+    }
+
+    /**
+     * Resolve default payroll bank so it matches one of the options (case-insensitive).
+     * Ensures the dropdown shows the default as selected even if settings store "Metro bank" and option is "Metro Bank".
+     */
+    protected function resolveDefaultPayrollBank(?string $current, array $options): string
+    {
+        $value = $current ?? Setting::get('payroll_bank_default', '');
+        $value = trim((string) $value);
+        if ($value === '') {
+            return '';
+        }
+        foreach ($options as $option) {
+            if (strcasecmp($option, $value) === 0) {
+                return $option;
+            }
+        }
+        return $value;
     }
 
     protected function formatPersonal($data)
@@ -356,7 +391,10 @@ class Information extends Component
             'records.employee_information.step_id' => 'required|in:1,2,3,4,5,6,7,8',
             'records.employee_information.salary' => $this->salaryValidationRule(),
             'records.employee_information.allowance' => 'nullable|numeric|min:0',
+            'records.employee_information.is_timelog_exempted' => 'nullable|boolean',
             'records.employee_information.salary_method' => 'nullable|in:cash,bank transfer,paycheck,e-wallet',
+            'records.employee_information.payroll_bank' => 'nullable|string|max:128',
+            'records.employee_information.payroll_bank_other' => 'required_if:records.employee_information.payroll_bank,Other|nullable|string|max:255',
         ];
     }
 
@@ -386,6 +424,7 @@ class Information extends Component
             'records.employee_information.allowance.numeric' => 'The allowance must be a number',
             'records.employee_information.allowance.min' => 'The allowance must be 0 or greater',
             'records.employee_information.salary_method.in' => 'The salary method must be one of the following: cash, bank transfer, paycheck, or e-wallet.',
+            'records.employee_information.payroll_bank_other.required_if' => 'Please specify the bank name when "Other" is selected.',
             'records.employee_information.type.required' => 'The employment type is required',
             'records.employee_information.type.exists' => 'The selected employment type does not exists.',
         ];

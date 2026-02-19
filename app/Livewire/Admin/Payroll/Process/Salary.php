@@ -2,12 +2,17 @@
 
 namespace App\Livewire\Admin\Payroll\Process;
 
+use App\Exports\SalaryPayrollExport;
 use App\Http\Controllers\Admin\Services\Payroll\SalaryService;
+use App\Models\EmployeeAccount;
 use App\Models\Payroll;
 use App\Models\SalaryItemsPayroll;
 use App\Models\SalaryPayroll;
+use App\Notifications\Notifications;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Salary extends Component
 {
@@ -392,6 +397,29 @@ $secondHalf = round($lbpPayroll - $firstHalf, 2);
             $payroll->status = 'approved';
             $payroll->save();
 
+            $employeeNos = SalaryItemsPayroll::where('payroll_id', $payroll->id)
+                ->distinct()
+                ->pluck('employee_no')
+                ->filter()
+                ->values();
+
+            $payrollDate = Carbon::parse($payroll->payroll_date)->format('F d, Y');
+            $message = "Your payslip for <strong>{$payrollDate}</strong> is now <strong>AVAILABLE</strong>. Click this notification to view your payslip.";
+            $redirect = route('employee.payslip');
+
+            EmployeeAccount::whereIn('employee_no', $employeeNos)
+                ->get()
+                ->each(function ($employee) use ($message, $redirect) {
+                    try {
+                        $employee->notify(new Notifications('success', $message, $redirect, 'employee'));
+                    } catch (\Throwable $e) {
+                        \Log::warning('Payroll approval notification failed', [
+                            'employee_no' => $employee->employee_no ?? null,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                });
+
             $this->dispatch('alert', [
                 'status' => 'success',
                 'title' => 'Success!',
@@ -401,6 +429,32 @@ $secondHalf = round($lbpPayroll - $firstHalf, 2);
             ]);
         }
 
+    }
+
+    public function exportToExcel()
+    {
+        if (empty($this->records['payroll_items'] ?? [])) {
+            $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'No data',
+                'message' => 'No payroll items available for export.',
+            ]);
+
+            return;
+        }
+
+        $payrollDate = Carbon::parse($this->records['payroll']['payroll_date'] ?? now())->format('Ymd');
+        $filename = sprintf(
+            'salary-payroll-%s-%s.xlsx',
+            $this->payroll_id,
+            $payrollDate
+        );
+
+        return Excel::download(
+            new SalaryPayrollExport($this->records, $this->product),
+            $filename
+        );
     }
 
     public function render()

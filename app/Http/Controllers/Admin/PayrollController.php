@@ -18,18 +18,17 @@ class PayrollController extends Controller
     {
         $employmentTypes =  EmployementTypes::with(['setting'])->get();
 
-       // dd($employmentTypes);
-
         $defaultActions = 'salary';
-        $defaultEmploymentType = $employmentTypes[0]->name;
+        $defaultEmploymentType = strtolower(trim((string) ($employmentTypes[0]->name ?? '')));
 
         $options = $employmentTypes->mapWithKeys(function ($item) {
             
             $subs = [];
 
             $settings = $item->setting ?? [];
+            $isInternType = str_contains(strtolower((string) $item->name), 'intern');
 
-            if ($settings['is_salary']) {
+            if (($settings['is_salary'] ?? false) || $isInternType) {
                 $subs['salary'] = 'Salary';
             }
             if ($settings['is_clothing_allowance']) {
@@ -53,12 +52,10 @@ class PayrollController extends Controller
             ];
         })->toArray();
 
-        $employmentTypeInput = strtolower($request->input('employment_type', $defaultEmploymentType));
-        $typeInput = strtolower($request->input('type', $defaultActions));
-
+        $employmentTypeInput = strtolower(trim((string) $request->input('employment_type', $defaultEmploymentType)));
+        $typeInput = strtolower(trim((string) $request->input('type', $defaultActions)));
 
         if (!array_key_exists($employmentTypeInput, $options)) {
-           // dd('here');
             return redirect()->route('payroll.index', [
                 'employment_type' => $defaultEmploymentType,
                 'type' => $defaultActions,
@@ -67,8 +64,24 @@ class PayrollController extends Controller
 
         $validSubTypes = array_keys($options[$employmentTypeInput]['sub']);
 
+        if (empty($validSubTypes)) {
+            $fallbackEmploymentType = collect($options)
+                ->first(fn($item) => !empty($item['sub']));
+
+            $fallbackKey = $fallbackEmploymentType
+                ? strtolower((string) ($fallbackEmploymentType['name'] ?? $defaultEmploymentType))
+                : $defaultEmploymentType;
+            $fallbackType = $fallbackEmploymentType
+                ? (array_keys($fallbackEmploymentType['sub'])[0] ?? $defaultActions)
+                : $defaultActions;
+
+            return redirect()->route('payroll.index', [
+                'employment_type' => $fallbackKey,
+                'type' => $fallbackType,
+            ]);
+        }
+
         if (!in_array($typeInput, $validSubTypes)) {
-          //  dd('here2');
             $firstType = $validSubTypes[0] ?? $defaultActions;
 
             return redirect()->route('payroll.index', [

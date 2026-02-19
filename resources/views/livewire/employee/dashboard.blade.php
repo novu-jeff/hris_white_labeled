@@ -287,6 +287,61 @@
 .sortable-chosen {
     transform: scale(0.995);
 }
+
+/* Expandable card body: default collapsed with max-height */
+.dashboard-card-expandable-body {
+    max-height: 220px;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+}
+.dashboard-card-expandable.expanded .dashboard-card-expandable-body {
+    max-height: 2000px;
+}
+.dashboard-card-expand-toggle {
+    font-size: 0.875rem;
+}
+
+/* Holiday/Special tags: force readable contrast */
+.event-tag {
+    color: #fff !important;
+    font-weight: 600;
+}
+.event-tag-special {
+    background-color: #6f42c1 !important;
+}
+.event-tag-holiday {
+    background-color: #dc3545 !important;
+}
+
+/* Salary password modal */
+.salary-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+.salary-modal {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+.salary-modal-header {
+    padding: 0.75rem 1rem;
+    background: #225F8B;
+    color: #fff;
+    font-weight: 700;
+}
+.salary-modal-body {
+    padding: 1rem;
+}
+
 @media print {
     body * {
         visibility: hidden !important;
@@ -320,7 +375,7 @@
 </style>
 @endpush
 
-<div class="main-content flex-grow-1 p-4" >
+<div class="main-content flex-grow-1 p-4" id="employee-dashboard">
     
     <!-- Company Info -->
     <!--<div class="company-information text-uppercase mb-4">
@@ -405,9 +460,9 @@
             </div>
 
             <div class="row mb-2">
-                <div class="col-6">Break Time Hours:</div>
+                <div class="col-6">Employment Type:</div>
                 <div class="col-6 text-end fw-bold">
-                    {{ $breaktime }}
+                    {{ $employmentTypeName }}
                 </div>
             </div>
 
@@ -436,12 +491,11 @@
                     {{ \Carbon\Carbon::parse($latestPayslip->payroll_date)->format('F d, Y') }}
                 </h4>
 
-                <button wire:click="toggleSalary"
+                <button wire:click="requestSalaryReveal"
                         class="btn btn-primary btn-sm">
                     {{ $showSalary ? 'Hide Salary' : 'Show Salary' }}
                 </button>
             </div>
-
             <hr>
 
 
@@ -525,17 +579,18 @@
                 <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">
                     Upcoming Holidays & Special Events
                 </h4>
-
+                <div class="dashboard-card-expandable" data-max-lines="5">
+                    <div class="dashboard-card-expandable-body">
                 @if(!empty($upcomingEvents) && count($upcomingEvents) > 0)
                     <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
                         @foreach($upcomingEvents as $event)
                             <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
                                 <span>
-                                    {{ strtoupper($event['name']) }}
-                                    <span class="badge {{ $event['is_special_event'] ? 'bg-warning text-dark' : 'bg-danger' }} ms-1">
-                                        {{ $event['is_special_event'] ? 'Special Event' : 'Holiday' }}
+                                    {{ $event['name'] }}
+                                    <span class="badge event-tag {{ $event['is_special_event'] ? 'event-tag-special' : 'event-tag-holiday' }} ms-1">
+                                        {{ $event['tag_label'] ?? ($event['is_special_event'] ? 'Special Event' : 'Holiday') }}
                                     </span>
-                                    <small class="text-muted fw-normal d-block">{{ strtoupper($event['type']) }}</small>
+                                    <small class="text-muted fw-normal d-block">{{ $event['type_label'] ?? $event['type'] }}</small>
                                 </span>
                                 <span class="text-muted small text-end">
                                     {{ $event['date_label'] }}<br>
@@ -553,6 +608,40 @@
                 @else
                     <p class="text-muted mb-0 small">No upcoming holidays or events.</p>
                 @endif
+                    </div>
+                    <button type="button" class="btn btn-link btn-sm p-0 mt-1 dashboard-card-expand-toggle" style="display:none;">Show more</button>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        {{-- Team Timelogs card --}}
+        <div class="dashboard-card-item" data-card-id="team-timelogs">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <button type="button" class="card-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </button>
+                <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">Team Timelogs — {{ now()->format('M d, Y') }}</h4>
+                <div class="dashboard-card-expandable" data-max-lines="8">
+                    <div class="dashboard-card-expandable-body">
+                @if(!empty($teamTimelogs))
+                    <ul class="list-unstyled mb-0" style="font-size: 13px;">
+                        @foreach($teamTimelogs as $member)
+                            <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <span class="text-truncate me-2" title="{{ $member['name'] }}">{{ $member['name'] }}</span>
+                                <span class="text-end small {{ $member['status_type'] === 'leave' ? 'text-warning' : ($member['status_type'] === 'offset' ? 'text-info' : 'text-dark') }}">
+                                    {{ $member['status'] }}
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="text-muted mb-0 small">No team members or you are not assigned to a section.</p>
+                @endif
+                    </div>
+                    <button type="button" class="btn btn-link btn-sm p-0 mt-1 dashboard-card-expand-toggle" style="display:none;">Show more</button>
+                </div>
             </div>
         </div>
         </div>
@@ -625,6 +714,8 @@
         @php
             $showLunch = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
         @endphp
+        <div class="dashboard-card-expandable" data-max-lines="6">
+            <div class="dashboard-card-expandable-body">
         <div class="table-responsive">
             <table class="dtr-table">
                 <thead>
@@ -688,118 +779,266 @@
                 </tbody>
             </table>
         </div>
+            </div>
+            <button type="button" class="btn btn-link btn-sm p-0 mt-1 dashboard-card-expand-toggle" style="display:none;">Show more</button>
+        </div>
     </div>
 </div>
         </div>
 
-        {{-- Work anniversaries & birthdays this month --}}
-        <div class="row">
-            <div class="col-12 col-md-6 mb-4">
-                <div class="card shadow">
-                    <div class="card-body">
-                        <h4 class="fw-bold mb-2 bg-primary text-white p-2 rounded">Work anniversaries & welcome — {{ now()->format('F Y') }}</h4>
-                        <p class="small text-muted mb-3">Including new hires and interns this month.</p>
-                        @if(!empty($workAnniversariesThisMonth) && count($workAnniversariesThisMonth) > 0)
-                            <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
-                                @foreach($workAnniversariesThisMonth as $emp)
-                                    <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                                        <span>
-                                            {{ $emp['name'] }}
-                                            @if(!empty($emp['type_label']))
-                                                <span class="badge bg-success ms-1">{{ $emp['type_label'] }}</span>
-                                            @endif
-                                            <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small>
-                                        </span>
-                                        <span class="text-muted small">{{ $emp['date'] }} @if($emp['years'] > 0)({{ $emp['years'] }}y)@endif</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="text-muted mb-0 small">No work anniversaries or new hires this month.</p>
-                        @endif
+        {{-- Work anniversaries this month (sortable card) --}}
+        <div class="dashboard-card-item" data-card-id="work-anniversaries">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <button type="button" class="card-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </button>
+                <h4 class="fw-bold mb-2 bg-primary text-white p-2 rounded">Work anniversaries & welcome — {{ now()->format('F Y') }}</h4>
+                <p class="small text-muted mb-2">Including new hires and interns this month.</p>
+                <div class="dashboard-card-expandable" data-max-lines="5">
+                    <div class="dashboard-card-expandable-body">
+                @if(!empty($workAnniversariesThisMonth) && count($workAnniversariesThisMonth) > 0)
+                    <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
+                        @foreach($workAnniversariesThisMonth as $emp)
+                            <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <span>
+                                    {{ $emp['name'] }}
+                                    @if(!empty($emp['type_label']))
+                                        <span class="badge bg-success ms-1">{{ $emp['type_label'] }}</span>
+                                    @endif
+                                    <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small>
+                                </span>
+                                <span class="text-muted small">
+                                    {{ $emp['date'] }}
+                                    @if(!empty($emp['type_label']))
+                                        · {{ $emp['type_label'] }}
+                                    @elseif($emp['years'] > 0)
+                                        · {{ $emp['years'] }} {{ $emp['years'] === 1 ? 'year' : 'years' }} anniversary
+                                    @endif
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="text-muted mb-0 small">No work anniversaries or new hires this month.</p>
+                @endif
                     </div>
+                    <button type="button" class="btn btn-link btn-sm p-0 mt-1 dashboard-card-expand-toggle" style="display:none;">Show more</button>
                 </div>
             </div>
-            <div class="col-12 col-md-6 mb-4">
-                <div class="card shadow">
-                    <div class="card-body">
-                        <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">Birthdays — {{ now()->format('F Y') }}</h4>
-                        @if(!empty($birthdaysThisMonth) && count($birthdaysThisMonth) > 0)
-                            <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
-                                @foreach($birthdaysThisMonth as $emp)
-                                    <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                                        <span>{{ $emp['name'] }} <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small></span>
-                                        <span class="text-muted small">{{ $emp['date'] }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="text-muted mb-0 small">No birthdays this month.</p>
-                        @endif
+        </div>
+        </div>
+
+        {{-- Birthdays this month (sortable card) --}}
+        <div class="dashboard-card-item" data-card-id="birthdays">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <button type="button" class="card-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </button>
+                <h4 class="fw-bold mb-3 bg-primary text-white p-2 rounded">Birthdays — {{ now()->format('F Y') }}</h4>
+                <div class="dashboard-card-expandable" data-max-lines="5">
+                    <div class="dashboard-card-expandable-body">
+                @if(!empty($birthdaysThisMonth) && count($birthdaysThisMonth) > 0)
+                    <ul class="list-unstyled mb-0 fw-semibold" style="font-size: 13px;">
+                        @foreach($birthdaysThisMonth as $emp)
+                            <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <span>{{ $emp['name'] }} <small class="text-muted fw-normal d-block">{{ $emp['position'] }}</small></span>
+                                <span class="text-muted small">{{ $emp['date'] }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="text-muted mb-0 small">No birthdays this month.</p>
+                @endif
                     </div>
+                    <button type="button" class="btn btn-link btn-sm p-0 mt-1 dashboard-card-expand-toggle" style="display:none;">Show more</button>
                 </div>
             </div>
+        </div>
         </div>
 
     </div>
 
     </div>
 
+    @if($showSalaryPasswordPrompt && !$showSalary)
+        <div class="salary-modal-backdrop" wire:key="salary-password-modal">
+            <div class="salary-modal">
+                <div class="salary-modal-header">Confirm Password</div>
+                <div class="salary-modal-body">
+                    <div class="small text-muted mb-2">Enter your password to view salary details.</div>
+                    <input
+                        type="password"
+                        wire:model.defer="salaryPassword"
+                        wire:keydown.enter="verifySalaryPassword"
+                        class="form-control mb-2"
+                        placeholder="Password"
+                        autocomplete="current-password"
+                        autofocus
+                    >
+                    @error('salaryPassword')
+                        <div class="text-danger small mb-2">{{ $message }}</div>
+                    @enderror
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" wire:click="cancelSalaryPassword">Cancel</button>
+                        <button type="button" class="btn btn-success btn-sm" wire:click="verifySalaryPassword">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
-function initEmployeeDashboardCardSort() {
-    const leftColumn = document.getElementById('dashboard-left-column');
-    const rightColumn = document.getElementById('dashboard-right-column');
-    if (!leftColumn || !rightColumn || typeof Sortable === 'undefined') return;
-    if (leftColumn.dataset.sortableReady === '1' && rightColumn.dataset.sortableReady === '1') return;
+(function() {
+    const serverOrder = @json($dashboardCardOrder);
+    const storageKey = 'employeeDashboardCardOrderV2';
+    const defaultLeft = ['latest-announcement', 'employment-details', 'latest-payslip'];
+    const defaultRight = ['leave-credits', 'upcoming-events', 'team-timelogs', 'today-timelogs', 'daily-time-record', 'work-anniversaries', 'birthdays'];
+    let dashboardObserver = null;
+    let expandInitTimer = null;
 
-    const storageKey = 'employeeDashboardCardOrderV1';
+    function initEmployeeDashboardCardSort() {
+        const leftColumn = document.getElementById('dashboard-left-column');
+        const rightColumn = document.getElementById('dashboard-right-column');
+        if (!leftColumn || !rightColumn || typeof Sortable === 'undefined') return;
 
-    function applyOrder(container, order) {
-        if (!Array.isArray(order)) return;
-        const map = {};
-        container.querySelectorAll('.dashboard-card-item').forEach((item) => {
-            map[item.dataset.cardId] = item;
+        function applyOrder(leftOrder, rightOrder) {
+            const allCards = document.querySelectorAll('.dashboard-card-item');
+            const map = {};
+            allCards.forEach((item) => { map[item.dataset.cardId] = item; });
+            (leftOrder || []).forEach((id) => {
+                const item = map[id];
+                if (item) leftColumn.appendChild(item);
+            });
+            (rightOrder || []).forEach((id) => {
+                const item = map[id];
+                if (item) rightColumn.appendChild(item);
+            });
+        }
+
+        function getOrder() {
+            const left = Array.from(leftColumn.querySelectorAll('.dashboard-card-item')).map((el) => el.dataset.cardId);
+            const right = Array.from(rightColumn.querySelectorAll('.dashboard-card-item')).map((el) => el.dataset.cardId);
+            return { left, right };
+        }
+
+        function saveOrder() {
+            const { left, right } = getOrder();
+            try {
+                localStorage.setItem(storageKey, JSON.stringify({ left, right }));
+            } catch (e) {
+                // ignore storage issues
+            }
+            // Keep drag interactions smooth: persist client-side immediately.
+            // (DB save can be reintroduced later if needed, but this avoids UI snap-back.)
+        }
+
+        var allCards = document.querySelectorAll('.dashboard-card-item');
+        var cardMap = {};
+        allCards.forEach(function(item) { cardMap[item.dataset.cardId] = item; });
+        var clientOrder = null;
+        try {
+            clientOrder = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        } catch (e) {
+            clientOrder = null;
+        }
+
+        if (clientOrder && clientOrder.left && clientOrder.right) {
+            applyOrder(clientOrder.left, clientOrder.right);
+        } else if (serverOrder && serverOrder.left && serverOrder.right) {
+            applyOrder(serverOrder.left, serverOrder.right);
+        } else {
+            var leftIds = defaultLeft.filter(function(id) { return cardMap[id]; });
+            var rightIds = defaultRight.filter(function(id) { return cardMap[id]; });
+            var otherIds = Array.from(allCards).map(function(el) { return el.dataset.cardId; })
+                .filter(function(id) { return defaultLeft.indexOf(id) === -1 && defaultRight.indexOf(id) === -1; });
+            applyOrder(leftIds, rightIds.concat(otherIds));
+        }
+
+        const sortableOptions = {
+            group: 'employee-dashboard-cards',
+            animation: 150,
+            handle: '.card-drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            forceFallback: false,
+            fallbackOnBody: true,
+            onEnd: saveOrder,
+        };
+
+        // Re-init safe: apply order every time, but instantiate Sortable once per column.
+        if (!leftColumn._sortableInstance) {
+            leftColumn._sortableInstance = new Sortable(leftColumn, sortableOptions);
+        }
+        if (!rightColumn._sortableInstance) {
+            rightColumn._sortableInstance = new Sortable(rightColumn, sortableOptions);
+        }
+    }
+
+    function initExpandableCards() {
+        var root = document.getElementById('employee-dashboard');
+        var scope = root || document;
+        scope.querySelectorAll('.dashboard-card-expandable').forEach(function(wrap) {
+            var body = wrap.querySelector('.dashboard-card-expandable-body');
+            var btn = wrap.querySelector('.dashboard-card-expand-toggle');
+            if (!body || !btn) return;
+
+            var maxH = parseInt(wrap.dataset.maxLines || '5', 10) * 32;
+            body.style.maxHeight = 'none';
+            var needToggle = body.scrollHeight > maxH;
+
+            if (!needToggle) {
+                wrap.classList.remove('expanded');
+                body.style.maxHeight = 'none';
+                btn.style.display = 'none';
+                btn.onclick = null;
+                return;
+            }
+
+            body.style.maxHeight = wrap.classList.contains('expanded') ? '2000px' : maxH + 'px';
+            btn.style.display = 'inline-block';
+            btn.textContent = wrap.classList.contains('expanded') ? 'Show less' : 'Show more';
+            btn.onclick = function() {
+                wrap.classList.toggle('expanded');
+                btn.textContent = wrap.classList.contains('expanded') ? 'Show less' : 'Show more';
+                body.style.maxHeight = wrap.classList.contains('expanded') ? '2000px' : maxH + 'px';
+            };
         });
-        order.forEach((id) => {
-            const item = map[id];
-            if (item) container.appendChild(item);
+    }
+
+    function init() {
+        initEmployeeDashboardCardSort();
+        setTimeout(function() { initExpandableCards(); }, 50);
+    }
+
+    function watchDashboardMutations() {
+        const root = document.getElementById('employee-dashboard');
+        if (!root) return;
+        if (dashboardObserver) {
+            dashboardObserver.disconnect();
+        }
+
+        dashboardObserver = new MutationObserver(function() {
+            clearTimeout(expandInitTimer);
+            expandInitTimer = setTimeout(function() {
+                initExpandableCards();
+            }, 60);
         });
+
+        dashboardObserver.observe(root, { childList: true, subtree: true });
     }
 
-    function saveOrder() {
-        const left = Array.from(leftColumn.querySelectorAll('.dashboard-card-item')).map((el) => el.dataset.cardId);
-        const right = Array.from(rightColumn.querySelectorAll('.dashboard-card-item')).map((el) => el.dataset.cardId);
-        localStorage.setItem(storageKey, JSON.stringify({ left, right }));
-    }
-
-    try {
-        const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        applyOrder(leftColumn, stored.left);
-        applyOrder(rightColumn, stored.right);
-    } catch (e) {
-        // Ignore invalid local storage content.
-    }
-
-    const sortableOptions = {
-        group: 'employee-dashboard-cards',
-        animation: 150,
-        handle: '.card-drag-handle',
-        ghostClass: 'sortable-ghost',
-        chosenClass: 'sortable-chosen',
-        forceFallback: false,
-        fallbackOnBody: true,
-        onEnd: saveOrder,
-    };
-
-    new Sortable(leftColumn, sortableOptions);
-    new Sortable(rightColumn, sortableOptions);
-    leftColumn.dataset.sortableReady = '1';
-    rightColumn.dataset.sortableReady = '1';
-}
-
-document.addEventListener('DOMContentLoaded', initEmployeeDashboardCardSort);
-document.addEventListener('livewire:navigated', initEmployeeDashboardCardSort);
+    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('livewire:navigated', function() {
+        setTimeout(function() {
+            initEmployeeDashboardCardSort();
+            initExpandableCards();
+            watchDashboardMutations();
+        }, 50);
+    });
+    document.addEventListener('DOMContentLoaded', watchDashboardMutations);
+})();
 </script>

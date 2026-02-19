@@ -142,6 +142,7 @@ class DailyTimeRecordService {
         } catch (\Exception $e) {
             $defaultEmployeeSchedule = $this->getShiftScheduleById(1);
         }
+        $isTimelogExempted = $this->isTimelogExemptedEmployee($employee_no);
         $isEmployeeSupport = $this->isSupportShift($defaultEmployeeSchedule);
 
         # Counters
@@ -210,9 +211,16 @@ class DailyTimeRecordService {
             $date_is_in_logs = isset($logs[$dateString]) && !empty($logs[$dateString]);
 
             $dayName = strtolower(Carbon::parse($dateString)->format('l'));
+            $isScheduled = (int) ($weeklySchedule->$dayName ?? 0) === 1;
             $isOffsetDate = $offsetDateFromSet->has($dateString);
             $isOffsetActivityDate = $offsetDateToSet->has($dateString);
             $hasApprovedOffset = $isOffsetDate || $isOffsetActivityDate;
+
+            if ($isTimelogExempted && $isScheduled && !$isFuture) {
+                $workedDays++;
+                $formattedLogs[$dateString] = $this->buildExemptedRecord($dateString);
+                continue;
+            }
 
             #overtime 
             $matchLeave = $leavesCollection->first(function ($leave) use ($dateString) {
@@ -1163,6 +1171,38 @@ class DailyTimeRecordService {
         $this->mergeCrossMidnightClockOuts($processedLogs);
 
         return $processedLogs;
+    }
+
+    private function isTimelogExemptedEmployee(string $employeeNo): bool
+    {
+        return (bool) DB::table('employee_information')
+            ->where('employee_no', $employeeNo)
+            ->value('is_timelog_exempted');
+    }
+
+    private function buildExemptedRecord(string $dateString): array
+    {
+        return [
+            'bsd_no' => null,
+            'clock_in' => Carbon::parse("{$dateString} 09:00:00")->format('h:i A'),
+            'lunch_in' => null,
+            'lunch_out' => null,
+            'clock_out' => Carbon::parse("{$dateString} 18:00:00")->format('h:i A'),
+            'origin' => null,
+            'aut' => [
+                'tardiness' => ['minutes' => 0, 'reason' => null],
+                'undertime' => ['minutes' => 0, 'reason' => null],
+                'overtime' => ['minutes' => 0, 'reason' => null],
+                'night_shift_minutes' => 0,
+            ],
+            'total_aut' => 0,
+            'employee_no' => null,
+            'workOnHoliday' => null,
+            'isFuture' => false,
+            'remarks' => ['Exempted'],
+            'is_break_required' => false,
+            'timelogs' => [],
+        ];
     }
 
     /**

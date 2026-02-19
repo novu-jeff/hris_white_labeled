@@ -32,6 +32,8 @@ class SettingsSeeder extends Seeder
     public function run(): void
     {
         Setting::set('night_shift_differential', '10');
+        Setting::set('payroll_bank_default', '');
+        Setting::set('payroll_bank_options', 'BDO,BPI,Metro Bank,Landbank,Unionbank,Other');
 
         foreach (self::moduleKeys() as $key) {
             Setting::set('module_' . $key, '1');

@@ -163,8 +163,11 @@ class HRISProcessingService extends Controller
                 'salary_method' => $data['salary_method'],
                 'salary' => $salary,
                 'has_salary' => (bool) ($data['has_salary'] ?? false),
+                'is_timelog_exempted' => (bool) ($data['is_timelog_exempted'] ?? false),
                 'allowance' => (isset($data['allowance']) && $data['allowance'] !== '') ? $data['allowance'] : null,
                 'payroll_account_number' => $data['payroll_account_number'],
+                'payroll_bank' => $data['payroll_bank'] ?? null,
+                'payroll_bank_other' => (isset($data['payroll_bank_other']) && $data['payroll_bank_other'] !== '') ? $data['payroll_bank_other'] : null,
             ]);
 
             return $record->save();

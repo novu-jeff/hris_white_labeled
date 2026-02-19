@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\HrisAdvancedPayrollController;
 use App\Http\Controllers\OthersController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\HRISController;
@@ -85,6 +86,8 @@ use App\Http\Controllers\Employee\TeamController as EmployeeTeamController;
 use App\Http\Controllers\Employee\RequestStatusController as EmployeeRequestStatusController;
 use App\Http\Controllers\Employee\RemainingCreditController as EmployeeRemainingCreditController;
 use App\Http\Controllers\Employee\TutorialController;
+use App\Http\Controllers\Employee\TimelogImageController as EmployeeTimelogImageController;
+use App\Http\Controllers\Admin\TimelogImageController as AdminTimelogImageController;
 use App\Http\Controllers\Home\SavedJobsController;
 use App\Http\Controllers\Home\SettingsController;
 use App\Http\Controllers\TestController;
@@ -236,6 +239,19 @@ $adminRoutes = function () {
 
         Route::get('hris/staffing', [HRISController::class, 'staffing'])
             ->name('hris.staffing');
+
+        Route::prefix('hris/employee/{employee_no}/payroll-advanced')
+            ->name('hris.payroll-advanced.')
+            ->group(function () {
+                Route::get('/', [HrisAdvancedPayrollController::class, 'index'])
+                    ->name('index');
+                Route::get('allowances', [HrisAdvancedPayrollController::class, 'allowances'])
+                    ->name('allowances');
+                Route::get('de-minimis', [HrisAdvancedPayrollController::class, 'deMinimis'])
+                    ->name('de-minimis');
+                Route::get('government', [HrisAdvancedPayrollController::class, 'government'])
+                    ->name('government');
+            });
             
         Route::get('hris/employee/{employee_no?}/{form}', [HRISController::class, 'show'])
             ->name('hris.show');
@@ -315,6 +331,10 @@ $adminRoutes = function () {
              Route::get('profile/approval/{employee_no}/{form}', [ESSApprovalProfile::class, 'show'])
                 ->name('ess.approval-profile.show');
         });
+
+        Route::get('timelog-image/{path}', [AdminTimelogImageController::class, 'show'])
+            ->where('path', '.*')
+            ->name('admin.timelog-image');
 
         Route::prefix('reports')->group( function() {
             Route::get('daily-time-record', [DailyTimeRecordController::class, 'index'])->name('reports.dtr');
@@ -445,6 +465,7 @@ $adminRoutes = function () {
                 ->name('settings.employee-modules');
             
             Route::prefix('payroll')->group( function() {
+                Route::get('/', fn () => redirect()->route('payroll.settings'))->name('payroll.settings.redirect');
                 Route::resource('/holidays', HolidayController::class)->only('create', 'index', 'edit')
                     ->names('holiday');
                 Route::get('/settings', [PayrollSettingsController::class, 'index'])
@@ -554,6 +575,10 @@ $employeeRoutes = function () {
 
         Route::get('daily-time-record', [EmployeeDailyTimeRecordController::class, 'index'])
             ->name('employee.dtr');
+
+        Route::get('timelog-image/{path}', [EmployeeTimelogImageController::class, 'show'])
+            ->where('path', '.*')
+            ->name('employee.timelog-image');
 
         Route::get('clock-in-out', [EmployeeClockInOutController::class, 'index'])
             ->name('employee.clock');

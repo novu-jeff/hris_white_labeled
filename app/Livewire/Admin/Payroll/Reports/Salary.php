@@ -61,6 +61,7 @@ class Salary extends Component
    \Log::info("regenerate count jobs payroll", ['count' => count($jobs)]);
         // 6️⃣ Dispatch jobs as a batch
         $batch = \Illuminate\Support\Facades\Bus::batch($jobs)
+            ->onQueue('payroll')
             ->name('Regenerate Payroll #' . $payroll->id)
             ->allowFailures()
             ->dispatch();

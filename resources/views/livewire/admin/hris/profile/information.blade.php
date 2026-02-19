@@ -191,9 +191,31 @@
                             @error('records.employee_information.employee_schedule') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                     </div> 
-                    <div class="col-12 mt-4 mb-3">
+                    <div class="col-12 col-md-6 mb-3">
+                        <label class="mb-2 d-block">Timelog Requirement</label>
+                        <div class="form-check form-switch">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                id="records.employee_information.is_timelog_exempted"
+                                wire:model.live="records.employee_information.is_timelog_exempted"
+                            >
+                            <label class="form-check-label" for="records.employee_information.is_timelog_exempted">
+                                Exempted from timelogs (force DTR to 9:00 AM - 6:00 PM, no Absent/AUT deductions, remarks = Exempted)
+                            </label>
+                        </div>
+                        <div class="error-field">
+                            @error('records.employee_information.is_timelog_exempted') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    <div class="col-12 mt-4 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h5 class="mb-0 text-uppercase fw-bold pt-4 pb-0 ps-2">Salary & Payroll Details</h5>
-                        <hr>
+                        <a href="{{ route('hris.payroll-advanced.index', ['employee_no' => $employee_no]) }}" class="btn btn-outline-primary btn-sm text-uppercase mt-3">
+                            Advanced
+                        </a>
+                        <div class="w-100">
+                            <hr>
+                        </div>
                     </div>
                     @if($internTypeId !== null && (string)($records['employee_information']['type'] ?? '') === (string)$internTypeId)
                         <div class="col-12 mb-3">
@@ -260,6 +282,27 @@
                             @error('records.employee_information.payroll_account_number') <span class="text-danger">{{ $message }}</span> @enderror
                         </div>
                     </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="mb-2" for="payroll_bank">Payroll Bank</label>
+                        <select wire:model.live="records.employee_information.payroll_bank" id="records.employee_information.payroll_bank" class="form-select">
+                            <option value=""> - CHOOSE - </option>
+                            @foreach($payrollBankOptions as $option)
+                                <option value="{{ $option }}">{{ $option }}</option>
+                            @endforeach
+                        </select>
+                        <div class="error-field">
+                            @error('records.employee_information.payroll_bank') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    @if(($records['employee_information']['payroll_bank'] ?? '') === 'Other')
+                        <div class="col-md-3 mb-3">
+                            <label class="mb-2" for="payroll_bank_other">Specify bank name</label>
+                            <input type="text" wire:model="records.employee_information.payroll_bank_other" id="records.employee_information.payroll_bank_other" class="form-control" placeholder="Type bank name">
+                            <div class="error-field">
+                                @error('records.employee_information.payroll_bank_other') <span class="text-danger">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

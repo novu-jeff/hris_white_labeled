@@ -27,9 +27,14 @@ class EmployeeAccount extends Authenticatable
         'isToUpdatePassword',
         'last_password_updated',
         'isLocked',
-        'login_attempts'
+        'login_attempts',
+        'dashboard_card_order',
     ];
     public $timestamps = false;
+
+    protected $casts = [
+        'dashboard_card_order' => 'array',
+    ];
 
 
     public function information() {
