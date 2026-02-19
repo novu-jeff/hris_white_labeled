@@ -15,8 +15,8 @@
         @endcan
         @can('read holidays')
             <li><a class="dropdown-item" href="{{route('holiday.index')}}">Holiday</a></li>
-            <li><a class="dropdown-item" href="{{route('payroll.settings')}}">Payroll Settings</a></li>
         @endcan
+        <li><a class="dropdown-item" href="{{ route('payroll.settings') }}">Payroll Settings</a></li>
         @canany([
             'read departments',
             'read sections'
@@ -78,6 +78,7 @@
             'read positions',
             'read violations',
             'read leave-types',
+            'read offset-credits',
             'read gsis-billing',
             'read other-earnings',
             'read other-deductions',
@@ -103,6 +104,9 @@
 
                     @can('read leave-types')
                         <li><a class="dropdown-item" href="{{route('leave.index')}}">Leaves</a></li>
+                    @endcan
+                    @can('read offset-credits')
+                        <li><a class="dropdown-item" href="{{ route('offset-credits.index') }}">Offset Credits</a></li>
                     @endcan
 
                     @can('read gsis-billing')

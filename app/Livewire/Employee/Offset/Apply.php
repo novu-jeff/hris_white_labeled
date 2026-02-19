@@ -5,6 +5,7 @@ namespace App\Livewire\Employee\Offset;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeOffsetApplication;
 use App\Models\EmployeePersonal;
+use App\Models\OffsetCredits;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +25,7 @@ class Apply extends Component
     $approved_by_id;
 
     public $record_id;
+    public $remaining_offset_credits = 0;
 
     protected $listeners = ['save'];
 
@@ -39,6 +41,7 @@ class Apply extends Component
 
         $this->employee_no = $employee_no;
         $this->employee_id = $employee_id;
+        $this->remaining_offset_credits = (float) (OffsetCredits::where('employee_no', $employee_no)->value('credits') ?? 0);
         
         $employee = DB::table('employee_account')
             ->leftJoin('employee_personal', 'employee_account.employee_no', '=', 'employee_personal.employee_no')
@@ -176,12 +179,12 @@ class Apply extends Component
             'purpose' => 'required|max:255',
         ];
 
-        // Activity date must be within 30 days before or after offset date
+        // Activity date must be within 60 days before or after offset date
         if (!empty($this->offset_date_from)) {
             try {
                 $from = Carbon::parse($this->offset_date_from);
-                $minDate = $from->copy()->subDays(30)->format('Y-m-d');
-                $maxDate = $from->copy()->addDays(30)->format('Y-m-d');
+                $minDate = $from->copy()->subDays(60)->format('Y-m-d');
+                $maxDate = $from->copy()->addDays(60)->format('Y-m-d');
                 $rules['offset_date_to'] = array_merge($rules['offset_date_to'], [
                     "after_or_equal:{$minDate}",
                     "before_or_equal:{$maxDate}",
@@ -200,13 +203,22 @@ class Apply extends Component
             'offset_date_from.date' => 'The offset date from must be a valid date.',
             'offset_date_to.required' => 'The offset date to is required.',
             'offset_date_to.date' => 'The offset date to must be a valid date.',
-            'offset_date_to.after_or_equal' => 'The activity date must be within 30 days before or after the offset date.',
-            'offset_date_to.before_or_equal' => 'The activity date must be within 30 days before or after the offset date.',
+            'offset_date_to.after_or_equal' => 'The activity date must be within 60 days before or after the offset date.',
+            'offset_date_to.before_or_equal' => 'The activity date must be within 60 days before or after the offset date.',
         ];
     }
 
     public function save(bool $isNotify = true) {
         $this->validate($this->rules(), $this->messages());
+
+        if (is_null($this->record_id) && $this->remaining_offset_credits <= 0) {
+            return $this->dispatch('alert', [
+                'showAlert' => true,
+                'status' => 'error',
+                'title' => 'No Offset Credits',
+                'message' => 'You do not have available offset credits. Please contact HR/Admin.',
+            ]);
+        }
 
         if($isNotify) {
             $title = 'Are you sure to continue?';

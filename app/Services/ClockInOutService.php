@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\MirrorTimelogImageToS3;
 use App\Models\EmployeeTimelogs;
 use App\Models\EmployeeInformation;
 use App\Services\DailyTimeRecordService;
@@ -179,7 +180,17 @@ class ClockInOutService
     public function insertLog(int $entry, array $toProcess, string $employee_no): array
     {
         $employeeId = $this->getEmployeeID($employee_no);
+        $shift = app(DailyTimeRecordService::class)->getShiftSchedule($employee_no);
+        $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
+        $hasBreakTime = $lunchTracking && ($shift->is_breaktime_required ?? false);
+
         $date = Carbon::parse($toProcess['timestamp'])->toDateString();
+        $todayRecords = EmployeeTimelogs::where('employee_id', $employeeId)
+            ->whereDate('timestamp', $date)
+            ->orderBy('timestamp')
+            ->get();
+        $currentProgress = $this->getEntryProgressFromRecords($todayRecords, $hasBreakTime);
+
         $currentCount = EmployeeTimelogs::where('employee_id', $employeeId)
             ->whereDate('timestamp', $date)
             ->count();
@@ -187,13 +198,19 @@ class ClockInOutService
         $isPastMidnightClockOut = false;
         if (($entry === 1 || $entry === 3) && $currentCount === 0) {
             try {
-                $shift = app(DailyTimeRecordService::class)->getShiftSchedule($employee_no);
                 $isPastMidnightClockOut = $this->shiftAllowsPastMidnightClockOut($shift);
             } catch (\Throwable $e) {
                 $isPastMidnightClockOut = false;
             }
         }
-        if (!$isPastMidnightClockOut && $currentCount !== $entry) {
+
+        $isAllowedForcedOutFromLunchOut = $hasBreakTime && $entry === 3 && $currentProgress === 1;
+
+        if (
+            !$isPastMidnightClockOut &&
+            !$isAllowedForcedOutFromLunchOut &&
+            $currentProgress !== $entry
+        ) {
             return [
                 'status' => false,
                 'alert' => 'error',
@@ -206,13 +223,14 @@ class ClockInOutService
         $rawLocation = $toProcess['captured_location'] ?? null;
         $captured_location = $this->formatCapturedLocation($rawLocation);
 
-        $captured_image = $this->insertImage(
+        $capturedImageMeta = $this->insertImage(
             $employee_no,
             $toProcess['captured_image'],
             $timestamp,
             $rawLocation,
             $entry
         );
+        $captured_image = $capturedImageMeta['path'] ?? null;
         $accomplishment = $toProcess['accomplishment'] ?? null;
 
         $formattedTimestamp = Carbon::now()->format('Y-m-d') . ' ' . Carbon::parse($timestamp)->format('H:i');
@@ -240,12 +258,61 @@ class ClockInOutService
 
         EmployeeTimelogs::create($data);
 
+        \Log::info('Timelog captured_image storage', [
+            'employee_no' => $employee_no,
+            'timestamp' => $formattedTimestamp,
+            'captured_image' => $captured_image,
+            'saved_to' => $capturedImageMeta['saved_to'] ?? null, // s3 | local/public | null
+            'mirror_to' => $capturedImageMeta['mirror_to'] ?? null,
+            'used_local_fallback' => $capturedImageMeta['used_local_fallback'] ?? false,
+        ]);
+
         return [
             'status' => true,
             'alert' => 'success',
             'title' => 'Recorded!',
             'message' => ''
         ];
+    }
+
+    private function getEntryProgressFromRecords($records, bool $hasBreaktime): int
+    {
+        $expectedSequence = $hasBreaktime ? [0, 1, 0, 1] : [0, 1];
+        $progress = 0;
+        $lastAcceptedStatus = null;
+
+        foreach ($records as $record) {
+            $status = $this->getPunchStatus($record);
+
+            if (!in_array($status, [0, 1], true)) {
+                continue;
+            }
+
+            // Ignore duplicate consecutive punches (e.g., double clock-in).
+            if ($lastAcceptedStatus !== null && $status === $lastAcceptedStatus) {
+                continue;
+            }
+
+            if ($progress < count($expectedSequence) && $status === $expectedSequence[$progress]) {
+                $progress++;
+                $lastAcceptedStatus = $status;
+            }
+        }
+
+        return $progress;
+    }
+
+    private function getPunchStatus($record): ?int
+    {
+        if (isset($record->status) && $record->status !== null) {
+            return (int) $record->status;
+        }
+
+        if (isset($record->status1) && $record->status1 !== null) {
+            return (int) $record->status1;
+        }
+
+        return null;
     }
 
     private function formatCapturedLocation(mixed $capturedLocation): ?string
@@ -290,8 +357,8 @@ class ClockInOutService
 
     /**
      * Store the captured image in the final timelogs location only (never in livewire-tmp or temporary paths).
-     * Saves to: public disk "timelogs/{employee_no}_{timestamp}.png" (e.g. ni-075_1770116220.png)
-     * or S3 "timelogs/{filename}" when USE_S3_STORAGE is true. URL: APP_URL/storage/timelogs/filename.
+     * Primary save follows USE_S3_STORAGE (s3/public). For testing, set TIMELOG_MIRROR_TO_S3=true
+     * to keep the local/public copy and also write a second copy to S3.
      * Also builds a visual overlay: clock label, time & date, optional location + mini-map.
      */
     private function insertImage(
@@ -300,13 +367,18 @@ class ClockInOutService
         string $timestamp,
         mixed $rawLocation,
         int $entry
-    ): ?string
+    ): array
     {
         if (empty($imageData) || !str_contains($imageData, 'base64,')) {
             if (!empty($imageData)) {
                 \Log::error('Invalid image data format.', compact('employee_no'));
             }
-            return null;
+            return [
+                'path' => null,
+                'saved_to' => null,
+                'mirror_to' => null,
+                'used_local_fallback' => false,
+            ];
         }
 
         [$header, $base64Data] = explode('base64,', $imageData);
@@ -314,19 +386,115 @@ class ClockInOutService
 
         if ($decodedImage === false) {
             \Log::error('Failed to decode base64 image.', compact('employee_no'));
-            return null;
+            return [
+                'path' => null,
+                'saved_to' => null,
+                'mirror_to' => null,
+                'used_local_fallback' => false,
+            ];
         }
 
         // Try to build an overlayed image; if anything fails, fall back to the raw capture.
         $finalImage = $this->buildOverlayedImage($decodedImage, $timestamp, $rawLocation, $entry, $employee_no);
 
+        $employeeFolder = strtolower(trim($employee_no));
         $filename = strtolower($employee_no . '_' . time() . '.png');
-        $disk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
-        $path = "timelogs/{$filename}";
-        Storage::disk($disk)->put($path, $finalImage ?? $decodedImage, ['visibility' => 'public']);
-        \Log::info('Timelog image saved to final location', ['path' => $path, 'disk' => $disk, 'employee_no' => $employee_no]);
+        $relativePath = "{$employeeFolder}/{$filename}";
+        $path = "timelogs/{$relativePath}";
+        $payload = $finalImage ?? $decodedImage;
 
-        return $filename;
+        $primaryDisk = env('USE_S3_STORAGE', false) ? 's3' : 'public';
+        $primaryStored = $this->storeTimelogImage($primaryDisk, $path, $payload, $employee_no, 'saved to final location');
+
+        // Fallback: S3 primary → local fallback when S3 fails.
+        $usedLocalFallback = false;
+        if (!$primaryStored && $primaryDisk === 's3') {
+            $primaryStored = $this->storeTimelogImage('public', $path, $payload, $employee_no, 'fallback to local (S3 failed)');
+            $usedLocalFallback = true;
+        }
+        if (!$primaryStored) {
+            return [
+                'path' => null,
+                'saved_to' => null,
+                'mirror_to' => null,
+                'used_local_fallback' => $usedLocalFallback,
+            ];
+        }
+
+        // Keep a local/public copy when primary is S3 (skip if we already fell back to local).
+        $mirrorTo = null;
+        if ($primaryDisk !== 'public' && !$usedLocalFallback) {
+            $mirrored = $this->storeTimelogImage('public', $path, $payload, $employee_no, 'mirrored to local storage');
+            if ($mirrored) {
+                $mirrorTo = 'local/public';
+            }
+        }
+
+        $mirrorToS3 = filter_var(config('app.timelog_mirror_to_s3', false), FILTER_VALIDATE_BOOLEAN);
+        if ($mirrorToS3 && $primaryDisk !== 's3') {
+            // Queue mirror to avoid blocking clock-in/out response.
+            MirrorTimelogImageToS3::dispatch($path, $employee_no);
+            $mirrorTo = 's3 (queued)';
+        }
+
+        return [
+            'path' => $relativePath,
+            'saved_to' => $primaryDisk === 'public' ? 'local/public' : 's3',
+            'mirror_to' => $mirrorTo,
+            'used_local_fallback' => $usedLocalFallback,
+        ];
+    }
+
+    private function storeTimelogImage(
+        string $disk,
+        string $path,
+        string $payload,
+        string $employeeNo,
+        string $actionLabel
+    ): bool {
+        try {
+            $stored = Storage::disk($disk)->put($path, $payload, ['visibility' => 'public']);
+
+            // Some S3-compatible providers reject ACL/visibility headers.
+            if (!$stored && $disk === 's3') {
+                $stored = Storage::disk($disk)->put($path, $payload);
+                if ($stored) {
+                    \Log::warning('Timelog image stored to s3 without visibility option', [
+                        'path' => $path,
+                        'disk' => $disk,
+                        'employee_no' => $employeeNo,
+                    ]);
+                }
+            }
+
+            if (!$stored) {
+                \Log::warning('Failed to store timelog image', [
+                    'path' => $path,
+                    'disk' => $disk,
+                    'employee_no' => $employeeNo,
+                    'action' => $actionLabel,
+                ]);
+                return false;
+            }
+
+            \Log::info("Timelog image {$actionLabel}", [
+                'path' => $path,
+                'disk' => $disk,
+                'employee_no' => $employeeNo,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to store timelog image', [
+                'path' => $path,
+                'disk' => $disk,
+                'employee_no' => $employeeNo,
+                'action' => $actionLabel,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     /**

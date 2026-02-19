@@ -26,6 +26,7 @@ class Edit extends Component
     public $end_shift = '16:00';
     public $work_setup;
     public $isFlexible = false;
+    public $isSupport = false;
     public $isHybrid = false;
     public $min_ot_mins = '120';
     public $max_ot_time = '22:00';
@@ -68,9 +69,7 @@ class Edit extends Component
 
         $this->changeWorkSetup();
 
-        if($this->shift_duration === 'flexible') {
-            $this->onSelect('shift_duration');
-        }
+        $this->onSelect('shift_duration');
 
     }
 
@@ -78,6 +77,7 @@ class Edit extends Component
     {
         if ($property === 'shift_duration') {
             $this->isFlexible = ($this->shift_duration === 'flexible');
+            $this->isSupport = ($this->shift_duration === 'support');
         }
     }
 
@@ -97,7 +97,7 @@ class Edit extends Component
         $rules = [
             'name' => 'required|string',
             'description' => 'required|string',
-            'shift_duration' => 'required|in:flexible,standard,extended,full-day,compressed,part-time',
+            'shift_duration' => 'required|in:flexible,standard,extended,full-day,compressed,support,part-time',
             'work_setup' => 'required|in:onsite,hybrid',
             'is_breaktime_required' => 'required|boolean',
             'allow_anytime_clockin' => 'nullable|boolean',
@@ -111,12 +111,12 @@ class Edit extends Component
             ]);
         }
     
-        if (!$this->isFlexible) {
+        if (!$this->isFlexible && !$this->isSupport) {
             $rules = array_merge($rules, [
                 'start_shift' => 'required|date_format:H:i',
                 'end_shift' => 'required|date_format:H:i|after:start_shift', // Ensure end shift is after start shift
             ]);
-        } else {
+        } elseif ($this->isFlexible) {
             // Add specific rules for flexible shifts
             $rules = array_merge($rules, [
                 'earliest_in' => 'required|date_format:H:i',
@@ -126,7 +126,7 @@ class Edit extends Component
     
         // Custom validator to handle shift duration and break times
         $this->withValidator(function ($validator) {
-            if (!$this->isFlexible) {
+            if (!$this->isFlexible && !$this->isSupport) {
                 $validator->after(function ($validator) {
                     // Validate presence of start and end shift times
                     if (!$this->start_shift || !$this->end_shift) {
@@ -151,11 +151,12 @@ class Edit extends Component
                         'extended' => 13,
                         'full-day' => 25,
                         'compressed' => 11,
+                        'support' => 8,
                         'part-time' => 0,
                         default => null,
                     };
 
-                    if ($expectedHours !== null && !$this->is_breaktime_required && $expectedHours > 0) {
+                    if ($expectedHours !== null && !$this->is_breaktime_required && $expectedHours > 0 && $this->shift_duration !== 'support') {
                         $expectedHours -= 1;
                     }
     
@@ -199,7 +200,7 @@ class Edit extends Component
             'name.required' => 'The name field is required.',
             'description.required' => 'The description field is required.',
             'shift_duration.required' => 'Please select a shift duration.',
-            'shift_duration.in' => 'The selected shift duration is invalid. Allowed values are: standard, extended, full-day, compressed, part-time.',
+            'shift_duration.in' => 'The selected shift duration is invalid. Allowed values are: standard, extended, full-day, compressed, support, part-time.',
             'start_shift.required' => 'The start time is required.',
             'start_shift.date_format' => 'The start time must be in the format HH:mm.',
             'end_shift.required' => 'The end time is required.',
@@ -270,6 +271,11 @@ class Edit extends Component
                 if ($this->isFlexible) {
                     $data['earliest_in'] = $this->earliest_in;
                     $data['latest_in'] = $this->latest_in;
+                    $data['start_shift'] = null;
+                    $data['end_shift'] = null;
+                } elseif ($this->isSupport) {
+                    $data['earliest_in'] = null;
+                    $data['latest_in'] = null;
                     $data['start_shift'] = null;
                     $data['end_shift'] = null;
                 } else {

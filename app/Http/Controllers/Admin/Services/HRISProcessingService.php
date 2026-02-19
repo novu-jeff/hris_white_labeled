@@ -163,8 +163,11 @@ class HRISProcessingService extends Controller
                 'salary_method' => $data['salary_method'],
                 'salary' => $salary,
                 'has_salary' => (bool) ($data['has_salary'] ?? false),
+                'is_timelog_exempted' => (bool) ($data['is_timelog_exempted'] ?? false),
                 'allowance' => (isset($data['allowance']) && $data['allowance'] !== '') ? $data['allowance'] : null,
                 'payroll_account_number' => $data['payroll_account_number'],
+                'payroll_bank' => $data['payroll_bank'] ?? null,
+                'payroll_bank_other' => (isset($data['payroll_bank_other']) && $data['payroll_bank_other'] !== '') ? $data['payroll_bank_other'] : null,
             ]);
 
             return $record->save();
@@ -193,6 +196,9 @@ class HRISProcessingService extends Controller
         $record = EmployeeAccount::with('personal')->where('employee_no', $employee_no)->first();
 
         if ($record) {
+            if (array_key_exists('company_email', $data)) {
+                $record->company_email = $data['company_email'] ?: null;
+            }
             if (!empty($data['personal_email'])) {
                 $record->email = $data['personal_email'];
             }
@@ -219,7 +225,7 @@ class HRISProcessingService extends Controller
                 $lastname  = $record->personal->lastname ?? '';
                 $fullname  = trim("$firstname $lastname");
 
-                $data['email']        = $record->email;
+                $data['email']        = $record->company_email ?: $record->email;
                 $data['email_id']     = $record->email_id;
                 $data['firstname']    = $firstname;
                 $data['fullname']     = $fullname !== '' ? $fullname : 'Employee ' . $record->employee_no;

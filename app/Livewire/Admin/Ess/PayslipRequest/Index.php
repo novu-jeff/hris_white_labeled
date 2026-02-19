@@ -59,7 +59,7 @@ class Index extends Component
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
-            $message = 'Please be informed that you are about to disapprove this leave application <b>#' . strtoupper(format_id($this->selected_id, 6)) . '</b>. Once this action is processed, it cannot be undone or reversed!';
+            $message = 'Please be informed that you are about to disapprove this payslip download request <b>#' . strtoupper(format_id($this->selected_id, 6)) . '</b>. Once this action is processed, it cannot be undone or reversed!';
             $action = 'disapproved';
             $this->dispatch('showConfirmation', [
                 'title' => $title,
@@ -87,7 +87,7 @@ class Index extends Component
             ]);
 
             $user = EmployeeAccount::where('employee_no', $record->employee_no)->first();
-            $user?->notify(new Notifications('error', 'You\'re leave request <strong>#' . format_id($record->id, 6) . '</strong> for payslip download was <strong>DISAPPROVED</strong>.', route('employee.leave'), 'employee'));
+            $user?->notify(new Notifications('error', 'Your payslip download request <strong>#' . format_id($record->id, 6) . '</strong> was <strong>DISAPPROVED</strong>.', route('employee.payslip'), 'employee'));
         }
     }
 
@@ -108,7 +108,7 @@ class Index extends Component
         if($isNotify) {
 
             $title = 'Are you sure to continue?';
-            $message = 'Please be informed that you are about to approve this request of payslip download <b>#' . strtoupper(format_id($this->selected_id, 6)) . '</b>. Once this action is processed, it cannot be undone or reversed!';
+            $message = 'Please be informed that you are about to approve this payslip download request <b>#' . strtoupper(format_id($this->selected_id, 6)) . '</b>. Once this action is processed, it cannot be undone or reversed!';
             $action = 'approved';
             $this->dispatch('showConfirmation', [
                 'title' => $title,
@@ -170,7 +170,7 @@ class Index extends Component
             if($record) {
 
                 $user = EmployeeAccount::where('employee_no', $record->employee_no)->first();
-                $user?->notify(new Notifications('error', 'You\'re request <strong>#' . format_id($record->id, 6) . '</strong> for downloading payslip was <strong>REMOVED</strong>. Click this notification to view more details.', route('employee.leave'), 'employee'));
+                $user?->notify(new Notifications('error', 'Your payslip download request <strong>#' . format_id($record->id, 6) . '</strong> was <strong>REMOVED</strong>. Click this notification to view more details.', route('employee.payslip'), 'employee'));
 
                 $record->isDeleted = true;
                 $record->action_by_id = Auth::user()->id;

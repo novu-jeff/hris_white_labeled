@@ -58,6 +58,7 @@ class PermissionSeeder extends Seeder
                 'violations',
                 'leave-types',
                 'leave-credits',
+                'offset-credits',
                 'gsis-billing',
                 'employee-earnings',
                 'employee-deductions',
@@ -66,6 +67,8 @@ class PermissionSeeder extends Seeder
                 'shift-schedule',
                 'employee-schedule',
                 'holidays',
+                'payroll-period',
+                'payroll-configuration',
             ],
             'employee' => [
                 'apply-leave',

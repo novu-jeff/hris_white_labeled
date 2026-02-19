@@ -120,17 +120,6 @@
                                 </div>
                             @endif
                         @endif
-                        <div class="col-12 col-md-12 mb-4">
-                            <label class="mb-2" for="commutation">Commutation <span class="text-danger">*</span></label>
-                            <select wire:model="commutation" id="commutation" class="form-select text-uppercase">
-                                <option value=""> - CHOOSE -</option>
-                                <option value="no">Not Requested</option>
-                                <option value="yes">Requested</option>
-                            </select>
-                            <div class="error-field">
-                                @error('commutation') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <hr class="mx-3">
@@ -213,6 +202,12 @@ $(function () {
             );
         }
 
+        function isSickLeaveType() {
+            // Leave type id 2 = Sick Leave
+            const leaveTypeEl = document.getElementById('type');
+            return leaveTypeEl && String(leaveTypeEl.value) === '2';
+        }
+
         function isToggleable(ymd) {
             const date = new Date(ymd + 'T12:00:00');
             date.setHours(0, 0, 0, 0);
@@ -221,8 +216,13 @@ $(function () {
             const futureOrToday = date.getTime() >= today.getTime();
             const yearLimit = date.getFullYear() <= currentYear;
             const blocked = isBlocked(ymd, mmdd);
+            const sickLeave = isSickLeaveType();
 
-            if (!futureOrToday || !yearLimit) return false;
+            if (!yearLimit) return false;
+            // Sick Leave: only today and past dates (not future)
+            if (sickLeave && date.getTime() > today.getTime()) return false;
+            // Other leave types: only today and future dates
+            if (!sickLeave && !futureOrToday) return false;
 
             if (isEdit) return true;
 
@@ -249,8 +249,19 @@ $(function () {
                 const ymd = formatToYMD(date);
                 const mmdd = formatToMMDD(date);
                 date.setHours(0, 0, 0, 0);
+                const sickLeave = isSickLeaveType();
 
-                if (date.getTime() < today.getTime() || date.getFullYear() > currentYear) {
+                // Non-sick leave: hide past dates
+                if (!sickLeave && date.getTime() < today.getTime()) {
+                    continue;
+                }
+
+                // Sick leave: hide future dates
+                if (sickLeave && date.getTime() > today.getTime()) {
+                    continue;
+                }
+
+                if (date.getFullYear() > currentYear) {
                     if (date.getFullYear() > currentYear) {
                         events.push({
                             title: 'Unavailable',
@@ -310,6 +321,17 @@ $(function () {
 
         calendar.render();
         renderEvents();
+
+        // Re-render immediately when leave type changes (no day click needed)
+        const leaveTypeEl = document.getElementById('type');
+        if (leaveTypeEl) {
+            leaveTypeEl.addEventListener('change', () => {
+                // Drop selected dates that are no longer valid for the new leave type
+                selectedDates = selectedDates.filter(d => isToggleable(d));
+                renderEvents();
+            });
+        }
+
         $(calendarEl).data('calendar-initialized', true);
     }, 300);
 });

@@ -17,6 +17,7 @@ class EmployeeAccount extends Authenticatable
         'employee_no',
         'applicant_id',
         'email_id',
+        'company_email',
         'email',
         'email_notifications_enabled',
         'password',
@@ -26,9 +27,14 @@ class EmployeeAccount extends Authenticatable
         'isToUpdatePassword',
         'last_password_updated',
         'isLocked',
-        'login_attempts'
+        'login_attempts',
+        'dashboard_card_order',
     ];
     public $timestamps = false;
+
+    protected $casts = [
+        'dashboard_card_order' => 'array',
+    ];
 
 
     public function information() {
@@ -42,6 +48,15 @@ class EmployeeAccount extends Authenticatable
 
     public function personal() {
         return $this->hasOne(EmployeePersonal::class, 'employee_no', 'employee_no');
+    }
+
+    /**
+     * Email used for login, notifications, and password reset.
+     * If no company email is set, personal email acts as company email.
+     */
+    public function routeNotificationForMail(): ?string
+    {
+        return $this->company_email ?: $this->email;
     }
 
 }

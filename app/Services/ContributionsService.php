@@ -37,6 +37,7 @@ class ContributionsService
             'total' => round($employeeShare + $employerShare, 2),
             'employee_share' => $employeeShare,
             'employer_share' => $employerShare,
+            'ec' => 0,
             'msc' => $msc,
         ];
     }

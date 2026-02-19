@@ -241,8 +241,8 @@
                             </div>
                         </div>  
                         <div class="col-12 col-md-4 mb-3">
-                            <label class="mb-2" for="email">Email</label>
-                            <input type="email" wire:model="records.email" id="email" class="form-control">
+                            <label class="mb-2" for="email">Personal Email</label>
+                            <input type="email" wire:model="records.email" id="email" class="form-control" placeholder="Your personal email address">
                             <div class="error-field">
                                 @error('records.email') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>

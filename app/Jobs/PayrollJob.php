@@ -23,12 +23,13 @@ class PayrollJob implements ShouldQueue
     protected $type;
     protected $payrollId;
 
-   public function __construct(array $employees, int $payrollId, string $type)
-{
-    $this->employees = $employees;
-    $this->payrollId = $payrollId;
-    $this->type = $type;
-}
+    public function __construct(array $employees, int $payrollId, string $type)
+    {
+        $this->onQueue('payroll');
+        $this->employees = $employees;
+        $this->payrollId = $payrollId;
+        $this->type = $type;
+    }
 
     public function handle()
 {

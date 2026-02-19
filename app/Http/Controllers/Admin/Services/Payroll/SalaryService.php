@@ -17,6 +17,7 @@ use Illuminate\Validation\Rule;
 use App\Services\DailyTimeRecordService;
 use Illuminate\Support\Facades\Log;
 use App\Models\Loan;
+use App\Models\Setting;
 
 class SalaryService extends Controller {
 
@@ -54,9 +55,11 @@ class SalaryService extends Controller {
 
         $netAmount = $payroll->items->sum(fn($item) => (float) str_replace(',', '', $item->net_amount));
         $salaryAmount = $payroll->items->sum(fn($item) => (float) str_replace(',', '', $item->salary));
+        $grossAmount = $payroll->items->sum(fn($item) => (float) str_replace(',', '', $item->gross_amount_earned));
 
         $payroll->overall_net_amount = round($netAmount, 2);
         $payroll->overall_salary = round($salaryAmount, 2);
+        $payroll->overall_gross_amount = round($grossAmount, 2);
         $payroll->type = 'Salary Payroll';
 
         $grouped = [];
@@ -77,7 +80,34 @@ class SalaryService extends Controller {
                 ];
             }
 
-            $grouped[$sectionId]['employees'][] = $item->toArray() ?? [];
+            $employeeRow = $item->toArray() ?? [];
+
+            // Fill bank name/account from employee/department when not stored on payroll item
+            if (empty($employeeRow['bank_account']) || empty($employeeRow['bank_name'])) {
+                $info = $item->information;
+                if ($info) {
+                    if (empty($employeeRow['bank_account'])) {
+                        $employeeRow['bank_account'] = $info->bank_account_no ?? $info->payroll_account_number ?? null;
+                    }
+                    if (empty($employeeRow['bank_name'])) {
+                        // Prefer employee's Payroll Bank (and "Other" custom name), then default setting, then department bank
+                        $empBank = $info->payroll_bank ? trim($info->payroll_bank) : null;
+                        if ($empBank) {
+                            $employeeRow['bank_name'] = (strtolower($empBank) === 'other' && !empty($info->payroll_bank_other))
+                                ? trim($info->payroll_bank_other)
+                                : $empBank;
+                        } else {
+                            $employeeRow['bank_name'] = Setting::get('payroll_bank_default', '');
+                        }
+                        if (empty($employeeRow['bank_name']) && $section->department_id) {
+                            $bank = \App\Models\BankInformations::where('department_id', $section->department_id)->first();
+                            $employeeRow['bank_name'] = $bank->name ?? null;
+                        }
+                    }
+                }
+            }
+
+            $grouped[$sectionId]['employees'][] = $employeeRow;
         }
 
         $items = array_values($grouped);
@@ -200,6 +230,7 @@ class SalaryService extends Controller {
                 $position = $employee['position_name'];
                 $basic_salary = round(floatval($employee['salary']), 2);
                 $salary_type = $employee['salary_type'];
+                $isTimelogExempted = (bool) ($employee['is_timelog_exempted'] ?? false);
                 $gw_tax = $employee['w_tax'];
                 $rate = 0.05;
                 $ceiling = 100000;
@@ -245,29 +276,29 @@ class SalaryService extends Controller {
 
               //  dd($hasDeductions, $social_security->consoloan );
 
-                // Deductions (based on flag)
-                $rlip = $hasDeductions ? round(floatval($basic_salary * 0.09), 2) : 0;
-               // $philhealth = $hasDeductions ? round(floatval($basic_salary * 0.05 / 2), 2) : 0;
-               $philhealth = $hasDeductions
-                    ? round(min($basic_salary, $ceiling) * $rate / 2, 2)
+                // Deductions (based on flag). Per Management: employee deductions divided into two cut-offs per month (half per cut-off).
+                $rlip = $hasDeductions ? round(floatval($basic_salary * 0.09) / 2, 2) : 0;
+                $philhealth = $hasDeductions
+                    ? round(min($basic_salary, $ceiling) * $rate / 2 / 2, 2)
                     : 0;
-                $hdmf = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'HDMF')['amount'] ?? 0), 2) : 0;
-                $mp2 = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'MP2')['amount'] ?? 0), 2) : 0;
-                $mplstlms = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'MPLSTLMS')['amount'] ?? 0), 2) : 0;
-                $cir = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'CIR375, CIR449')['amount'] ?? 0), 2) : 0;
-               // $w_tax = $hasDeductions ? round(floatval($payroll_service->computeWithholdingTax($basic_salary) ?? 0), 2) : 0;
-                $w_tax = $hasDeductions ? round(floatval($gw_tax ?? 0), 2) : 0;
-               $uca = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'Unliquidated_Cash_Advances')['amount'] ?? 0), 2) : 0;
-                $consoloan = $hasDeductions ? round(floatval($social_security->consoloan ?? 0), 2) : 0;
-                $emergency_loan = $hasDeductions ? round(floatval($social_security->emrgy_loan ?? 0), 2) : 0;
-                $plreg = $hasDeductions ? round(floatval($social_security->plreg ?? 0), 2) : 0;
-                $mpl = $hasDeductions ? round(floatval($social_security->mpl ?? 0), 2) : 0;
-                $cpl = $hasDeductions ? round(floatval($social_security->cpl ?? 0), 2) : 0;
-                $aut = $hasDeductions ? round(floatval($payroll_service->computeAutDeduction($dtr_summary, $basic_salary, $salary_type))) : 0;
+                $hdmf = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'HDMF')['amount'] ?? 0) / 2, 2) : 0;
+                $mp2 = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'MP2')['amount'] ?? 0) / 2, 2) : 0;
+                $mplstlms = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'MPLSTLMS')['amount'] ?? 0) / 2, 2) : 0;
+                $cir = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'CIR375, CIR449')['amount'] ?? 0) / 2, 2) : 0;
+                $w_tax = $hasDeductions ? round(floatval($gw_tax ?? 0) / 2, 2) : 0;
+                $uca = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'Unliquidated_Cash_Advances')['amount'] ?? 0) / 2, 2) : 0;
+                $consoloan = $hasDeductions ? round(floatval($social_security->consoloan ?? 0) / 2, 2) : 0;
+                $emergency_loan = $hasDeductions ? round(floatval($social_security->emrgy_loan ?? 0) / 2, 2) : 0;
+                $plreg = $hasDeductions ? round(floatval($social_security->plreg ?? 0) / 2, 2) : 0;
+                $mpl = $hasDeductions ? round(floatval($social_security->mpl ?? 0) / 2, 2) : 0;
+                $cpl = $hasDeductions ? round(floatval($social_security->cpl ?? 0) / 2, 2) : 0;
+                $aut = $hasDeductions
+                    ? round(floatval($payroll_service->computeAutDeduction($dtr_summary, $basic_salary, $salary_type, $isTimelogExempted)) / 2, 2)
+                    : 0;
 
-                // Optional deductions
-                $dbp = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'DBP Savings')['amount'] ?? 0), 2) : 0;
-                $kawani = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'Unlad Kawani')['amount'] ?? 0), 2) : 0;
+                // Optional deductions (half per cut-off)
+                $dbp = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'DBP Savings')['amount'] ?? 0) / 2, 2) : 0;
+                $kawani = $hasDeductions ? round(floatval(collect($deductions)->firstWhere('deduction.code', 'Unlad Kawani')['amount'] ?? 0) / 2, 2) : 0;
 
                 $total_deduction = round(
                     $rlip + $hdmf + $philhealth + $consoloan + $emergency_loan +
@@ -364,7 +395,8 @@ class SalaryService extends Controller {
 
                 foreach ($employeeLoans as $loan) {
                     if ($loan->balance > 0) {
-                        $deductionAmount = $loan->monthly_amortization;
+                        // Per Management: deductions divided into two cut-offs per month (half per cut-off)
+                        $deductionAmount = round($loan->monthly_amortization / 2, 2);
                         $other_loans += $deductionAmount;
 
                         $loanDeductionsToInsert[] = [
@@ -384,7 +416,9 @@ class SalaryService extends Controller {
                     }    
                 }
 
-                $salary_type = $employee['salary_type'];
+                $salary_rate = round(floatval($employee['salary']), 2);
+                $salary_type = strtolower(trim((string) ($employee['salary_type'] ?? 'monthly')));
+                $isTimelogExempted = (bool) ($employee['is_timelog_exempted'] ?? false);
 
                 $cut_off_period = $other_service->splitDateRange($payroll->cut_off_period);
 
@@ -392,25 +426,32 @@ class SalaryService extends Controller {
 
                 $dtr_summary  = $dtr['summary'];
 
-                $overtimeData = $payroll_service->computeOvertimePay($basic_salary, $dtr_summary['worked_days'], $dtr_summary['overtime_minues']);
+                $basic_salary = $this->computeCutoffBasicSalary($salary_rate, $salary_type, $dtr_summary);
+
+                $overtimeData = $payroll_service->computeOvertimePay($salary_rate, $dtr_summary['worked_days'], $dtr_summary['overtime_minues']);
                 
                 $overtime = $overtimeData['gross_ot_pay'];
 
-                $holiday_pay = round($payroll_service->computeHolidayPayment($basic_salary, $dtr_summary, $salary_type));
-                $allowances = 0;
+                $holiday_pay = round($payroll_service->computeHolidayPayment($salary_rate, $dtr_summary, $salary_type), 2);
+                $allowances = $this->computeCutoffAllowance(floatval($employee['allowance'] ?? 0), $salary_type);
                 
-                $aut = round(floatval($payroll_service->computeAutDeduction($dtr_summary, $basic_salary, $salary_type)));
+                // Per Management: employee deductions divided into two cut-offs per month (half per cut-off)
+                $aut = round(floatval($payroll_service->computeAutDeduction($dtr_summary, $salary_rate, $salary_type, $isTimelogExempted)) / 2, 2);
 
-                $sss = $hasDeductions ? $contribution_service->computeSSS($basic_salary)['employee_share'] ?? 0 : 0;
-                $pagibig = $hasDeductions ? $contribution_service->computePagibig($basic_salary)['employee_share'] ?? 0 : 0;
-                $philhealth = $hasDeductions ? $contribution_service->computePhilHealth($basic_salary)['employee_share'] ?? 0 : 0;
+                $sssMonthly = $hasDeductions ? ($contribution_service->computeSSS($salary_rate)['employee_share'] ?? 0) : 0;
+                $pagibigMonthly = $hasDeductions ? ($contribution_service->computePagibig($salary_rate)['employee_share'] ?? 0) : 0;
+                $philhealthMonthly = $hasDeductions ? ($contribution_service->computePhilHealth($salary_rate)['employee_share'] ?? 0) : 0;
+                $sss = round($sssMonthly / 2, 2);
+                $pagibig = round($pagibigMonthly / 2, 2);
+                $philhealth = round($philhealthMonthly / 2, 2);
 
-                $night_differential = $payroll_service->computeNightShiftDifferential($basic_salary, $dtr_summary, $salary_type);
+                $night_differential = $payroll_service->computeNightShiftDifferential($salary_rate, $dtr_summary, $salary_type);
                 $gross_amount_earned = $basic_salary + $overtime + $holiday_pay + $allowances + $night_differential;
 
                 $total_contributions = $sss + $pagibig + $philhealth;
-                $taxable_income = max(0, $gross_amount_earned - $total_contributions);
-                $w_tax = $hasDeductions ? $contribution_service->computeWithholdingTax($taxable_income) : 0;
+                $monthly_taxable = max(0, $salary_rate - ($sssMonthly + $pagibigMonthly + $philhealthMonthly));
+                $w_tax_monthly = $hasDeductions ? $contribution_service->computeWithholdingTax($monthly_taxable) : 0;
+                $w_tax = round($w_tax_monthly / 2, 2);
                 $total_deductions = $sss + $pagibig + $philhealth + $w_tax + $other_loans + $aut;
                 $net_amount = $gross_amount_earned - $total_deductions;
                 
@@ -482,6 +523,30 @@ class SalaryService extends Controller {
 
     }
     
+    private function computeCutoffBasicSalary(float $salaryRate, string $salaryType, array $dtrSummary): float
+    {
+        if ($salaryType === 'daily') {
+            $workedDays = (float) ($dtrSummary['worked_days'] ?? 0);
+            return round($salaryRate * $workedDays, 2);
+        }
+
+        // Salary payroll runs per cut-off period (first half / second half).
+        return round($salaryRate / 2, 2);
+    }
+
+    private function computeCutoffAllowance(float $allowance, string $salaryType): float
+    {
+        if ($allowance <= 0) {
+            return 0;
+        }
+
+        if ($salaryType === 'daily') {
+            return round($allowance, 2);
+        }
+
+        return round($allowance / 2, 2);
+    }
+
 
 
 }

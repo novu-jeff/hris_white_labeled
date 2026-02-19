@@ -142,6 +142,8 @@ class DailyTimeRecordService {
         } catch (\Exception $e) {
             $defaultEmployeeSchedule = $this->getShiftScheduleById(1);
         }
+        $isTimelogExempted = $this->isTimelogExemptedEmployee($employee_no);
+        $isEmployeeSupport = $this->isSupportShift($defaultEmployeeSchedule);
 
         # Counters
         $absences = 0;
@@ -165,6 +167,11 @@ class DailyTimeRecordService {
         $leaves = $this->getTotalLeaves($employee_no, $dateInput);
         $leavesCount += $leaves['count'];
         $leavesCollection = collect($leaves['dates']);
+
+        $offsets = $this->getApprovedOffsets($employee_no, $dateInput);
+        $offsetCollection = collect($offsets);
+        $offsetDateFromSet = $offsetCollection->pluck('offset_date_from')->filter()->flip();
+        $offsetDateToSet = $offsetCollection->pluck('offset_date_to')->filter()->flip();
 
         $overtime = $this->getTotalOvertime($employee_no, $dateInput);
 
@@ -198,11 +205,22 @@ class DailyTimeRecordService {
             }
 
             $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
-            $is_break_required = $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
+            $isSupportShiftForRules = $isEmployeeSupport || $this->isSupportShift($employeeSchedule);
+            $is_break_required = !$isSupportShiftForRules && $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
 
             $date_is_in_logs = isset($logs[$dateString]) && !empty($logs[$dateString]);
 
             $dayName = strtolower(Carbon::parse($dateString)->format('l'));
+            $isScheduled = (int) ($weeklySchedule->$dayName ?? 0) === 1;
+            $isOffsetDate = $offsetDateFromSet->has($dateString);
+            $isOffsetActivityDate = $offsetDateToSet->has($dateString);
+            $hasApprovedOffset = $isOffsetDate || $isOffsetActivityDate;
+
+            if ($isTimelogExempted && $isScheduled && !$isFuture) {
+                $workedDays++;
+                $formattedLogs[$dateString] = $this->buildExemptedRecord($dateString);
+                continue;
+            }
 
             #overtime 
             $matchLeave = $leavesCollection->first(function ($leave) use ($dateString) {
@@ -213,7 +231,16 @@ class DailyTimeRecordService {
                 $isLeave  = true;
             }
 
-            $checkAttendance = $this->checkAttendance($dateString,$date_is_in_logs,$weeklySchedule, $dayName, $isFuture, $isLeave);
+            $checkAttendance = $this->checkAttendance(
+                $dateString,
+                $date_is_in_logs,
+                $weeklySchedule,
+                $dayName,
+                $isFuture,
+                $isLeave,
+                $isOffsetDate,
+                $defaultEmployeeSchedule
+            );
             
             if ($checkAttendance['isAbsent']) $absences++;
             if ($checkAttendance['isWorkedDays']) $workedDays++;
@@ -234,6 +261,10 @@ class DailyTimeRecordService {
 
             }
 
+            if ($hasApprovedOffset) {
+                $remarks[] = 'Offset';
+            }
+
             #overtime 
             $matchedOvertime = $overtimeCollection->first(function ($ot) use ($dateString) {
                 return $ot->date === $dateString;
@@ -243,7 +274,7 @@ class DailyTimeRecordService {
                 $formattedLogs[$dateString] = $logs[$dateString];
 
                 # aut 
-                $aut = $this->undertimeAndTardiness($employee_no, $employeeSchedule, $dateLogs, $dateString);
+                $aut = $this->undertimeAndTardiness($employee_no, $employeeSchedule, $dateLogs, $dateString, $isEmployeeSupport);
 
                 # Assign the correct values to formatted logs
                 $formattedLogs[$dateString]['aut']['tardiness']['minutes'] = $aut['tardiness_minutes'];
@@ -273,9 +304,14 @@ class DailyTimeRecordService {
                 # merge aut remarks to global remarks
                 $remarks = array_merge($remarks, $aut['remarks']);
 
+                $dayRemarks = array_values(array_unique(array_filter($remarks)));
+                if (empty($dayRemarks)) {
+                    $dayRemarks = ['Completed'];
+                }
+
                 $formattedLogs[$dateString]['remarks'] = array_merge(
                     $formattedLogs[$dateString]['remarks'] ?? [],
-                    $remarks
+                    $dayRemarks
                 );
 
                 $formattedLogs[$dateString]['isFuture'] = $isFuture;
@@ -293,7 +329,7 @@ class DailyTimeRecordService {
                     'employee_no' => null,
                     'workOnHoliday' => null,
                     'isFuture' => $isFuture,
-                    'remarks' => $remarks,
+                    'remarks' => array_values(array_unique(array_filter($remarks))),
                     'is_break_required' => $is_break_required,
                 ];
             }
@@ -392,6 +428,27 @@ class DailyTimeRecordService {
         }
 
         return $shift;
+    }
+
+    /**
+     * Whether the given shift schedule is a support shift (only 8 hours required for undertime).
+     * Uses shift_schedule.id for reliable detection (e.g. Support Shift id = 4).
+     *
+     * @param  object  $schedule  Shift schedule record (from shift_schedule table).
+     * @return bool
+     */
+    private function isSupportShift($schedule): bool
+    {
+        if (!$schedule) {
+            return false;
+        }
+        $supportShiftId = (int) config('app.support_shift_schedule_id', 4);
+        if (isset($schedule->id) && (int) $schedule->id === $supportShiftId) {
+            return true;
+        }
+        $duration = strtolower(trim($schedule->shift_duration ?? ''));
+        $name = $schedule->name ?? '';
+        return $duration === 'support' || stripos($name, 'support') !== false;
     }
 
     /**
@@ -523,6 +580,8 @@ class DailyTimeRecordService {
      * @param  string   $dayName          The name of the day (e.g., 'monday', 'tuesday').
      * @param  bool     $isFuture         Whether the date is in the future.
      * @param  bool     $isLeave          Whether the employee is on approved leave that day.
+     * @param  bool     $isOffset         Whether the date has an approved offset (offset date).
+     * @param  object   $defaultShift     Optional default shift schedule (for support shift: do not mark absent for now).
      *
      * @return array                      Returns an array with the following keys:
      *                                    - 'remarks': array of string remarks for the date
@@ -534,7 +593,7 @@ class DailyTimeRecordService {
      *                                    - 'isWorkedOnLegalHolidays': bool
      *                                    - 'isWorkedOnSpecialHolidays': bool
      */
-    private function checkAttendance($dateString,  $date_is_in_logs, $weeklySchedule, $dayName, $isFuture, $isLeave)
+    private function checkAttendance($dateString, $date_is_in_logs, $weeklySchedule, $dayName, $isFuture, $isLeave, $isOffset = false, $defaultShift = null)
     {
         # Skip if today
         if (Carbon::parse($dateString)->isToday()) {
@@ -616,9 +675,13 @@ class DailyTimeRecordService {
                 $ownRemarks[] = 'Holiday Work';
             }
             $workedDays = true;
-        } elseif ($isScheduled && !$isHoliday && !$isFuture && !$isLeave) {
-            $absent = true;
-            $ownRemarks[] = 'Absent';
+        } elseif ($isScheduled && !$isHoliday && !$isFuture && !$isLeave && !$isOffset) {
+            // Support shift: do not mark absent for now (per requirement)
+            $skipAbsent = $defaultShift && $this->isSupportShift($defaultShift);
+            if (!$skipAbsent) {
+                $absent = true;
+                $ownRemarks[] = 'Absent';
+            }
         }
 
         $data = [
@@ -761,7 +824,7 @@ class DailyTimeRecordService {
      *                                     - 'remarks': Array of remarks (e.g. Late, Undertime, Discrepancy)
      *                                     - 'is_break_required': Whether break time was required on that day
      */
-    private function undertimeAndTardiness($employee_no, $employeeSchedule, $log, $date)
+    private function undertimeAndTardiness($employee_no, $employeeSchedule, $log, $date, $forceSupportShift = false)
     {
         $TARDINESS_MINUTES = 0;
         $TARDINESS_FREQ = 0;
@@ -772,7 +835,8 @@ class DailyTimeRecordService {
         $ownRemark = [];
 
         $lunchTracking = filter_var(config('app.lunch_tracking', true), FILTER_VALIDATE_BOOLEAN);
-        $isBreakRequired = $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
+        $isSupportShift = $forceSupportShift || $this->isSupportShift($employeeSchedule);
+        $isBreakRequired = !$isSupportShift && $lunchTracking && ($employeeSchedule->is_breaktime_required ?? false);
 
         if ($isBreakRequired) {
             $timeIn = $log['clock_in'];
@@ -808,32 +872,47 @@ class DailyTimeRecordService {
         $firstLog = Carbon::parse("{$date} {$timeIn}");
         $lastLog = Carbon::parse("{$date} {$timeOut}");
 
-        # Get scheduled shift
-        [$scheduledIn, $scheduledOut, $scheduledBreakIn, $scheduledBreakOut] = $this->getScheduledInOut($employeeSchedule, $date, $firstLog);
+        # Overnight shift: clock-out may be next calendar day (e.g. 02:00)
+        if ($lastLog->lessThan($firstLog)) {
+            $lastLog = (clone $lastLog)->addDay();
+        }
 
-        if (!$scheduledIn || !$scheduledOut) {
-            Log::warning("Missing schedule for {$employee_no} on {$date}");
-            return [
-                'tardiness_minutes' => 0,
-                'tardiness_freq' => 0,
-                'undertime_minutes' => 0,
-                'undertime_freq' => 0,
-                'remarks' => $ownRemark,
-                'is_break_required' => $isBreakRequired,
-            ];
+        # Support shift is output-based (8h required) and should not be marked late.
+
+        # Get scheduled shift only for non-support shifts.
+        $scheduledIn = null;
+        $scheduledOut = null;
+        if (!$isSupportShift) {
+            [$scheduledIn, $scheduledOut, $scheduledBreakIn, $scheduledBreakOut] = $this->getScheduledInOut($employeeSchedule, $date, $firstLog);
+
+            if (!$scheduledIn || !$scheduledOut) {
+                Log::warning("Missing schedule for {$employee_no} on {$date}");
+                return [
+                    'tardiness_minutes' => 0,
+                    'tardiness_freq' => 0,
+                    'undertime_minutes' => 0,
+                    'undertime_freq' => 0,
+                    'remarks' => $ownRemark,
+                    'is_break_required' => $isBreakRequired,
+                ];
+            }
         }
 
         # Tardiness
-        if ($firstLog->greaterThan($scheduledIn)) {
+        if (!$isSupportShift && $firstLog->greaterThan($scheduledIn)) {
             $minutesLate = $firstLog->diffInMinutes($scheduledIn);
             $TARDINESS_MINUTES += $minutesLate;
             $TARDINESS_FREQ++;
             $ownRemark[] = 'Late';
         }
 
-        # Undertime
-        if ($lastLog->lessThan($scheduledOut)) {
-            $minutesUndertime = $scheduledOut->diffInMinutes($lastLog);
+        # Undertime: for support shift only, required hours = 8 from clock-in; otherwise use scheduled end time
+        $requiredOut = $isSupportShift
+            ? (clone $firstLog)->addHours(8)
+            : $scheduledOut;
+
+        if ($lastLog->lessThan($requiredOut)) {
+            $minutesUndertime = $requiredOut->diffInMinutes($lastLog);
             $UNDERTIME_MINUTES += $minutesUndertime;
             $UNDERTIME_FREQ++;
             $ownRemark[] = 'Undertime';
@@ -847,6 +926,44 @@ class DailyTimeRecordService {
             'remarks' => $ownRemark,
             'is_break_required' => $isBreakRequired,
         ];
+    }
+
+    /**
+     * Get approved offset applications for date range/month.
+     *
+     * Offset meaning:
+     * - offset_date_from: date being offset (should not be absent when approved)
+     * - offset_date_to: activity/work date used to compensate
+     */
+    private function getApprovedOffsets($employeeNo, $dateInput)
+    {
+        $query = DB::table('employee_offset_applications')
+            ->select('offset_date_from', 'offset_date_to')
+            ->where('employee_no', $employeeNo)
+            ->where('status', 'approved')
+            ->where('isDeleted', false);
+
+        if (is_array($dateInput) && count($dateInput) === 2) {
+            $startDate = Carbon::parse($dateInput[0])->toDateString();
+            $endDate = Carbon::parse($dateInput[1])->toDateString();
+            $query->where(function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('offset_date_from', [$startDate, $endDate])
+                  ->orWhereBetween('offset_date_to', [$startDate, $endDate]);
+            });
+        } elseif (is_string($dateInput)) {
+            $monthCarbon = Carbon::createFromFormat('m-Y', $dateInput);
+            $month = (int) $monthCarbon->format('m');
+            $year = (int) $monthCarbon->format('Y');
+            $query->where(function ($q) use ($month, $year) {
+                $q->where(function ($sub) use ($month, $year) {
+                    $sub->whereYear('offset_date_from', $year)->whereMonth('offset_date_from', $month);
+                })->orWhere(function ($sub) use ($month, $year) {
+                    $sub->whereYear('offset_date_to', $year)->whereMonth('offset_date_to', $month);
+                });
+            });
+        }
+
+        return $query->get();
     }
 
     /**
@@ -1054,6 +1171,38 @@ class DailyTimeRecordService {
         $this->mergeCrossMidnightClockOuts($processedLogs);
 
         return $processedLogs;
+    }
+
+    private function isTimelogExemptedEmployee(string $employeeNo): bool
+    {
+        return (bool) DB::table('employee_information')
+            ->where('employee_no', $employeeNo)
+            ->value('is_timelog_exempted');
+    }
+
+    private function buildExemptedRecord(string $dateString): array
+    {
+        return [
+            'bsd_no' => null,
+            'clock_in' => Carbon::parse("{$dateString} 09:00:00")->format('h:i A'),
+            'lunch_in' => null,
+            'lunch_out' => null,
+            'clock_out' => Carbon::parse("{$dateString} 18:00:00")->format('h:i A'),
+            'origin' => null,
+            'aut' => [
+                'tardiness' => ['minutes' => 0, 'reason' => null],
+                'undertime' => ['minutes' => 0, 'reason' => null],
+                'overtime' => ['minutes' => 0, 'reason' => null],
+                'night_shift_minutes' => 0,
+            ],
+            'total_aut' => 0,
+            'employee_no' => null,
+            'workOnHoliday' => null,
+            'isFuture' => false,
+            'remarks' => ['Exempted'],
+            'is_break_required' => false,
+            'timelogs' => [],
+        ];
     }
 
     /**

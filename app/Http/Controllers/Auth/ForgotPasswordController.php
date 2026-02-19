@@ -19,25 +19,30 @@ class ForgotPasswordController extends Controller
 
     public function sendResetLinkEmail(Request $request)
     {
-        // Validate the email input
         $request->validate([
-            'email' => 'required|email|exists:employee_account,email',
-        ], [
-            'email.exists' => 'The email provided does not exist.'
+            'email' => 'required|email',
         ]);
 
-        // Check if the account is locked
-        $employeeAccount = EmployeeAccount::where('email', $request->email)->first();
+        // Find by company email or personal email
+        $employeeAccount = EmployeeAccount::where('email', $request->email)
+            ->orWhere('company_email', $request->email)
+            ->first();
 
-        if ($employeeAccount && $employeeAccount->isLocked) {
+        if (!$employeeAccount) {
+            return back()->withErrors([
+                'email' => 'The email provided does not exist.'
+            ]);
+        }
+
+        if ($employeeAccount->isLocked) {
             return back()->withErrors([
                 'email' => 'Unable to send reset link because your account is locked.',
             ]);
         }
 
-        // Attempt to send the reset link to the user's email
+        // Broker finds user by the 'email' column; we pass personal email so token is stored correctly
         $status = Password::broker('employees')->sendResetLink(
-            $request->only('email')
+            ['email' => $employeeAccount->email]
         );
 
         // Check the status and respond accordingly

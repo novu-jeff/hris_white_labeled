@@ -203,10 +203,14 @@
                                                             <div class="time-log-image">
                                                                 @php
                                                                     if (env('USE_S3_STORAGE', false)) {
-                                                                        $clockInUrl = Storage::disk('s3')->temporaryUrl(
-                                                                            'timelogs/' . $logList[0]['captured_image'],
-                                                                            now()->addMinutes(60)
-                                                                        );
+                                                                        try {
+                                                                            $clockInUrl = Storage::disk('s3')->temporaryUrl(
+                                                                                'timelogs/' . $logList[0]['captured_image'],
+                                                                                now()->addMinutes(60)
+                                                                            );
+                                                                        } catch (\Throwable $e) {
+                                                                            $clockInUrl = route('employee.timelog-image', ['path' => $logList[0]['captured_image']]);
+                                                                        }
                                                                     } else {
                                                                         $clockInUrl = Storage::disk('public')->url('timelogs/' . $logList[0]['captured_image']);
                                                                     }
@@ -248,10 +252,14 @@
                                                                 <div class="time-log-image">
                                                                     @php
                                                                         if (env('USE_S3_STORAGE', false)) {
-                                                                            $lunchOutUrl = Storage::disk('s3')->temporaryUrl(
-                                                                                'timelogs/' . $logList[1]['captured_image'],
-                                                                                now()->addMinutes(60)
-                                                                            );
+                                                                            try {
+                                                                                $lunchOutUrl = Storage::disk('s3')->temporaryUrl(
+                                                                                    'timelogs/' . $logList[1]['captured_image'],
+                                                                                    now()->addMinutes(60)
+                                                                                );
+                                                                            } catch (\Throwable $e) {
+                                                                                $lunchOutUrl = route('employee.timelog-image', ['path' => $logList[1]['captured_image']]);
+                                                                            }
                                                                         } else {
                                                                             $lunchOutUrl = Storage::disk('public')->url('timelogs/' . $logList[1]['captured_image']);
                                                                         }
@@ -292,10 +300,14 @@
                                                                 <div class="time-log-image">
                                                                     @php
                                                                         if (env('USE_S3_STORAGE', false)) {
-                                                                            $lunchInUrl = Storage::disk('s3')->temporaryUrl(
-                                                                                'timelogs/' . $logList[2]['captured_image'],
-                                                                                now()->addMinutes(60)
-                                                                            );
+                                                                            try {
+                                                                                $lunchInUrl = Storage::disk('s3')->temporaryUrl(
+                                                                                    'timelogs/' . $logList[2]['captured_image'],
+                                                                                    now()->addMinutes(60)
+                                                                                );
+                                                                            } catch (\Throwable $e) {
+                                                                                $lunchInUrl = route('employee.timelog-image', ['path' => $logList[2]['captured_image']]);
+                                                                            }
                                                                         } else {
                                                                             $lunchInUrl = Storage::disk('public')->url('timelogs/' . $logList[2]['captured_image']);
                                                                         }
@@ -337,10 +349,14 @@
                                                             <div class="time-log-image">
                                                                 @php
                                                                     if (env('USE_S3_STORAGE', false)) {
-                                                                        $clockOutUrl = Storage::disk('s3')->temporaryUrl(
-                                                                            'timelogs/' . $logList[$outIndex]['captured_image'],
-                                                                            now()->addMinutes(60)
-                                                                        );
+                                                                        try {
+                                                                            $clockOutUrl = Storage::disk('s3')->temporaryUrl(
+                                                                                'timelogs/' . $logList[$outIndex]['captured_image'],
+                                                                                now()->addMinutes(60)
+                                                                            );
+                                                                        } catch (\Throwable $e) {
+                                                                            $clockOutUrl = route('employee.timelog-image', ['path' => $logList[$outIndex]['captured_image']]);
+                                                                        }
                                                                     } else {
                                                                         $clockOutUrl = Storage::disk('public')->url('timelogs/' . $logList[$outIndex]['captured_image']);
                                                                     }
@@ -860,10 +876,6 @@
                 </div>
 
                 <div class="modal-footer border-0 d-flex gap-3 justify-content-center align-items-center flex-wrap px-3 pb-3">
-                    <button type="button" class="retakeButton btn btn-outline-danger py-3 px-5 text-uppercase fw-bold">
-                        Retake
-                    </button>
-
                     <button type="button"
                         class="btn btn-primary py-3 px-5 text-uppercase fw-bold d-flex align-items-center gap-2"
                         wire:click="{{ $requires_accomplishment ? 'saveAccomplishment' : 'triggerClock' }}"

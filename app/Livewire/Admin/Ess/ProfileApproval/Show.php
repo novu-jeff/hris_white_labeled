@@ -392,7 +392,8 @@ class Show extends Component
     }
 
     public function updateEmploymentData($employee_no) {
-        $this->batchUpdate($employee_no, EmployeeUpdateEmploymentHistory::class, EmployeeEmploymentHistory::class, ['company_name'], [
+        // employee_employment_history table does not have company_name column
+        $this->batchUpdate($employee_no, EmployeeUpdateEmploymentHistory::class, EmployeeEmploymentHistory::class, ['position', 'from_year', 'to_year'], [
             'position', 'department', 'monthly_salary', 'salary_pay_grade', 'employment_status',
             'isGovernment', 'from_year', 'to_year', 'documents'
         ]);

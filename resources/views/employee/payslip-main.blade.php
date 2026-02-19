@@ -18,6 +18,11 @@
     $product = config('app.product');
     $item = $payslip;
     $num = fn($v) => number_format((float)($v ?? 0), 2);
+    $hrDetails = [
+        'name' => 'Josephine Garcia',
+        'email' => 'jo@novulutions.com',
+        'phone' => '+63 920 923 5212',
+    ];
 @endphp
 <div class="payslip-wrapper">
     <div class="payslip-container" id="payslipProtected">
@@ -95,9 +100,9 @@
                         <tr><td class="item-label sub-label">Excess HMO Coverage</td><td class="item-amount">PHP {{ $num($item->excess_hmo ?? 0) }}</td></tr>
                         <tr><td class="item-label sub-label">Social Responsibility</td><td class="item-amount">PHP {{ $num($item->social_responsibility ?? 0) }}</td></tr>
                         <tr><td class="item-label sub-label">Others</td><td class="item-amount">PHP {{ $num($item->other_deductions ?? 0) }}</td></tr>
+                        <tr><td class="item-label sub-label">Undertime / Absent</td><td class="item-amount">PHP {{ $num($item->aut ?? 0) }}</td></tr>
                         @if($product === 'government')
                             <tr><td class="item-label sub-label">GSIS (RLIP)</td><td class="item-amount">PHP {{ $num($item->rlip ?? 0) }}</td></tr>
-                            <tr><td class="item-label sub-label">Lates / Undertime / Absences</td><td class="item-amount">PHP {{ $num($item->aut ?? 0) }}</td></tr>
                         @endif
                         <tr><td class="total-row-novu item-label">Total Deduction</td><td class="total-row-novu item-amount">PHP {{ $num($item->total_deductions) }}</td></tr>
                     </table>
@@ -112,6 +117,17 @@
             <div class="received-by-novu mb-3 text-center">
                 <div>Received By: <span class="signature-line-novu"></span></div>
                 <div class="mt-1">{{ $item->name ?? 'Employee Name' }}</div>
+            </div>
+
+            <div class="hr-contact-novu mb-3 text-center">
+                <strong class="d-block">Novulutions Inc</strong>
+                <span class="d-block">35th Floor, Ecotower Building, 9th Ave corner 32nd Street, BGC, Taguig City</span>
+                <br>
+                <strong class="d-block">HR Details</strong>
+                <strong class="d-block">{{ $hrDetails['name'] }}</strong>
+                <span class="d-block">Human Resource and Admin Officer</span>
+                <span class="d-block">{{ $hrDetails['email'] }}</span>
+                <span class="d-block">{{ $hrDetails['phone'] }}</span>
             </div>
 
             <div class="disclaimer-novu p-2 small text-secondary">
@@ -151,6 +167,7 @@
 .payslip-novu-template .net-pay-row-novu { background: #005668; color: #fff; font-weight: bold; border: 1px solid #005668; padding: 12px 16px !important; font-size: 1.05rem; }
 .payslip-novu-template .received-by-novu { text-align: center; }
 .payslip-novu-template .received-by-novu .signature-line-novu { display: inline-block; border-bottom: 1px solid #000; min-width: 280px; margin-left: 8px; }
+.payslip-novu-template .hr-contact-novu { border: 1px solid #ddd; background: #f9f9f9; line-height: 1.6; padding: 10px 14px !important; font-size: 12px; }
 .payslip-novu-template .disclaimer-novu { border: 1px solid #ddd; background: #f9f9f9; line-height: 1.5; padding: 12px 16px !important; }
 
 .payslip-overlay { position: absolute; top:0; left:0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, rgba(0,86,104,0.02) 0, rgba(0,86,104,0.02) 2px, transparent 2px, transparent 5px); pointer-events: none; z-index: 10; }

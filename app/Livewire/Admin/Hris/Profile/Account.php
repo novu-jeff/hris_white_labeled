@@ -33,23 +33,28 @@ class Account extends Component
     }
 
     protected function formatRecords($data) {
-        $personalEmail = $data->email 
-            ?? ($data->account['email'] ?? null);
+        $personalEmail = $data->email ?? ($data->account['email'] ?? null);
+        $companyEmail = $data->company_email ?? null;
 
         $fields = [
-            'email_id', 'personal_email'
+            'email_id', 'company_email', 'personal_email'
         ];
 
         $formattedAccount = array_combine(
             $fields,
-            array_map(fn($field) => $field === 'personal_email' ? $personalEmail : ($data[$field] ?? null), $fields)
+            array_map(fn($field) => match ($field) {
+                'personal_email' => $personalEmail,
+                'company_email' => $companyEmail,
+                default => $data[$field] ?? null,
+            }, $fields)
         );
 
         return $formattedAccount;
     }
-    
+
     protected function rules(?string $employee_no = null) {
         return [
+            'records.employee_account.company_email' => 'nullable|email',
             'records.employee_account.personal_email' => 'required|email',
             'records.employee_account.notify_user' => 'nullable|boolean',
             'records.employee_account.password' => 'nullable|min:8|same:records.employee_account.confirm_password',
@@ -59,6 +64,7 @@ class Account extends Component
 
     protected function messages() {
         return [
+            'records.employee_account.company_email.email' => 'The company email must be a valid email.',
             'records.employee_account.personal_email.required' => 'The personal email is required.',
             'records.employee_account.personal_email.email' => 'The personal email must be a valid email.',        
             'records.employee_account.notify_user.boolean' => 'The notify user field must be true or false.',        

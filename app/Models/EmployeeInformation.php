@@ -28,10 +28,13 @@ class EmployeeInformation extends Model
         'salary_method',
         'salary',
         'has_salary',
+        'is_timelog_exempted',
         'salary_type',
         'allowance',
         'bank_account_no',
         'payroll_account_number',
+        'payroll_bank',
+        'payroll_bank_other',
         'isTransferingEmp'
     ];
     

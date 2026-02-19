@@ -11,10 +11,12 @@ use App\Models\BonusItemsPayroll;
 use App\Models\BonusPayroll;
 use App\Models\ClothingAllowanceItemsPayroll;
 use App\Models\ClothingAllowancePayroll;
+use App\Models\EmployementTypes;
 use App\Models\OTItemsPayroll;
 use App\Models\OTPayroll;
 use App\Models\SalaryItemsPayroll;
 use App\Models\SalaryPayroll;
+use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -31,6 +33,7 @@ class PayrollService extends Controller {
     public function getEmployees($employment_type, $type = null)
     {
         $currentYear = now()->year;
+        $internTypeId = EmployementTypes::where('name', 'like', '%intern%')->value('id');
 
         $results = DB::table('employee_information as ei')
             ->select(
@@ -39,20 +42,28 @@ class PayrollService extends Controller {
                 'ei.employment_type_id',
                 'ei.date_hired',
                 'ei.salary',
+                'ei.allowance',
+                'ei.is_timelog_exempted',
                 'ei.bsd_no',
                 'ei.w_tax',
                 'ei.position_id',
                 'ei.salary_type',
+                'ei.bank_account_no',
+                'ei.payroll_account_number',
+                'ei.payroll_bank',
+                'ei.payroll_bank_other',
                 'p.firstname',
                 'p.lastname',
                 'p.gsis_no',
                 'po.name as position_name',
                 'po.salary_grade',
-                's.name as section_name'
+                's.name as section_name',
+                'bi.name as bank_name'
             )
             ->join('employee_personal as p', 'ei.employee_no', '=', 'p.employee_no')
             ->leftJoin('positions as po', 'ei.position_id', '=', 'po.id')
             ->leftJoin('sections as s', 'ei.section_id', '=', 's.id')
+            ->leftJoin('bank_informations as bi', 's.department_id', '=', 'bi.department_id')
             ->where(function ($query) use ($employment_type) {
                 $query->where('ei.employment_type_id', $employment_type)
                     ->orWhereNull('ei.employment_type_id'); // include missing type
@@ -123,14 +134,31 @@ class PayrollService extends Controller {
                 }
             }
 
-            if (empty($row->salary) || floatval($row->salary) === 0.0) {
+            $isIntern = $internTypeId !== null && (string) $row->employment_type_id === (string) $internTypeId;
+            $hasSalary = !empty($row->salary) && floatval($row->salary) > 0;
+            $hasAllowance = !empty($row->allowance) && floatval($row->allowance) > 0;
+
+            if (!$isIntern && !$hasSalary) {
                 $reasons[] = 'no salary rate';
+            }
+
+            if ($isIntern && !$hasSalary && !$hasAllowance) {
+                $reasons[] = 'no salary or allowance rate';
             }
 
             $employeeData = (array) $row;
             $employeeData['name'] = trim(($row->firstname ?? '') . ' ' . ($row->lastname ?? ''));
             $employeeData['status'] = $reasons ? 'ineligible' : 'eligible';
             $employeeData['reason'] = $reasons ?: null;
+            $employeeData['account_no'] = $row->bank_account_no ?? $row->payroll_account_number ?? null;
+            // Prefer employee's Payroll Bank (and "Other" custom name), then department bank, then default setting
+            $bankFromEmployee = null;
+            if (!empty($row->payroll_bank)) {
+                $bankFromEmployee = (strtolower(trim($row->payroll_bank)) === 'other' && !empty($row->payroll_bank_other))
+                    ? trim($row->payroll_bank_other)
+                    : trim($row->payroll_bank);
+            }
+            $employeeData['bank'] = $bankFromEmployee ?? $row->bank_name ?? Setting::get('payroll_bank_default', '');
 
             $status = $employeeData['status'];
             $employees[$status]['items'][] = $employeeData;
@@ -257,8 +285,13 @@ class PayrollService extends Controller {
         ];
     }
 
-    public function computeAutDeduction(array $summary, $salary, $payType)
+    public function computeAutDeduction(array $summary, $salary, $payType, bool $isTimelogExempted = false)
     {
+        if ($isTimelogExempted) {
+            return 0;
+        }
+
+        $payType = strtolower(trim((string) $payType));
         $totalAbsences = $summary['absences'];          # Days
         $workPerWeek = $summary['workingDaysPerWeek'];  # 5 or 6 days
         $tardiness_mins = $summary['tardiness'];        # Minutes
@@ -299,6 +332,7 @@ class PayrollService extends Controller {
 
    public function computeHolidayPayment($salary, $summary, $payType) 
     {
+        $payType = strtolower(trim((string) $payType));
         $work_on_legal_hol = $summary['worked_on_legal_holidays'];
         $work_on_special_hol = $summary['worked_on_special_holidays'];
         $workPerWeek = $summary['workingDaysPerWeek'];  # 5 or 6 days

@@ -6,9 +6,10 @@ use App\Models\CompanyInformation;
 use App\Models\EmployeeAnnouncements;
 use App\Models\EmployeeAtro;
 use App\Models\EmployeeBusinessSlip;
-use App\Models\EmployeeLeave;
 use App\Models\EmployeeLeaveCard;
+use App\Models\OffsetCredits;
 use App\Models\EmployeeTimeAdjustments;
+use App\Models\Holiday;
 use App\Models\SalaryItemsPayroll;
 use App\Models\LeaveType;
 use Illuminate\Support\Facades\Auth;
@@ -17,7 +18,11 @@ use Carbon\Carbon;
 
 use App\Models\EmployeeInformation;
 use App\Models\EmployeeTimelogs;
+use App\Models\EmployeeLeaveDates;
 use App\Services\DailyTimeRecordService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class Dashboard extends Component
 {
@@ -34,7 +39,7 @@ class Dashboard extends Component
     public $positionName;
     public $shiftName;
     public $dateHired;
-    public $breaktime;
+    public $employmentTypeName;
 
     public $selectedYear;
     public $selectedMonth;
@@ -46,8 +51,13 @@ class Dashboard extends Component
 
     public $workAnniversariesThisMonth = [];
     public $birthdaysThisMonth = [];
+    public $upcomingEvents = [];
+    public $teamTimelogs = [];
 
     public $showSalary = false;
+    public $showSalaryPasswordPrompt = false;
+    public $salaryPassword = '';
+    public $dashboardCardOrder = null;
 
 
     public bool $isForRCOnly;
@@ -131,14 +141,22 @@ class Dashboard extends Component
                 'name'    => $type->name,
                 'balance' => $balance,
             ];
-        });
+        })->values();
 
-        $employee = Auth::user()->information;
+        $offsetCredits = (float) (OffsetCredits::where('employee_no', $employee_no)->value('credits') ?? 0);
+        $this->leaveBalances->push([
+            'code' => 'OFFSET',
+            'name' => 'Offset Credits',
+            'balance' => $offsetCredits,
+        ]);
+
+        $employee = Auth::user()->information->load('employment_type');
 
         $this->employeeInfo = $employee;
         $this->dateHired = $employee->date_hired ?? 'N/A';
 
         // Work anniversaries, new hires & interns this month (for dashboard card)
+        // "New hire" / "Intern" only when hired in current calendar year and same month (first month at company)
         $now = Carbon::now();
         $this->workAnniversariesThisMonth = EmployeeInformation::with(['personal', 'positions', 'employment_type'])
             ->whereNotNull('date_hired')
@@ -148,16 +166,20 @@ class Dashboard extends Component
                 $name = $emp->personal
                     ? trim($emp->personal->firstname . ' ' . $emp->personal->lastname)
                     : $emp->employee_no;
-                $years = $emp->date_hired ? $now->diffInYears(Carbon::parse($emp->date_hired)) : 0;
+                $hireDate = $emp->date_hired ? Carbon::parse($emp->date_hired) : null;
+                // Anniversary month uses year delta (not exact day) so Feb 28 still counts in Feb.
+                $years = $hireDate ? max(0, ((int) $now->year - (int) $hireDate->year)) : 0;
+                $hireYear = $hireDate ? (int) $hireDate->format('Y') : 0;
+                $isFirstMonth = $hireYear === (int) $now->year;
                 $typeName = $emp->employment_type->name ?? null;
                 $isIntern = $typeName && stripos($typeName, 'intern') !== false;
                 return [
                     'name'       => $name,
                     'position'   => $emp->positions->name ?? '—',
-                    'date'       => Carbon::parse($emp->date_hired)->format('M d'),
+                    'date'       => $hireDate ? $hireDate->format('M d') : '—',
                     'years'      => $years,
-                    'is_new'     => $years === 0,
-                    'type_label' => $years === 0 ? ($isIntern ? 'Intern' : 'New hire') : null,
+                    'is_new'     => $isFirstMonth,
+                    'type_label' => $isFirstMonth ? ($isIntern ? 'Intern' : 'New hire') : null,
                 ];
             })
             ->values()
@@ -190,13 +212,152 @@ class Dashboard extends Component
             ? $shift->shift_duration . ' ' . $shift->work_hours . ' Hours'
             : 'No Shift Schedule';
 
-        $this->breaktime = ($shift && $shift->break_out && $shift->break_in)
-            ? Carbon::parse($shift->break_out)->format('h:i A') . ' - ' . Carbon::parse($shift->break_in)->format('h:i A')
-            : 'No Breaktime Assigned';
+        $this->employmentTypeName = $employee->employment_type->name ?? '—';
 
+        $this->loadUpcomingEvents();
         $this->getDTR();
+        $this->loadTeamTimelogs();
 
-       
+        $order = Auth::user()->dashboard_card_order;
+        $this->dashboardCardOrder = is_array($order) ? $order : null;
+    }
+
+    /**
+     * Team members (same section) with today's clock in/out or leave/offset status.
+     */
+    private function loadTeamTimelogs(): void
+    {
+        $employee_no = Auth::user()->employee_no;
+        $user = EmployeeInformation::where('employee_no', $employee_no)->first();
+        if (!$user || !$user->section_id) {
+            $this->teamTimelogs = [];
+            return;
+        }
+        $today = now()->toDateString();
+        $sectionId = $user->section_id;
+
+        $teammates = EmployeeInformation::with(['personal', 'positions'])
+            ->where('section_id', $sectionId)
+            ->where('isDeleted', false)
+            ->where('status', 'active')
+            ->whereHas('account')
+            ->get();
+
+        $leaveToday = DB::table('employee_leave_dates')
+            ->join('employee_leave', 'employee_leave.id', '=', 'employee_leave_dates.employee_leave_id')
+            ->leftJoin('leave_types', 'leave_types.id', '=', 'employee_leave.leave_id')
+            ->where('employee_leave_dates.date', $today)
+            ->where('employee_leave.status', 'approved')
+            ->select('employee_leave.employee_no', 'leave_types.name as leave_type_name', 'leave_types.code as leave_code')
+            ->get()
+            ->groupBy('employee_no');
+
+        $offsetToday = DB::table('employee_offset_applications')
+            ->where('offset_date_from', $today)
+            ->where('status', 'approved')
+            ->where('isDeleted', false)
+            ->pluck('employee_no')
+            ->flip()
+            ->toArray();
+
+        $timelogsByEmployee = EmployeeTimelogs::whereDate('timestamp', $today)
+            ->orderBy('timestamp')
+            ->get()
+            ->groupBy('employee_id');
+
+        $result = [];
+        foreach ($teammates as $emp) {
+            $no = $emp->employee_no;
+            $name = $emp->personal
+                ? trim($emp->personal->firstname . ' ' . ($emp->personal->middlename ? $emp->personal->middlename . ' ' : '') . $emp->personal->lastname)
+                : $no;
+
+            $status = null;
+            $statusType = 'timelog'; // timelog | leave | offset
+
+            if (!empty($offsetToday[$no])) {
+                $status = 'Offset';
+                $statusType = 'offset';
+            } elseif (isset($leaveToday[$no])) {
+                $first = $leaveToday[$no]->first();
+                $label = $first->leave_type_name ?? $first->leave_code ?? 'Leave';
+                if (stripos($label, 'vacation') !== false || ($first->leave_code ?? '') === 'VL') {
+                    $status = 'On vacation';
+                } elseif (stripos($label, 'sick') !== false || ($first->leave_code ?? '') === 'SL') {
+                    $status = 'Sick Leave';
+                } else {
+                    $status = $label;
+                }
+                $statusType = 'leave';
+            } elseif (isset($timelogsByEmployee[$no]) && $timelogsByEmployee[$no]->isNotEmpty()) {
+                $logs = $timelogsByEmployee[$no];
+                $first = $logs->first();
+                $clockIn = Carbon::parse($first->timestamp)->format('g:i A');
+                $clockOut = $logs->count() > 1 ? Carbon::parse($logs->last()->timestamp)->format('g:i A') : '—';
+                $status = $clockIn . ' / ' . $clockOut;
+            }
+
+            $result[] = [
+                'employee_no' => $no,
+                'name'       => $name,
+                'status'     => $status ?? '—',
+                'status_type'=> $statusType,
+            ];
+        }
+        $this->teamTimelogs = $result;
+    }
+
+    private function loadUpcomingEvents(): void
+    {
+        $today = Carbon::today();
+
+        $events = Holiday::where('isDeleted', false)
+            ->get()
+            ->map(function ($holiday) use ($today) {
+                $rawDate = trim((string) ($holiday->date ?? ''));
+
+                if (preg_match('/^\d{2}-\d{2}$/', $rawDate)) {
+                    $eventDate = Carbon::createFromFormat('Y-m-d', $today->year . '-' . $rawDate);
+                    if ($eventDate->lt($today)) {
+                        $eventDate->addYear();
+                    }
+                } else {
+                    try {
+                        $eventDate = Carbon::parse($rawDate);
+                    } catch (\Throwable $e) {
+                        return null;
+                    }
+                }
+
+                $type = strtolower((string) $holiday->type);
+                $isSpecial = in_array($type, ['special-non-working', 'special-working', 'company'], true);
+                $tagLabel = match ($type) {
+                    'special-non-working' => 'Special Non-Working',
+                    'special-working' => 'Special Working',
+                    'company' => 'Company Event',
+                    'regular' => 'Regular Holiday',
+                    default => Str::title(str_replace(['-', '_'], ' ', (string) $holiday->type)),
+                };
+                $typeLabel = Str::title(str_replace(['-', '_'], ' ', (string) $holiday->type));
+
+                return [
+                    'name' => $holiday->name,
+                    'type' => $holiday->type,
+                    'type_label' => $typeLabel,
+                    'tag_label' => $tagLabel,
+                    'is_special_event' => $isSpecial,
+                    'event_date' => $eventDate->toDateString(),
+                    'date_label' => $eventDate->format('M d, Y'),
+                    'days_away' => $today->diffInDays($eventDate),
+                ];
+            })
+            ->filter()
+            ->sortBy('event_date')
+            ->take(8)
+            ->values()
+            ->all();
+
+        $this->upcomingEvents = $events;
     }
 
     public function checkAllowed() {
@@ -293,10 +454,55 @@ class Dashboard extends Component
     }
 
 
-    // Toggle salary visibility
-    public function toggleSalary()
+    public function requestSalaryReveal(): void
     {
-        $this->showSalary = !$this->showSalary;
+        if ($this->showSalary) {
+            $this->showSalary = false;
+            return;
+        }
+
+        $this->resetErrorBag('salaryPassword');
+        $this->salaryPassword = '';
+        $this->showSalaryPasswordPrompt = true;
+    }
+
+    public function verifySalaryPassword(): void
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return;
+        }
+
+        if (!Hash::check((string) $this->salaryPassword, (string) $user->password)) {
+            $this->addError('salaryPassword', 'Incorrect password.');
+            return;
+        }
+
+        $this->showSalaryPasswordPrompt = false;
+        $this->salaryPassword = '';
+        $this->showSalary = true;
+    }
+
+    public function cancelSalaryPassword(): void
+    {
+        $this->showSalaryPasswordPrompt = false;
+        $this->salaryPassword = '';
+        $this->resetErrorBag('salaryPassword');
+    }
+
+    /**
+     * Save dashboard card order (left and right column card IDs) for the logged-in employee.
+     */
+    public function saveDashboardCardOrder(array $left, array $right): void
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return;
+        }
+        $this->dashboardCardOrder = ['left' => $left, 'right' => $right];
+        $user->dashboard_card_order = $this->dashboardCardOrder;
+        $user->save();
+        $this->skipRender();
     }
 
     public function render()

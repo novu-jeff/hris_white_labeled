@@ -10,6 +10,7 @@ use App\Models\EmployementTypes;
 use App\Models\Positions;
 use App\Models\Sections;
 use App\Models\ShiftSchedule;
+use App\Models\Setting;
 use App\Models\Tranche;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -27,6 +28,9 @@ class Manual extends Component
     public bool $isGovernment = false;
     public array $records = [];
 
+    /** @var array<int, string> Payroll bank options from settings */
+    public array $payrollBankOptions = [];
+
     protected $listeners = ['save'];
 
     public function mount()
@@ -37,6 +41,8 @@ class Manual extends Component
         $this->shiftSchedule = ShiftSchedule::all();
         $this->employeeSchedule = EmployeeSchedule::all();
         $this->isGovernment = config('app.product')  == 'government' ? true : false;
+
+        $this->payrollBankOptions = $this->getPayrollBankOptions();
 
         $this->records = [
             'employee_information' => [
@@ -55,6 +61,8 @@ class Manual extends Component
                 'salary_method' => '',
                 'salary' => '',
                 'payroll_account_number' => '',
+                'payroll_bank' => $this->resolveDefaultPayrollBank(Setting::get('payroll_bank_default', '')),
+                'payroll_bank_other' => '',
             ],
             'employee_personal' => [
                 'profile' => null,
@@ -169,6 +177,8 @@ class Manual extends Component
             'records.employee_information.salary_method' => 'required|in:cash,bank transfer,paycheck,e-wallet',
             'records.employee_information.shift_schedule' => 'required|exists:sections,id',
             'records.employee_information.employee_schedule' => 'required|exists:sections,id',
+            'records.employee_information.payroll_bank' => 'nullable|string|max:128',
+            'records.employee_information.payroll_bank_other' => 'required_if:records.employee_information.payroll_bank,Other|nullable|string|max:255',
         ];
     }
 
@@ -205,6 +215,7 @@ class Manual extends Component
             'records.employee_information.type.exists' => 'The selected employment type does not exists.',
             'records.employee_information.shift_schedule.required' => 'The shift schedule field is required.',
             'records.employee_information.employee_schedule.required' => 'The days schedule field is required.',
+            'records.employee_information.payroll_bank_other.required_if' => 'Please specify the bank name when "Other" is selected.',
         ];
     }
 
@@ -278,7 +289,32 @@ class Manual extends Component
             'salary_type' => $data['salary_type'] ?? null,
             'salary' => $data['salary'] ?? null,
             'payroll_account_number' => $data['payroll_account_number'] ?? null,
+            'payroll_bank' => $data['payroll_bank'] ?? null,
+            'payroll_bank_other' => (isset($data['payroll_bank_other']) && $data['payroll_bank_other'] !== '') ? $data['payroll_bank_other'] : null,
         ]);
+    }
+
+    protected function getPayrollBankOptions(): array
+    {
+        $options = Setting::get('payroll_bank_options', 'BDO,BPI,Metro Bank,Landbank,Unionbank,Other');
+        $list = array_map('trim', explode(',', $options));
+        return array_values(array_filter($list));
+    }
+
+    /** Resolve default so it matches one of the options (case-insensitive). */
+    protected function resolveDefaultPayrollBank(string $value, ?array $options = null): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        $options = $options ?? $this->getPayrollBankOptions();
+        foreach ($options as $option) {
+            if (strcasecmp($option, $value) === 0) {
+                return $option;
+            }
+        }
+        return $value;
     }
 
     public function updatedRecordsEmployeeInformationBiometricsId()

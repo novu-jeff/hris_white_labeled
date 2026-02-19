@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Ess\Offset;
 use App\Helpers\SupervisorApproval;
 use App\Models\EmployeeAccount;
 use App\Models\EmployeeOffsetApplication;
+use App\Models\OffsetCredits;
 use App\Notifications\Notifications;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -212,9 +213,48 @@ class Index extends Component
                 ->where('status', 'pending')
                 ->first();
 
-            $record->status = 'approved';
-            $record->action_by_id = Auth::user()->id;
-            $record->save();
+            if (!$record) {
+                return $this->dispatch('alert', [
+                    'showAlert' => true,
+                    'status' => 'error',
+                    'title' => 'Oops!',
+                    'message' => 'Offset application not found or already processed.',
+                ]);
+            }
+
+            $offsetCredits = OffsetCredits::firstOrCreate(
+                ['employee_no' => $record->employee_no],
+                ['credits' => 0, 'as_of' => now()->toDateString()]
+            );
+
+            if ((float) $offsetCredits->credits < 1) {
+                return $this->dispatch('alert', [
+                    'showAlert' => true,
+                    'status' => 'error',
+                    'title' => 'Insufficient Credits',
+                    'message' => 'Cannot approve this application. Employee has no available offset credits.',
+                ]);
+            }
+
+            DB::beginTransaction();
+            try {
+                $record->status = 'approved';
+                $record->action_by_id = Auth::user()->id;
+                $record->save();
+
+                $offsetCredits->credits = max(0, (float) $offsetCredits->credits - 1);
+                $offsetCredits->as_of = now()->toDateString();
+                $offsetCredits->save();
+                DB::commit();
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                return $this->dispatch('alert', [
+                    'showAlert' => true,
+                    'status' => 'error',
+                    'title' => 'Oops!',
+                    'message' => 'Approval failed: ' . $e->getMessage(),
+                ]);
+            }
 
             $user = EmployeeAccount::where('employee_no', $record->employee_no)->first();
             $user?->notify(new Notifications('success', 'Your offset application <strong>#' . format_id($record->id, 6) . '</strong> was <strong>APPROVED</strong>. Click this notification to view more details.', route('employee.offset.index'), 'employee'));

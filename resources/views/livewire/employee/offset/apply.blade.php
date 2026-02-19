@@ -8,6 +8,15 @@
                     </div>
                     <hr class="mx-3">
                     <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-end">
+                                    <h6 class="text-uppercase fw-bold mb-0">
+                                        Remaining Offset Credits: {{ number_format((float) $remaining_offset_credits, 2) }}
+                                    </h6>
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-4">

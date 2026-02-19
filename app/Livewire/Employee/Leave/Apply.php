@@ -44,7 +44,6 @@ class Apply extends Component
     public $illness;
     public $study;
     public $study_other_purpose;
-    public $commutation;
 
     public $remaining_credits;
     public bool $isDurationDisabled = false;
@@ -103,7 +102,6 @@ class Apply extends Component
             $this->illness = $records->illness;
             $this->study = $records->study;
             $this->study_other_purpose = $records->study_other_purpose;
-            $this->commutation = $records->commutation;
         }
 
         $this->scheduledDates = $this->gatherDates($employee_no);
@@ -202,7 +200,6 @@ class Apply extends Component
 
         $rules = [
             'type' => 'required|exists:leave_types,id',
-            'commutation' => 'required|in:yes,no',
             'selectedDates' => 'required|array|min:1'
         ];
 
@@ -262,9 +259,6 @@ class Apply extends Component
 
             'confinement.required' => 'The confinement field is required.',
             'illness.required' => 'The illness field is required.',
-
-            'commutation.required' => 'Please indicate if commutation is requested.',
-            'commutation.in' => 'Commutation must be either "yes" or "no".',
 
             'study.required' => 'Please select the purpose of your study leave.',
             'study.in' => 'The selected study leave purpose is invalid.',
@@ -429,7 +423,7 @@ class Apply extends Component
                     'illness' => $this->illness ?? null,
                     'study' => $this->study ?? null,
                     'study_other_purpose' => $this->study_other_purpose ?? null,
-                    'commutation' => $this->commutation ?? null,
+                    'commutation' => null,
                 ]);
 
                 // If updating, remove old dates first

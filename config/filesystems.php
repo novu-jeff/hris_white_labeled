@@ -1,5 +1,15 @@
 <?php
 
+$awsCaBundle = env('AWS_CA_BUNDLE');
+$awsVerifySsl = $awsCaBundle ?: filter_var(env('AWS_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN);
+$awsUsePathStyle = filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN);
+
+// Force HTTPS for endpoint so pre-signed URLs use https:// (avoids mixed content on HTTPS pages).
+$awsEndpoint = env('AWS_ENDPOINT');
+if ($awsEndpoint !== null && $awsEndpoint !== '') {
+    $awsEndpoint = preg_replace('#^http://#i', 'https://', trim($awsEndpoint));
+}
+
 return [
 
     /*
@@ -51,8 +61,11 @@ return [
             'region' => env('AWS_DEFAULT_REGION'),
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
-            'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'endpoint' => $awsEndpoint,
+            'use_path_style_endpoint' => $awsUsePathStyle,
+            'http' => [
+                'verify' => $awsVerifySsl,
+            ],
             'throw' => false,
         ],
 

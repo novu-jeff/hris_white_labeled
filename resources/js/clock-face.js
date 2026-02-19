@@ -40,12 +40,6 @@ export function initializeClockFace() {
       captureAndOpenModal(video, canvas, true);
       return;
     }
-    const retakeBtn = e.target.closest('.retakeButton');
-    if (retakeBtn) {
-      e.preventDefault();
-      retake();
-      return;
-    }
   });
 }
 
@@ -248,15 +242,3 @@ function showPreviewModal(imageData, location) {
   }
 }
 
-function retake() {
-  const modalEl = document.getElementById('clockInModal');
-  if (modalEl && typeof bootstrap !== 'undefined') {
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.hide();
-  }
-  const previewImg = document.getElementById('clockInPreviewImage');
-  if (previewImg) previewImg.removeAttribute('src');
-  if (window.Livewire) {
-    window.Livewire.dispatch('resetCapture');
-  }
-}
