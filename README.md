@@ -1,66 +1,103 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# HRIS Novulutions
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Human Resource Information System for Novulutions — employee self-service, timekeeping, payroll, and reporting.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Employee portal** — Clock in/out with optional photo capture, lunch tracking, leave requests, loans, offset, official business slips, announcements, payslips
+- **Admin** — User & role management, DTR and time adjustments, payroll, BIR/SSS/PhilHealth/Pag-IBIG reports, company and HR settings
+- **Timekeeping** — Shift schedules, geolocation support, timelog images stored on local disk or S3 with fallback
+- **Recruitment** — Job postings, applicants, interviews (public career site and admin)
+- **Documents** — PDF payslips, Excel exports, Word/PDF generation where applicable
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Tech stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **PHP** 8.1+, **Laravel** 10, **Livewire** 3
+- **MySQL** (primary DB)
+- **Spatie** Laravel Permission, Sluggable
+- **DomPDF / mPDF / TCPDF** for PDFs; **Maatwebsite Excel**, **PHPWord**
+- **Flysystem AWS S3** for optional object storage (timelog images)
+- **Pusher** (optional) for broadcasting
 
-## Learning Laravel
+## Requirements
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- PHP 8.1+
+- Composer
+- Node.js & NPM (for frontend assets)
+- MySQL 5.7+ / 8.x
+- Optional: Redis, S3-compatible storage (e.g. Scality)
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## Installation
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+# Clone and enter project
+cd hris_novulutions
 
-## Laravel Sponsors
+# Install PHP dependencies
+composer install
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Copy environment file and generate key
+cp .env.example .env
+php artisan key:generate
 
-### Premium Partners
+# Configure .env (database, app URL, etc.)
+# Then run migrations
+php artisan migrate
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+# Optional: seed data
+# php artisan db:seed
 
-## Contributing
+# Storage link for public uploads
+php artisan storage:link
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# Build frontend assets
+npm install && npm run build
+```
 
-## Code of Conduct
+## Configuration
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Environment
 
-## Security Vulnerabilities
+Set at least in `.env`:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Variable | Description |
+|----------|-------------|
+| `APP_NAME`, `APP_URL` | Application name and base URL |
+| `APP_KEY` | Generated by `php artisan key:generate` |
+| `DB_*` | MySQL connection (and `DB_*_SECOND` if using second DB) |
+| `USE_S3_STORAGE` | `true` to store timelog images on S3 |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_BUCKET`, `AWS_ENDPOINT`, `AWS_DEFAULT_REGION` | Required when using S3 |
+| `AWS_VERIFY_SSL` | Set to `false` only if S3 endpoint uses a self-signed cert |
+| `FILESYSTEM_DISK` | Default disk (`local` or `s3`); timelog primary storage is controlled by `USE_S3_STORAGE` |
+
+See `.env.example` for the full list.
+
+### S3 and timelog images
+
+- When `USE_S3_STORAGE=true`, timelog photos are stored in S3; the app can mirror to local disk.
+- Pre-signed URLs use HTTPS (endpoint is forced to `https` in config) to avoid mixed content.
+- If S3 is unavailable, the app falls back to the proxy route and then to local `public` disk when the file exists there.
+- Sync existing local timelog images to S3 (upload only when missing in bucket):
+
+```bash
+php artisan timelog:sync-missing-to-s3 [--dry-run] [--chunk=500]
+```
+
+## Usage
+
+- **Development:** `php artisan serve` (and optionally `npm run dev` for assets).
+- **Queue workers:** If using queues, run `php artisan queue:work`.
+- **Scheduler:** Add a cron entry for `php artisan schedule:run` if you use scheduled tasks.
+
+## Project structure (high level)
+
+- `app/Http/Controllers/Admin/` — Admin and DTR/payroll/reports
+- `app/Http/Controllers/Employee/` — Employee portal and timelog image proxy
+- `app/Livewire/` — Livewire components (employee clock, admin DTR, etc.)
+- `app/Services/` — e.g. `ClockInOutService` (timelog and image storage)
+- `config/filesystems.php` — S3 and local disk; HTTPS enforced for S3 endpoint
+- `routes/web.php` — Web routes (admin, employee, public)
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Proprietary. All rights reserved.
