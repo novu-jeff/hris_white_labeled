@@ -65,8 +65,29 @@ return [
             'use_path_style_endpoint' => $awsUsePathStyle,
             'http' => [
                 'verify' => $awsVerifySsl,
+                // Timeouts: when S3 is up, allow enough time for uploads. When S3 is down, lower in .env to fail fast (e.g. 8/12) to avoid gateway 504.
+                'connect_timeout' => (int) env('AWS_CONNECT_TIMEOUT', 20),
+                'timeout' => (int) env('AWS_TIMEOUT', 45),
             ],
             'throw' => false,
+        ],
+
+        // Same as s3 but throws on failure (for sync command so we see the real error).
+        's3_throw' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => $awsEndpoint,
+            'use_path_style_endpoint' => $awsUsePathStyle,
+            'http' => [
+                'verify' => $awsVerifySsl,
+                'connect_timeout' => (int) env('AWS_CONNECT_TIMEOUT', 20),
+                'timeout' => (int) env('AWS_TIMEOUT', 45),
+            ],
+            'throw' => true,
         ],
 
     ],

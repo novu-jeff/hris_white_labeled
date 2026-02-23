@@ -77,7 +77,7 @@ See `.env.example` for the full list.
 - When `USE_S3_STORAGE=true`, timelog photos are stored in S3; the app can mirror to local disk.
 - Pre-signed URLs use HTTPS (endpoint is forced to `https` in config) to avoid mixed content.
 - If S3 is unavailable, the app falls back to the proxy route and then to local `public` disk when the file exists there.
-- Sync existing local timelog images to S3 (upload only when missing in bucket):
+- Sync existing local timelog images to S3 (upload only when missing in bucket). Run on the server that can reach S3 (e.g. production):
 
 ```bash
 php artisan timelog:sync-missing-to-s3 [--dry-run] [--chunk=500]

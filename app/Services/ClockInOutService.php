@@ -453,18 +453,15 @@ class ClockInOutService
         string $actionLabel
     ): bool {
         try {
-            $stored = Storage::disk($disk)->put($path, $payload, ['visibility' => 'public']);
-
-            // Some S3-compatible providers reject ACL/visibility headers.
-            if (!$stored && $disk === 's3') {
+            // Scality and many S3-compatible backends reject ACL (public-read). Try without first for S3.
+            $stored = false;
+            if ($disk === 's3') {
                 $stored = Storage::disk($disk)->put($path, $payload);
-                if ($stored) {
-                    \Log::warning('Timelog image stored to s3 without visibility option', [
-                        'path' => $path,
-                        'disk' => $disk,
-                        'employee_no' => $employeeNo,
-                    ]);
+                if (!$stored) {
+                    $stored = Storage::disk($disk)->put($path, $payload, ['visibility' => 'public']);
                 }
+            } else {
+                $stored = Storage::disk($disk)->put($path, $payload, ['visibility' => 'public']);
             }
 
             if (!$stored) {
@@ -473,6 +470,7 @@ class ClockInOutService
                     'disk' => $disk,
                     'employee_no' => $employeeNo,
                     'action' => $actionLabel,
+                    'reason' => 'put_returned_false',
                 ]);
                 return false;
             }

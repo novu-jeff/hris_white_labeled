@@ -549,14 +549,7 @@
                                                             <div class="time-log-image">
                                                                 @php
                                                                     if (env('USE_S3_STORAGE', false)) {
-                                                                        try {
-                                                                            $clockInUrl = Storage::disk('s3')->temporaryUrl(
-                                                                                'timelogs/' . $logList[0]['captured_image'],
-                                                                                now()->addMinutes(60)
-                                                                            );
-                                                                        } catch (\Throwable $e) {
-                                                                            $clockInUrl = route('admin.timelog-image', ['path' => $logList[0]['captured_image']]);
-                                                                        }
+                                                                        $clockInUrl = route('admin.timelog-image', ['path' => $logList[0]['captured_image']]);
                                                                     } else {
                                                                         $clockInUrl = Storage::disk('public')->url('timelogs/' . $logList[0]['captured_image']);
                                                                     }
@@ -598,11 +591,7 @@
                                                                 <div class="time-log-image">
                                                                     @php
                                                                         if (env('USE_S3_STORAGE', false)) {
-                                                                            try {
-                                                                                $lunchOutUrl = Storage::disk('s3')->temporaryUrl('timelogs/' . $logList[1]['captured_image'], now()->addMinutes(60));
-                                                                            } catch (\Throwable $e) {
-                                                                                $lunchOutUrl = route('admin.timelog-image', ['path' => $logList[1]['captured_image']]);
-                                                                            }
+                                                                            $lunchOutUrl = route('admin.timelog-image', ['path' => $logList[1]['captured_image']]);
                                                                         } else {
                                                                             $lunchOutUrl = Storage::disk('public')->url('timelogs/' . $logList[1]['captured_image']);
                                                                         }
@@ -643,11 +632,7 @@
                                                                 <div class="time-log-image">
                                                                     @php
                                                                         if (env('USE_S3_STORAGE', false)) {
-                                                                            try {
-                                                                                $lunchInUrl = Storage::disk('s3')->temporaryUrl('timelogs/' . $logList[2]['captured_image'], now()->addMinutes(60));
-                                                                            } catch (\Throwable $e) {
-                                                                                $lunchInUrl = route('admin.timelog-image', ['path' => $logList[2]['captured_image']]);
-                                                                            }
+                                                                            $lunchInUrl = route('admin.timelog-image', ['path' => $logList[2]['captured_image']]);
                                                                         } else {
                                                                             $lunchInUrl = Storage::disk('public')->url('timelogs/' . $logList[2]['captured_image']);
                                                                         }
@@ -689,11 +674,7 @@
                                                             <div class="time-log-image">
                                                                 @php
                                                                     if (env('USE_S3_STORAGE', false)) {
-                                                                        try {
-                                                                            $clockOutUrl = Storage::disk('s3')->temporaryUrl('timelogs/' . $logList[$outIndex]['captured_image'], now()->addMinutes(60));
-                                                                        } catch (\Throwable $e) {
-                                                                            $clockOutUrl = route('admin.timelog-image', ['path' => $logList[$outIndex]['captured_image']]);
-                                                                        }
+                                                                        $clockOutUrl = route('admin.timelog-image', ['path' => $logList[$outIndex]['captured_image']]);
                                                                     } else {
                                                                         $clockOutUrl = Storage::disk('public')->url('timelogs/' . $logList[$outIndex]['captured_image']);
                                                                     }

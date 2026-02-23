@@ -243,7 +243,7 @@ class Dashboard extends Component
             ->whereHas('account')
             ->get();
 
-        $leaveToday = DB::table('employee_leave_dates')
+        $leaveTodayCollection = DB::table('employee_leave_dates')
             ->join('employee_leave', 'employee_leave.id', '=', 'employee_leave_dates.employee_leave_id')
             ->leftJoin('leave_types', 'leave_types.id', '=', 'employee_leave.leave_id')
             ->where('employee_leave_dates.date', $today)
@@ -252,13 +252,19 @@ class Dashboard extends Component
             ->get()
             ->groupBy('employee_no');
 
-        $offsetToday = DB::table('employee_offset_applications')
-            ->where('offset_date_from', $today)
+        // Normalize leave keys to lowercase so lookup works regardless of employee_no casing.
+        $leaveToday = $leaveTodayCollection->keyBy(fn ($items, $empNo) => strtolower(trim((string) $empNo)));
+
+        // Approved offset for today. offset_date_from = day they're off; offset_date_to = activity date (when they earned it), not a range.
+        $offsetTodayRaw = DB::table('employee_offset_applications')
             ->where('status', 'approved')
             ->where('isDeleted', false)
-            ->pluck('employee_no')
-            ->flip()
-            ->toArray();
+            ->whereNotNull('offset_date_from')
+            ->whereDate('offset_date_from', $today)
+            ->pluck('employee_no');
+
+        // Normalize keys (lowercase) so NI-071 and ni-071 match regardless of DB casing.
+        $offsetToday = collect($offsetTodayRaw)->mapWithKeys(fn ($no) => [strtolower(trim((string) $no)) => true])->all();
 
         $timelogsByEmployee = EmployeeTimelogs::whereDate('timestamp', $today)
             ->orderBy('timestamp')
@@ -275,11 +281,12 @@ class Dashboard extends Component
             $status = null;
             $statusType = 'timelog'; // timelog | leave | offset
 
-            if (!empty($offsetToday[$no])) {
-                $status = 'Offset';
+            $noKey = strtolower(trim((string) $no));
+            if (!empty($offsetToday[$noKey])) {
+                $status = 'On offset';
                 $statusType = 'offset';
-            } elseif (isset($leaveToday[$no])) {
-                $first = $leaveToday[$no]->first();
+            } elseif (isset($leaveToday[$noKey])) {
+                $first = $leaveToday[$noKey]->first();
                 $label = $first->leave_type_name ?? $first->leave_code ?? 'Leave';
                 if (stripos($label, 'vacation') !== false || ($first->leave_code ?? '') === 'VL') {
                     $status = 'On vacation';

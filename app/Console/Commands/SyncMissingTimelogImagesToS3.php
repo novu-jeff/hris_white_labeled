@@ -28,12 +28,14 @@ class SyncMissingTimelogImagesToS3 extends Command
 
         $public = Storage::disk('public');
         $s3 = Storage::disk('s3');
+        $s3Throw = config('filesystems.disks.s3_throw') ? Storage::disk('s3_throw') : $s3;
 
         $rows = 0;
         $uploaded = 0;
         $alreadyInS3 = 0;
         $missingLocal = 0;
         $errors = 0;
+        $firstErrorMessage = null;
 
         EmployeeTimelogs::query()
             ->whereNotNull('captured_image')
@@ -42,12 +44,14 @@ class SyncMissingTimelogImagesToS3 extends Command
             ->chunkById($chunk, function ($logs) use (
                 $public,
                 $s3,
+                $s3Throw,
                 $dryRun,
                 &$rows,
                 &$uploaded,
                 &$alreadyInS3,
                 &$missingLocal,
-                &$errors
+                &$errors,
+                &$firstErrorMessage
             ) {
                 foreach ($logs as $log) {
                     $rows++;
@@ -55,7 +59,13 @@ class SyncMissingTimelogImagesToS3 extends Command
                     $path = 'timelogs/' . $relative;
 
                     try {
-                        if ($s3->exists($path)) {
+                        $inS3 = false;
+                        try {
+                            $inS3 = $s3->exists($path);
+                        } catch (\Throwable $e) {
+                            // S3 unreachable or timeout; assume not in S3 and try to upload.
+                        }
+                        if ($inS3) {
                             $alreadyInS3++;
                             continue;
                         }
@@ -71,19 +81,50 @@ class SyncMissingTimelogImagesToS3 extends Command
                         }
 
                         $payload = $public->get($path);
-                        $stored = $s3->put($path, $payload, ['visibility' => 'public']);
-                        if (!$stored) {
-                            $stored = $s3->put($path, $payload);
+                        $stored = false;
+                        try {
+                            $stored = $s3Throw->put($path, $payload);
+                            if (!$stored) {
+                                $stored = $s3Throw->put($path, $payload, ['visibility' => 'public']);
+                            }
+                        } catch (\Throwable $e) {
+                            if ($firstErrorMessage === null) {
+                                $firstErrorMessage = $e->getMessage();
+                                $this->newLine();
+                                $this->error('First S3 error (so you can fix config/network): ' . $firstErrorMessage);
+                                $this->newLine();
+                                \Log::warning('Timelog sync S3 upload failed', [
+                                    'path' => $path,
+                                    'error' => $firstErrorMessage,
+                                ]);
+                            }
+                            throw $e;
                         }
 
                         if ($stored) {
                             $uploaded++;
+                            if ($uploaded % 50 === 0) {
+                                $this->line("  Uploaded {$uploaded} so far...");
+                            }
                         } else {
                             $errors++;
+                            $msg = 'put() returned false (no exception). Check credentials, bucket, and endpoint.';
+                            if ($firstErrorMessage === null) {
+                                $firstErrorMessage = $msg;
+                                $this->newLine();
+                                $this->error('First S3 failure: ' . $msg);
+                                $this->newLine();
+                            }
                             $this->warn("Failed to upload: {$path}");
                         }
                     } catch (\Throwable $e) {
                         $errors++;
+                        if ($firstErrorMessage === null) {
+                            $firstErrorMessage = $e->getMessage();
+                            $this->newLine();
+                            $this->error('First S3 error: ' . $firstErrorMessage);
+                            $this->newLine();
+                        }
                         $this->warn("Error syncing {$path}: {$e->getMessage()}");
                     }
                 }
@@ -93,10 +134,14 @@ class SyncMissingTimelogImagesToS3 extends Command
         $this->newLine();
         $this->info("[{$mode}] Timelog S3 missing sync complete.");
         $this->line("Processed rows: {$rows}");
-        $this->line('Missing in S3 (to upload): ' . $uploaded);
+        $this->line($dryRun ? "Would upload: {$uploaded}" : "Uploaded: {$uploaded}");
         $this->line("Already in S3: {$alreadyInS3}");
         $this->line("Missing local file: {$missingLocal}");
         $this->line("Errors: {$errors}");
+        if ($errors > 0 && $firstErrorMessage !== null) {
+            $this->newLine();
+            $this->comment('Tip: Fix the error above (credentials, bucket, endpoint, network) then run again.');
+        }
 
         return $errors > 0 ? self::FAILURE : self::SUCCESS;
     }

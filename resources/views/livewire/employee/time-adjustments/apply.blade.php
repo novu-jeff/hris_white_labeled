@@ -10,7 +10,7 @@
                     <div class="row">
                         <div class="col-12 mb-4">
                             <label class="mb-2" for="date">Date <span class="text-danger">*</span></label>
-                            <input type="date" wire:model="date" id="date" class="form-control">
+                            <input type="date" wire:model.live="date" id="date" class="form-control" name="date">
                             <div class="error-field">
                                 @error('date') <span class="text-danger">{{ $message }}</span> @enderror
                             </div>

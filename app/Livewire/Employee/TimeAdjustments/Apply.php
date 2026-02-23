@@ -9,6 +9,7 @@ use App\Models\EmployeeTimeAdjustmentsAttachments;
 use App\Notifications\Notifications;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -57,7 +58,7 @@ class Apply extends Component
             $clock_in = $records->clock_in ? (str_contains($records->clock_in, 'M') ? Carbon::createFromFormat('h:i A', $records->clock_in)->format('H:i:s') : $records->clock_in) : null;
             $clock_out = $records->clock_out ? (str_contains($records->clock_out, 'M') ? Carbon::createFromFormat('h:i A', $records->clock_out)->format('H:i:s') : $records->clock_out) : null;
 
-            $this->date = $records->date;
+            $this->date = $records->date ? Carbon::parse($records->date)->format('Y-m-d') : null;
             $this->clock_in = $clock_in;
             $this->clock_out = $clock_out;
             $this->reason = $records->reason;
@@ -66,6 +67,33 @@ class Apply extends Component
 
     }
 
+
+    protected function normalizeDate(): void
+    {
+        Log::channel('single')->info('Time adjustment apply: normalizeDate', [
+            'employee_no' => $this->employee_no,
+            'date_before' => $this->date,
+            'date_type' => $this->date !== null ? gettype($this->date) : 'null',
+        ]);
+        if (empty($this->date)) {
+            return;
+        }
+        if ($this->date instanceof \DateTimeInterface) {
+            $this->date = $this->date->format('Y-m-d');
+            return;
+        }
+        if (is_string($this->date) && trim($this->date) !== '') {
+            try {
+                $this->date = Carbon::parse($this->date)->format('Y-m-d');
+            } catch (\Exception $e) {
+                // leave as-is so validation can report the error
+            }
+        }
+        Log::channel('single')->info('Time adjustment apply: normalizeDate after', [
+            'employee_no' => $this->employee_no,
+            'date_after' => $this->date,
+        ]);
+    }
 
     public function rules() {
         return [
@@ -96,7 +124,25 @@ class Apply extends Component
 
 
     public function save(bool $isNotify = true) {
-        $this->validate();
+        Log::channel('single')->info('Time adjustment apply: save called', [
+            'employee_no' => $this->employee_no,
+            'isNotify' => $isNotify,
+            'record_id' => $this->record_id,
+            'date' => $this->date,
+            'clock_in' => $this->clock_in,
+            'clock_out' => $this->clock_out,
+        ]);
+        $this->normalizeDate();
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::channel('single')->warning('Time adjustment apply: validation failed', [
+                'employee_no' => $this->employee_no,
+                'errors' => $e->errors(),
+                'date' => $this->date,
+            ]);
+            throw $e;
+        }
     
         if ($isNotify) {
             $title = 'Are you sure to continue?';
